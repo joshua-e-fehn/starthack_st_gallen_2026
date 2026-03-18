@@ -1,13 +1,13 @@
 export class Market {
   goldPrice: number
   woodPrice: number
-  vegetablesPrice: number
+  potatoesPrice: number
   fishPrice: number
 
-  constructor(goldPrice: number, woodPrice: number, vegetablesPrice: number, fishPrice: number) {
+  constructor(goldPrice: number, woodPrice: number, potatoesPrice: number, fishPrice: number) {
     this.goldPrice = goldPrice
     this.woodPrice = woodPrice
-    this.vegetablesPrice = vegetablesPrice
+    this.potatoesPrice = potatoesPrice
     this.fishPrice = fishPrice
   }
 }
