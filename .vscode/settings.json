@@ -34,5 +34,8 @@
   },
 
   // Disable ESLint in favor of Biome
-  "eslint.enable": false
+  "eslint.enable": false,
+
+  // Point Biome extension to the project-local binary
+  "biome.lspBin": "./node_modules/.bin/biome"
 }
