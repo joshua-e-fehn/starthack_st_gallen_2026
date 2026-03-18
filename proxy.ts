@@ -15,7 +15,8 @@ export function proxy(request: NextRequest) {
   }
 
   // Check for the Convex Better Auth JWT cookie
-  const hasAuth = request.cookies.has("convex_jwt") || request.cookies.has("better-auth.convex_jwt")
+  // On HTTPS (production), Better Auth prefixes cookie names with "__Secure-"
+  const hasAuth = request.cookies.getAll().some((cookie) => cookie.name.endsWith("convex_jwt"))
 
   if (!hasAuth) {
     const signInUrl = new URL("/sign-in", request.url)
