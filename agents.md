@@ -394,15 +394,18 @@ Manual prod deploy: `bunx convex deploy` (or push to GitHub for auto-deploy).
 
 ## UI/UX Design System
 
-All frontend design decisions are governed by **`DESIGN.md`** in the project root. This file defines:
+All frontend design decisions are governed by **`DESIGN.md`** in the project root. The design language blends **professional financial credibility** with **playful gamification**, centered around the mascot **Gildi the Goldvreneli** (an anthropomorphized Swiss gold coin). This file defines:
 
-- Visual direction (Palantir-inspired, dark-first)
-- Color palette (maps to CSS tokens in `globals.css`)
-- Typography rules
-- Design principles (structured precision, restrained color, data-forward)
-- Component conventions (cards, buttons, forms, empty/loading states)
-- Animation patterns (Framer Motion for rich interactions, CSS for simple states)
-- Landing page direction
-- Anti-patterns ("Do NOT" list)
+- **Mascot guide** — Gildi the Goldvreneli: roles, animation states, design rules, and scale guidelines
+- **Branding** — "Wealth Manager Arena: The Investing Game" with gold-primary, Alpine blue secondary palette
+- **Color palette** — Gold (`#FFD700`) as primary, Alpine Blue (`#B3E5FC`) as secondary, Success Green, Alert Red (maps to CSS tokens in `globals.css`)
+- **Typography** — Montserrat for all text; monospace for financial data
+- **Iconography** — Flat/soft shadow style with Lucide React; Gildi integrated into graphs, cards, and notifications
+- **Design principles** — Professional credibility, playful learning, clean & minimal, data-forward, feedback everywhere, quick onboarding, mobile-first, accessible, both themes supported
+- **Component conventions** — Cards with gold accents, gamified buttons, Gildi in empty/loading states
+- **Animation patterns** — Framer Motion for rich interactions (including Gildi celebrate/empathy/idle), CSS for simple states, gold glow pulses
+- **Tone of voice** — Friendly, encouraging, non-judgmental, professionally credible
+- **Landing page direction** — Gold gradient hero with Gildi, animated stats, sparkle effects
+- **Anti-patterns** — "Do NOT" list (no arbitrary colors, no childish mascot, no gold-on-gold, etc.)
 
-> **Rule:** Any time frontend UI is created or modified, `DESIGN.md` must be consulted and followed. Sections marked ✏️ are intended to be edited as the project evolves.
+> **Rule:** Any time frontend UI is created or modified, `DESIGN.md` must be consulted and followed.
