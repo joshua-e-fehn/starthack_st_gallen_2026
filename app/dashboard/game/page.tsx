@@ -521,7 +521,7 @@ function GameContent() {
             </div>
 
             <div className="flex items-center justify-between sm:justify-end gap-8 bg-muted/30 p-3 pr-6 rounded-2xl border border-primary/5">
-              <div className="flex flex-wrap items-center gap-5 pl-3">
+              <div className="flex items-center gap-5 pl-3">
                 {goodsMeta.map((meta) => (
                   <Tooltip key={meta.key}>
                     <TooltipTrigger asChild>
