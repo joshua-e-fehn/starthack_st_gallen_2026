@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
+import { BackgroundMusic } from "@/components/molecules/background-music"
 import { ConvexClientProvider } from "@/components/providers/convex-client-provider"
 import { QueryProvider } from "@/components/providers/query-provider"
 import { ThemeProvider } from "@/components/providers/theme-provider"
@@ -33,7 +34,10 @@ export default async function RootLayout({
       <body suppressHydrationWarning>
         <ConvexClientProvider initialToken={token}>
           <QueryProvider>
-            <ThemeProvider>{children}</ThemeProvider>
+            <ThemeProvider>
+              {children}
+              <BackgroundMusic />
+            </ThemeProvider>
           </QueryProvider>
         </ConvexClientProvider>
       </body>

@@ -119,43 +119,43 @@ function HomeContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(120%_80%_at_20%_0%,hsl(var(--primary)/0.22)_0%,transparent_50%),linear-gradient(180deg,hsl(var(--secondary)/0.14)_0%,hsl(var(--background))_55%)] px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
+    <main className="relative min-h-[100dvh] flex flex-col justify-center overflow-hidden px-4 py-6 sm:px-6 sm:py-8 bg-background">
+      <div className="relative z-10 mx-auto flex w-full max-w-xl flex-col gap-6">
         {/* Hero Section */}
         <motion.section
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
+          transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+          className="flex flex-col items-center text-center space-y-4 pt-4 pb-2"
         >
-          <Card className="border-primary/20 bg-card/95 shadow-lg backdrop-blur overflow-hidden">
-            <CardHeader className="pb-4 text-center">
-              <CardTitle className="text-3xl font-black tracking-tighter uppercase italic text-primary">
-                Wealth Manager
-              </CardTitle>
-              <CardDescription>Master the markets. Build your empire.</CardDescription>
-            </CardHeader>
-            <CardContent className="pb-6">
-              <div className="relative aspect-16/9 w-full overflow-hidden rounded-xl border border-primary/10 bg-muted/50 shadow-inner">
-                <Image
-                  src="/logo.png"
-                  alt="Wealth Manager Logo"
-                  fill
-                  className="object-contain p-4"
-                  priority
-                  unoptimized
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <div>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase italic text-primary drop-shadow-2xl">
+              Wealth Manager
+            </h1>
+            <p className="text-foreground/90 font-medium text-base md:text-lg mt-1 tracking-wide drop-shadow-md">
+              Master the markets. Build your empire.
+            </p>
+          </div>
+
+          <div className="relative aspect-video w-[60%] overflow-hidden drop-shadow-2xl">
+            <Image
+              src="/logo.png"
+              alt="Wealth Manager Logo"
+              fill
+              className="object-contain"
+              priority
+              unoptimized
+            />
+          </div>
         </motion.section>
 
         {/* Action Section: Start / Join */}
         <motion.section
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.08 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <Card className="border-primary/20 bg-card/95 shadow-lg overflow-hidden">
+          <Card className="border-primary/20 bg-card/70 backdrop-blur-xl shadow-2xl overflow-hidden ring-1 ring-primary/10">
             {isLoadingSession ? (
               <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <Loader2Icon className="size-8 animate-spin text-primary" />
@@ -319,11 +319,11 @@ function HomeContent() {
         {/* Leaderboard Section - Only visible if session is loaded */}
         {isLoaded && sessionData && (
           <motion.section
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, delay: 0.16 }}
+            transition={{ duration: 0.5, delay: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
           >
-            <Card className="border-primary/40 bg-card/95 shadow-lg ring-1 ring-primary/10">
+            <Card className="border-primary/40 bg-card/70 backdrop-blur-xl shadow-2xl ring-1 ring-primary/10">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <TrophyIcon className="size-4 text-yellow-500" />
