@@ -9,8 +9,8 @@ export const DEBUG_SCENARIO: Scenario = {
   name: "Debug Scenario",
   description: "A test scenario with moderate parameters for engine debugging.",
   mode: "live",
-  startCapital: 1000,
-  recurringRevenue: 100,
+  startCapital: 100,
+  recurringRevenue: 25,
   startYear: 1400,
   endYear: 1430, // 30 steps (years)
   buyFactor: 1.02,
@@ -67,5 +67,5 @@ export const DEBUG_SCENARIO: Scenario = {
     },
   },
   globalEvents: [],
-  goalAmount: 6000,
+  goalAmount: 500,
 }

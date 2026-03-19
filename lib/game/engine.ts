@@ -191,9 +191,9 @@ export async function resolveEvents(
           for (const asset of TRADABLE_ASSET_KEYS)
             updatedPrices[asset].basePrice = Math.max(0.01, updatedPrices[asset].basePrice * 0.9)
         } else if (event.effect === "gold_gain") {
-          updatedPortfolio.gold += 50
+          updatedPortfolio.gold += 10
         } else if (event.effect === "gold_loss") {
-          updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold - 30)
+          updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold - 5)
         }
       }
     } catch {}

@@ -48,7 +48,7 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Price of a Dream",
         content:
-          "The farm costs 1 000 gold today. You earn 100 gold per year. If you just save, it will take 10 years — simple, right? But there is a catch nobody told you about.",
+          "The farm costs 500 gold today. You earn 50 gold per year. If you just save, it will take 10 years — simple, right? But there is a catch nobody told you about.",
       },
       {
         title: "The Gold Pile",
@@ -58,7 +58,7 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Silent Thief",
         content:
-          "After 10 years of saving, you finally have 1 000 gold. But the farm now costs 1 300 gold! Prices rose about 3% each year — a force called inflation. Your gold stayed the same while everything around it got more expensive.",
+          "After 10 years of saving, you finally have 500 gold. But the farm now costs 650 gold! Prices rose about 3% each year — a force called inflation. Your gold stayed the same while everything around it got more expensive.",
         tip: "Inflation typically runs 1–3% per year. Over decades, it dramatically reduces your buying power.",
       },
       {
@@ -82,24 +82,24 @@ export const LESSONS: Lesson[] = [
       {
         title: "Too Little to Matter?",
         content:
-          "Many villagers think: 'I only have 10 gold to spare — what difference could that make?' So they spend it at the tavern instead. But one farmer thinks differently.",
+          "Many villagers think: 'I only have 5 gold to spare — what difference could that make?' So they spend it at the tavern instead. But one farmer thinks differently.",
       },
       {
         title: "The Power of Starting Small",
         content:
-          "She invests just 10 gold into a small bundle of wood. A year later it is worth 10.5 gold — a 5% return. Not exciting? She does it again the next year... and the year after that.",
+          "She invests just 5 gold into a small bundle of wood. A year later it is worth 5.25 gold — a 5% return. Not exciting? She does it again the next year... and the year after that.",
         tip: "You do not need to be rich to start investing. Consistency matters far more than size.",
       },
       {
         title: "The Magic of Compounding",
         content:
-          "After 5 years of investing 10 gold each year, she does not have just 50 gold. She has 58 gold — because each year's gains earn their own gains. After 20 years, her small contributions have grown to over 350 gold!",
+          "After 5 years of investing 5 gold each year, she does not have just 25 gold. She has 29 gold — because each year's gains earn their own gains. After 20 years, her small contributions have grown to over 175 gold!",
         tip: "Compound interest is called the 'eighth wonder of the world.' Your money earns money on its own.",
       },
       {
         title: "The Tavern Spender vs. the Investor",
         content:
-          "Her neighbor spent the same 10 gold per year on mead and feasts. After 20 years, he has nothing saved. She is halfway to buying the farm — all from coins he thought were 'too small to matter.'",
+          "Her neighbor spent the same 5 gold per year on mead and feasts. After 20 years, he has nothing saved. She is halfway to buying the farm — all from coins he thought were 'too small to matter.'",
       },
       {
         title: "Lesson Learned",
@@ -145,7 +145,7 @@ export const LESSONS: Lesson[] = [
       {
         title: "Comparing the Three",
         content:
-          "Over 10 years: wood might turn 100 gold into 140. Potatoes could make it 200 — or drop it to 80 first. Fish might soar to 500... or crash to 30. Every asset class has a different risk-return profile. The right mix depends on your goals and your stomach.",
+          "Over 10 years: wood might turn 50 gold into 70. Potatoes could make it 100 — or drop it to 40 first. Fish might soar to 250... or crash to 15. Every asset class has a different risk-return profile. The right mix depends on your goals and your stomach.",
       },
       {
         title: "Lesson Learned",
@@ -184,7 +184,7 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Hidden Cost of Swings",
         content:
-          "Here is a tricky truth: if your fish loses 50% one year and gains 50% the next, you are NOT back to even. 100 gold → 50 gold → 75 gold. Volatility itself destroys value — a concept called 'volatility drag.'",
+          "Here is a tricky truth: if your fish loses 50% one year and gains 50% the next, you are NOT back to even. 50 gold → 25 gold → 38 gold. Volatility itself destroys value — a concept called 'volatility drag.'",
         tip: "A 50% loss requires a 100% gain just to break even. That is why managing volatility matters.",
       },
       {
