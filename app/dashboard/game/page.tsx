@@ -4,16 +4,13 @@ import { useMutation, useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   ArrowRight,
-  Calendar,
   ChevronDown,
   ChevronUp,
   Coins,
   History,
-  Info,
   Loader2,
   Minus,
   Plus,
-  RotateCcw,
   Store,
   TrendingDown,
   TrendingUp,
@@ -26,7 +23,6 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
 
 import { GameChatbot } from "@/components/molecules/game-chatbot"
-import { EventPopup } from "@/components/organisms/event-popup"
 import { StoryPlayer } from "@/components/organisms/story-player"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,7 +33,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -46,7 +42,6 @@ import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
-import type { GameEvent } from "@/lib/types/events"
 import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
 import type { StorySlide } from "@/lib/types/onboarding"
 import type { StateVector } from "@/lib/types/state_vector"
@@ -333,7 +328,7 @@ function AssetCard({
         <CardContent className="p-3">
           <div className="flex items-center gap-3">
             {/* Left: Icon */}
-            <div className="rounded-xl p-2 bg-white shadow-sm flex-shrink-0">
+            <div className="rounded-xl p-2 bg-white shadow-sm shrink-0">
               <Image src={meta.icon} alt="" width={32} height={32} className="object-contain" />
             </div>
 
@@ -422,7 +417,7 @@ function AssetCard({
             <Button
               variant="ghost"
               size="icon"
-              className="size-8 rounded-full flex-shrink-0"
+              className="size-8 rounded-full shrink-0"
               onClick={() => setExpandedAsset(isExpanded ? null : assetKey)}
             >
               {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
@@ -560,7 +555,7 @@ function AssetCard({
                   >
                     <Minus className="size-5" />
                   </Button>
-                  <div className="flex flex-col items-center min-w-[4rem]">
+                  <div className="flex flex-col items-center min-w-16">
                     <span className="text-[10px] font-black uppercase text-muted-foreground opacity-50">
                       Draft
                     </span>
@@ -814,8 +809,6 @@ function GameContent() {
     return { id: _id, ...rest } as any
   }, [convexScenario])
 
-  const goalProgressImageSrc = scenario?.icon ?? "/farm.webp"
-
   const gameOver = useMemo(() => {
     if (!scenario || !current) return false
     return current.date >= scenario.endYear
@@ -1038,7 +1031,7 @@ function GameContent() {
                   <div
                     className={cn(
                       "grid grid-cols-2 gap-px bg-muted/10 rounded-xl lg:rounded-3xl overflow-hidden border border-muted shadow-xs lg:shadow-md",
-                      isMobile ? "flex-shrink-0" : "flex-1",
+                      isMobile ? "shrink-0" : "flex-1",
                     )}
                   >
                     {[
@@ -1053,13 +1046,13 @@ function GameContent() {
                             key={meta.key}
                             className={cn(
                               "bg-white/70 flex items-center gap-2 lg:gap-4",
-                              isMobile ? "p-2 min-w-0" : "p-4 min-w-[140px]",
+                              isMobile ? "p-2 min-w-0" : "p-4 min-w-35",
                             )}
                           >
                             <div
                               className={cn(
                                 "rounded-lg lg:rounded-2xl shadow-xs",
-                                isMobile ? "p-1 flex-shrink-0" : "p-2",
+                                isMobile ? "p-1 shrink-0" : "p-2",
                               )}
                               style={{ backgroundColor: lineConfig[meta.key].color }}
                             >
@@ -1316,99 +1309,6 @@ function GameContent() {
           </div>
         </div>
       </TooltipProvider>
-
-      {isOnboardingOpen && activeStep ? (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/55" />
-
-          {highlightRect ? (
-            <div
-              className="pointer-events-none absolute rounded-xl border-2 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all"
-              style={{
-                top: `${highlightRect.top - 8}px`,
-                left: `${highlightRect.left - 8}px`,
-                width: `${highlightRect.width + 16}px`,
-                height: `${highlightRect.height + 16}px`,
-              }}
-            />
-          ) : null}
-
-          <AnimatePresence mode="wait">
-            {isOnboardingTooltipVisible ? (
-              <motion.div
-                key="onboarding-tooltip"
-                className="absolute z-10 w-[min(28rem,calc(100vw-1.5rem))] rounded-xl border bg-card shadow-xl"
-                style={tooltipStyle}
-                initial={{ opacity: 0, scale: 0.7, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: 6 }}
-                transition={{ type: "spring", stiffness: 260, damping: 22 }}
-                role="dialog"
-                aria-live="polite"
-              >
-                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:gap-4">
-                  <div
-                    className="h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-primary/40 bg-card/95"
-                    aria-hidden="true"
-                  >
-                    <video
-                      ref={onboardingAssistantVideoRef}
-                      src="/start%20white.webm"
-                      className="h-full w-full object-cover"
-                      autoPlay
-                      muted
-                      playsInline
-                      preload="auto"
-                    />
-                  </div>
-
-                  <div className="flex flex-1 flex-col justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                        {stepProgress}
-                      </p>
-                      <h2 className="mt-1 text-base font-semibold text-foreground">
-                        {activeStep.title}
-                      </h2>
-                      <p className="mt-2 text-sm leading-5 text-muted-foreground">
-                        {activeStep.description}
-                      </p>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={previousOnboardingStep}
-                        disabled={onboardingIndex === 0}
-                      >
-                        Prev
-                      </Button>
-
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => closeOnboarding(true)}
-                        >
-                          Skip
-                        </Button>
-                        <Button type="button" size="sm" onClick={nextOnboardingStep}>
-                          {isLastOnboardingStep ? "Done" : "Next"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </div>
-      ) : null}
-
-      <EventPopup event={eventToShow} open={!!eventToShow} onClose={() => setEventToShow(null)} />
 
       <GameChatbot />
     </main>

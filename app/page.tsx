@@ -357,6 +357,9 @@ function HomeContent() {
                         entry={entry}
                         rank={i + 1}
                         total={sessionData.leaderboard.length}
+                        scalePercent={
+                          (entry.netWorth / (sessionData.leaderboard[0]?.netWorth || 1)) * 100
+                        }
                       />
                     ))}
                   </div>
