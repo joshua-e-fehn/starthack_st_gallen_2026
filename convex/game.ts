@@ -246,6 +246,21 @@ export const listSessionGames = query({
   },
 })
 
+/** Get the authenticated user's game in a specific session */
+export const getMyGameInSession = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    return await ctx.db
+      .query("games")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .filter((q) => q.eq(q.field("sessionId"), args.sessionId))
+      .first()
+  },
+})
+
 // ─── Mutations ───────────────────────────────────────────────────
 
 /** Start a new game from a scenario or session */
