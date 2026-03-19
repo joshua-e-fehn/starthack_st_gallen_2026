@@ -1,5 +1,4 @@
 "use client"
-
 import { useConvex, useMutation, useQuery } from "convex/react"
 import { motion } from "framer-motion"
 import {
@@ -13,7 +12,6 @@ import {
   UsersIcon,
 } from "lucide-react"
 import Image from "next/image"
-import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -29,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 
 function formatTaler(value: number) {
@@ -39,6 +38,7 @@ function HomeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const convex = useConvex()
+  const { data: session } = authClient.useSession()
   const sessionId = searchParams.get("sessionId") as Id<"sessions"> | null
 
   // --- Session Queries ---
@@ -302,12 +302,16 @@ function HomeContent() {
                     <Button
                       variant="outline"
                       className="h-12 w-full text-sm group hover:border-primary/50 hover:bg-primary/5"
-                      asChild
+                      onClick={() => {
+                        if (session?.user) {
+                          router.push("/dashboard/sessions/create")
+                        } else {
+                          router.push("/sign-in?redirect=/dashboard/sessions/create")
+                        }
+                      }}
                     >
-                      <Link href="/dashboard/sessions/create">
-                        <PlusCircleIcon className="mr-2 size-4 text-primary group-hover:scale-110 transition-transform" />
-                        Host New Multiplayer Session
-                      </Link>
+                      <PlusCircleIcon className="mr-2 size-4 text-primary group-hover:scale-110 transition-transform" />
+                      Host New Multiplayer Session
                     </Button>
                   </div>
                 </CardContent>

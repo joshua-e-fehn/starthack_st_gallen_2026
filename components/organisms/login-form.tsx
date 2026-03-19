@@ -19,9 +19,14 @@ import { cn } from "@/lib/utils"
 export function LoginForm({
   className,
   defaultSignUp = false,
+  redirectUrl,
   ...props
-}: React.ComponentProps<"div"> & { defaultSignUp?: boolean }) {
+}: React.ComponentProps<"div"> & { defaultSignUp?: boolean; redirectUrl?: string }) {
   const router = useRouter()
+  const searchParams = new URLSearchParams(
+    typeof window !== "undefined" ? window.location.search : "",
+  )
+  const finalRedirectUrl = redirectUrl || searchParams.get("redirect") || "/dashboard"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")
@@ -55,7 +60,7 @@ export function LoginForm({
           return
         }
       }
-      router.push("/dashboard")
+      router.push(finalRedirectUrl)
     } catch {
       setError("Something went wrong")
     } finally {
@@ -86,7 +91,7 @@ export function LoginForm({
                   onClick={async () => {
                     await authClient.signIn.social({
                       provider: "github",
-                      callbackURL: "/dashboard",
+                      callbackURL: finalRedirectUrl,
                     })
                   }}
                 >
@@ -104,7 +109,7 @@ export function LoginForm({
                   onClick={async () => {
                     await authClient.signIn.social({
                       provider: "google",
-                      callbackURL: "/dashboard",
+                      callbackURL: finalRedirectUrl,
                     })
                   }}
                 >
@@ -122,7 +127,7 @@ export function LoginForm({
                   onClick={async () => {
                     await authClient.signIn.social({
                       provider: "apple",
-                      callbackURL: "/dashboard",
+                      callbackURL: finalRedirectUrl,
                     })
                   }}
                 >
