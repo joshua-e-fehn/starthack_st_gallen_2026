@@ -37,6 +37,36 @@ type PriceSnapshot = {
   fish: number
 }
 
+type OnboardingStep = {
+  targetId: string
+  title: string
+  description: string
+}
+
+const onboardingStorageKey = "game-onboarding-completed"
+const onboardingSteps: OnboardingStep[] = [
+  {
+    targetId: "portfolio-grid",
+    title: "Portfolio Overview",
+    description: "These cards show your current units and each position's value in talers.",
+  },
+  {
+    targetId: "asset-wood",
+    title: "Pick an Asset",
+    description: "Tap a goods card to open trading controls for that asset.",
+  },
+  {
+    targetId: "price-chart",
+    title: "Watch the Trend",
+    description: "Use this chart to compare asset value movement over the years.",
+  },
+  {
+    targetId: "roll-year",
+    title: "Commit Your Turn",
+    description: "When your plan is ready, click here to roll events and move to the next year.",
+  },
+]
+
 const goodsMeta: Array<{
   key: AssetKey
   name: string
@@ -388,6 +418,9 @@ export default function Game() {
   const [draftTradeValue, setDraftTradeValue] = useState(0)
 
   const [isDraggingTradeBar, setIsDraggingTradeBar] = useState(false)
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
+  const [onboardingIndex, setOnboardingIndex] = useState(0)
+  const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null)
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
 
   const totalAssetValue = useMemo(() => {
@@ -470,6 +503,117 @@ export default function Game() {
     ? lineConfig[selectedAsset].color
     : "oklch(0.62 0.14 228)"
   const currentYear = priceHistory.length
+  const activeStep = onboardingSteps[onboardingIndex]
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const isCompleted = window.localStorage.getItem(onboardingStorageKey) === "true"
+    if (!isCompleted) {
+      setIsOnboardingOpen(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isOnboardingOpen || !activeStep) {
+      setHighlightRect(null)
+      return
+    }
+
+    const resolveTargetRect = () => {
+      const target = document.querySelector<HTMLElement>(
+        `[data-onboarding-id="${activeStep.targetId}"]`,
+      )
+      if (!target) {
+        setHighlightRect(null)
+        return
+      }
+
+      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" })
+      setHighlightRect(target.getBoundingClientRect())
+    }
+
+    resolveTargetRect()
+
+    const onViewportChange = () => {
+      const target = document.querySelector<HTMLElement>(
+        `[data-onboarding-id="${activeStep.targetId}"]`,
+      )
+      setHighlightRect(target ? target.getBoundingClientRect() : null)
+    }
+
+    window.addEventListener("resize", onViewportChange)
+    window.addEventListener("scroll", onViewportChange, true)
+
+    return () => {
+      window.removeEventListener("resize", onViewportChange)
+      window.removeEventListener("scroll", onViewportChange, true)
+    }
+  }, [activeStep, isOnboardingOpen])
+
+  function closeOnboarding(markComplete: boolean) {
+    setIsOnboardingOpen(false)
+
+    if (markComplete && typeof window !== "undefined") {
+      window.localStorage.setItem(onboardingStorageKey, "true")
+    }
+  }
+
+  function startOnboarding() {
+    setOnboardingIndex(0)
+    setIsOnboardingOpen(true)
+  }
+
+  function nextOnboardingStep() {
+    const isLastStep = onboardingIndex === onboardingSteps.length - 1
+    if (isLastStep) {
+      closeOnboarding(true)
+      return
+    }
+
+    setOnboardingIndex((previous) => previous + 1)
+  }
+
+  function previousOnboardingStep() {
+    setOnboardingIndex((previous) => Math.max(0, previous - 1))
+  }
+
+  const isLastOnboardingStep = onboardingIndex === onboardingSteps.length - 1
+  const stepProgress = `${onboardingIndex + 1} / ${onboardingSteps.length}`
+
+  const tooltipStyle = useMemo(() => {
+    if (!highlightRect) {
+      return {
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+      }
+    }
+
+    const viewportWidth = typeof window === "undefined" ? 1024 : window.innerWidth
+    const viewportHeight = typeof window === "undefined" ? 768 : window.innerHeight
+    const tooltipWidth = 320
+    const spaceAbove = highlightRect.top
+    const preferBelow = spaceAbove < 190
+    const centeredLeft = highlightRect.left + highlightRect.width / 2 - tooltipWidth / 2
+    const constrainedLeft = clamp(centeredLeft, 12, viewportWidth - tooltipWidth - 12)
+
+    if (preferBelow) {
+      const top = clamp(highlightRect.bottom + 12, 12, viewportHeight - 220)
+      return {
+        top: `${top}px`,
+        left: `${constrainedLeft}px`,
+      }
+    }
+
+    const top = clamp(highlightRect.top - 168, 12, viewportHeight - 220)
+    return {
+      top: `${top}px`,
+      left: `${constrainedLeft}px`,
+    }
+  }, [highlightRect])
 
   function openTradeModal(asset: TradableAsset) {
     setSelectedAsset(asset)
@@ -553,7 +697,7 @@ export default function Game() {
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
       <div className="space-y-4">
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-2" data-onboarding-id="portfolio-grid">
           {goodsMeta.map((meta) => {
             const value = totalAssetValue[meta.key]
             const opacity = value / maxAssetValue
@@ -570,6 +714,7 @@ export default function Game() {
               <button
                 type="button"
                 key={meta.key}
+                data-onboarding-id={meta.key === "wood" ? "asset-wood" : undefined}
                 onClick={() => {
                   if (meta.key !== "taler") {
                     openTradeModal(meta.key)
@@ -628,7 +773,7 @@ export default function Game() {
           })}
         </div>
 
-        <Card className="bg-muted/50">
+        <Card className="bg-muted/50" data-onboarding-id="price-chart">
           <CardHeader>
             <CardTitle>Year {currentYear}</CardTitle>
             <CardDescription>
@@ -640,10 +785,71 @@ export default function Game() {
           </CardContent>
         </Card>
 
-        <Button type="button" className="h-12 w-full text-base" onClick={rollNextTimeframe}>
-          Done trading &amp; roll events
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            type="button"
+            className="h-12 w-full text-base"
+            onClick={rollNextTimeframe}
+            data-onboarding-id="roll-year"
+          >
+            Done trading &amp; roll events
+          </Button>
+          <Button type="button" variant="outline" className="h-12" onClick={startOnboarding}>
+            Replay onboarding
+          </Button>
+        </div>
       </div>
+
+      {isOnboardingOpen ? (
+        <div className="fixed inset-0 z-40" aria-live="polite" role="dialog" aria-modal="true">
+          <div className="pointer-events-none absolute inset-0 bg-black/55" />
+
+          {highlightRect ? (
+            <div
+              className="pointer-events-none fixed rounded-xl border-2 border-primary/80 shadow-[0_0_0_9999px_rgba(10,10,10,0.56)] transition-all duration-200"
+              style={{
+                top: `${Math.max(highlightRect.top - 6, 0)}px`,
+                left: `${Math.max(highlightRect.left - 6, 0)}px`,
+                width: `${highlightRect.width + 12}px`,
+                height: `${highlightRect.height + 12}px`,
+              }}
+            />
+          ) : null}
+
+          <div
+            className="pointer-events-auto fixed w-[min(320px,calc(100vw-24px))]"
+            style={tooltipStyle}
+          >
+            <Card className="border-primary/50 shadow-xl">
+              <CardHeader className="pb-3">
+                <div className="text-xs font-semibold text-muted-foreground">{stepProgress}</div>
+                <CardTitle className="text-base">{activeStep.title}</CardTitle>
+                <CardDescription>{activeStep.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex items-center justify-between gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={previousOnboardingStep}
+                    disabled={onboardingIndex === 0}
+                  >
+                    Prev
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="ghost" onClick={() => closeOnboarding(false)}>
+                      Skip
+                    </Button>
+                    <Button type="button" onClick={nextOnboardingStep}>
+                      {isLastOnboardingStep ? "Finish" : "Next"}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : null}
 
       <Drawer open={selectedAsset !== null} onOpenChange={(open) => !open && closeTradeModal()}>
         <DrawerContent className="mx-auto w-full max-w-2xl rounded-t-2xl">
