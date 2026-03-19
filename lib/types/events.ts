@@ -45,9 +45,9 @@ export const EVENT_DISPLAY_NAMES: Record<EventType, string> = {
   cooling_failure: "Cooling Failure",
 }
 
-/** A global event definition configured in the scenario (α) */
+/** A global event definition configured in the scenario (α) - legacy, not used by new event system */
 export type GlobalEventDefinition = {
-  type: GlobalEventType
+  type: string
   /** Human-readable name shown in the UI */
   name: string
   /** Description shown to the player when the event fires */
@@ -62,9 +62,9 @@ export type GlobalEventDefinition = {
   priceMultiplier?: number | undefined
 }
 
-/** Per-asset event config embedded in AssetPricing */
+/** Per-asset event config embedded in AssetPricing (legacy - not used by new event system) */
 export type AssetEventConfig = {
-  type: AssetEventType
+  type: string
   /** Human-readable name shown in the UI */
   name: string
   /** Description shown to the player when the event fires */
@@ -79,7 +79,7 @@ export type AssetEventConfig = {
 
 /** A resolved event that actually fired during a step */
 export type GameEvent = {
-  type: EventType | "ai_generated" | "base_event"
+  type: "base_event"
   name: string
   description: string
   /** Which asset was affected (undefined = global) */
