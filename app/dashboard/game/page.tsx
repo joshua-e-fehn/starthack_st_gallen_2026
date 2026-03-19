@@ -9,6 +9,7 @@ import { GameChatbot } from "@/components/molecules/game-chatbot"
 import { GameGoalProgress } from "@/components/molecules/game-goal-progress"
 import { GameMiniPriceGraph } from "@/components/molecules/game-mini-price-graph"
 import { GameAssetsGrid } from "@/components/organisms/game-assets-grid"
+import { GameLeaderboardPopup } from "@/components/organisms/game-leaderboard-popup"
 import { GameStatusHeader } from "@/components/organisms/game-status-header"
 import { GameSubmitAction } from "@/components/organisms/game-submit-action"
 import { GameTradeDrawer } from "@/components/organisms/game-trade-drawer"
@@ -154,6 +155,7 @@ function GameContent() {
   const [guideStep, setGuideStep] = useState<GuideStep | null>(null)
   const [isGuideActive, setIsGuideActive] = useState(false)
   const [isGuideSeen, setIsGuideSeen] = useState(false)
+  const [isLeaderboardPopupOpen, setIsLeaderboardPopupOpen] = useState(false)
 
   // ─── Derived values ─────────────────────────────────────────
   const portfolio = current?.portfolio ?? { gold: 0, wood: 0, potatoes: 0, fish: 0 }
@@ -314,6 +316,14 @@ function GameContent() {
     setGuideStep(GUIDE_ASSET_SEQUENCE[0])
   }, [isFarmGuideStep])
 
+  const handleGoalProgressTap = useCallback(() => {
+    if (isFarmGuideStep) {
+      handleGuideFarmTap()
+      return
+    }
+    setIsLeaderboardPopupOpen(true)
+  }, [handleGuideFarmTap, isFarmGuideStep])
+
   function closeTradeModal() {
     setSelectedAsset(null)
     setIsDraggingTradeBar(false)
@@ -458,7 +468,7 @@ function GameContent() {
           goal={current.goal}
           isFarmGuideStep={isFarmGuideStep}
           prefersReducedMotion={Boolean(prefersReducedMotion)}
-          onTap={handleGuideFarmTap}
+          onTap={handleGoalProgressTap}
         />
 
         <GameAssetsGrid
@@ -526,6 +536,18 @@ function GameContent() {
         sellDelta={sellDelta}
         selectedSellPriceVal={selectedSellPriceVal}
         projectedHolding={projectedHolding}
+      />
+
+      <GameLeaderboardPopup
+        open={isLeaderboardPopupOpen}
+        onOpenChange={setIsLeaderboardPopupOpen}
+        sessionJoinCode={sessionData?.session.joinCode}
+        sessionId={sessionId}
+        leaderboard={sessionData?.leaderboard ?? []}
+        onOpenFullLeaderboard={(path) => {
+          setIsLeaderboardPopupOpen(false)
+          router.push(path)
+        }}
       />
 
       <GameChatbot />
