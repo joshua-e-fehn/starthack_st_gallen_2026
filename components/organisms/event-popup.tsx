@@ -6,14 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import type { GameEvent } from "@/lib/types/events"
 
-type EventWithEffects = GameEvent & {
-  effects?: {
-    quantityMultiplier?: number
-    goldDelta?: number
-    priceMultiplier?: number
-    targetAsset?: string
-  }
-}
+type EventWithEffects = GameEvent
 
 interface EventPopupProps {
   event: EventWithEffects | null
@@ -79,7 +72,7 @@ export function EventPopup({ event, open, onClose }: EventPopupProps) {
   const impacts: Array<{ text: string; color: string }> = []
 
   if (effects.quantityMultiplier !== undefined) {
-    impacts.push(formatEffect("quantity", effects.quantityMultiplier, effects.targetAsset))
+    impacts.push(formatEffect("quantity", effects.quantityMultiplier, event.targetAsset))
   }
 
   if (effects.goldDelta !== undefined) {
@@ -87,7 +80,7 @@ export function EventPopup({ event, open, onClose }: EventPopupProps) {
   }
 
   if (effects.priceMultiplier !== undefined) {
-    impacts.push(formatEffect("price", effects.priceMultiplier, effects.targetAsset))
+    impacts.push(formatEffect("price", effects.priceMultiplier, event.targetAsset))
   }
 
   return (
