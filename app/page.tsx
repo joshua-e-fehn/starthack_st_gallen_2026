@@ -16,7 +16,7 @@ import {
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Suspense, useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,10 +30,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { fetchLandingQuoteStream } from "@/lib/api/landing"
 import { cn } from "@/lib/utils"
-
-const quoteTopic = "wise farmer strategy for long-term wealth"
 
 function formatTaler(value: number) {
   return `${new Intl.NumberFormat("de-CH").format(Math.round(value))} taler`
@@ -58,15 +55,6 @@ function HomeContent() {
   const [playerName, setPlayerName] = useState("")
   const [nameError, setNameError] = useState("")
 
-  const [quote, setQuote] = useState("")
-  const [quoteError, setQuoteError] = useState("")
-  const [isQuoteLoading, setIsQuoteLoading] = useState(true)
-  const [isTypingQuote, setIsTypingQuote] = useState(false)
-
-  const quoteQueueRef = useRef("")
-  const typewriterIntervalRef = useRef<number | null>(null)
-  const isQuoteLoadingRef = useRef(true)
-
   // --- Multiplayer Logic ---
   const [joinCode, setJoinCode] = useState("")
   const [isJoining, setIsJoining] = useState(false)
@@ -74,77 +62,6 @@ function HomeContent() {
   useEffect(() => {
     const savedName = localStorage.getItem("debug_playerName")
     if (savedName) setPlayerName(savedName)
-  }, [])
-
-  useEffect(() => {
-    let ignore = false
-
-    function stopTypewriter() {
-      if (typewriterIntervalRef.current !== null) {
-        window.clearInterval(typewriterIntervalRef.current)
-        typewriterIntervalRef.current = null
-      }
-      setIsTypingQuote(false)
-    }
-
-    function startTypewriter() {
-      if (typewriterIntervalRef.current !== null) {
-        return
-      }
-
-      setIsTypingQuote(true)
-      typewriterIntervalRef.current = window.setInterval(() => {
-        const queue = quoteQueueRef.current
-
-        if (!queue) {
-          if (!isQuoteLoadingRef.current) {
-            stopTypewriter()
-          }
-          return
-        }
-
-        const nextCharacter = queue.slice(0, 1)
-        quoteQueueRef.current = queue.slice(1)
-        setQuote((previous) => previous + nextCharacter)
-      }, 18)
-    }
-
-    async function loadLandingContent() {
-      setQuote("")
-      setQuoteError("")
-      setIsQuoteLoading(true)
-      isQuoteLoadingRef.current = true
-      quoteQueueRef.current = ""
-
-      try {
-        await fetchLandingQuoteStream(quoteTopic, (chunk) => {
-          if (ignore) return
-          quoteQueueRef.current += chunk
-          startTypewriter()
-        })
-      } catch (error) {
-        if (ignore) return
-        const message = error instanceof Error ? error.message : "Failed to load landing content"
-        setQuoteError(message)
-        setQuote("Plant patience before dawn, and your barn will outlast the storm.")
-        quoteQueueRef.current = ""
-        stopTypewriter()
-      } finally {
-        if (!ignore) {
-          setIsQuoteLoading(false)
-          isQuoteLoadingRef.current = false
-          if (quoteQueueRef.current.length === 0) stopTypewriter()
-        }
-      }
-    }
-
-    loadLandingContent()
-
-    return () => {
-      ignore = true
-      if (typewriterIntervalRef.current !== null)
-        window.clearInterval(typewriterIntervalRef.current)
-    }
   }, [])
 
   const startGame = useMutation(api.game.startGame)
@@ -205,98 +122,29 @@ function HomeContent() {
   return (
     <main className="min-h-screen bg-[radial-gradient(120%_80%_at_20%_0%,hsl(var(--primary)/0.22)_0%,transparent_50%),linear-gradient(180deg,hsl(var(--secondary)/0.14)_0%,hsl(var(--background))_55%)] px-4 py-6 sm:px-6 sm:py-8">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
-        {/* Quote / Intro Section */}
+        {/* Hero Section */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
         >
-          <Card className="border-primary/20 bg-card/95 shadow-lg backdrop-blur">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-semibold tracking-tight flex items-center justify-between">
-                Wealth Manager Arena
-                {(isLoaded || isLoadingSession) && (
-                  <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
-                    Session {isLoadingSession ? "Loading..." : "Loaded"}
-                  </Badge>
-                )}
+          <Card className="border-primary/20 bg-card/95 shadow-lg backdrop-blur overflow-hidden">
+            <CardHeader className="pb-4 text-center">
+              <CardTitle className="text-3xl font-black tracking-tighter uppercase italic text-primary">
+                Wealth Manager
               </CardTitle>
-              <CardDescription>Learn to invest. Play to understand.</CardDescription>
+              <CardDescription>Master the markets. Build your empire.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative aspect-16/10 w-full overflow-hidden rounded-xl border border-primary/20 bg-muted">
-                <div className="absolute inset-0 bg-linear-to-br from-primary/20 via-secondary/20 to-background" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-foreground/80">
-                  {isLoadingSession ? (
-                    <Loader2Icon className="size-8 animate-spin text-primary" />
-                  ) : (
-                    <>
-                      {isLoaded && sessionData.session.scenarioIcon ? (
-                        <div className="relative">
-                          <div className="size-20 overflow-hidden rounded-xl border-2 border-primary/20 shadow-inner bg-background">
-                            <Image
-                              src={sessionData.session.scenarioIcon}
-                              alt={sessionData.session.scenarioName || "Scenario Icon"}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
-                          </div>
-                          <Badge className="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-5 h-5 flex items-center justify-center bg-primary text-primary-foreground border-2 border-background shadow-sm text-[10px] font-black">
-                            <UsersIcon className="size-2.5 mr-1" />
-                            {sessionData.session.playerCount}
-                          </Badge>
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          <ImageIcon className="size-7 text-primary" />
-                          {isLoaded && (
-                            <Badge className="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-5 h-5 flex items-center justify-center bg-primary text-primary-foreground border-2 border-background shadow-sm text-[10px] font-black">
-                              {sessionData.session.playerCount}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                      <p className="text-base font-medium">
-                        {isLoaded && sessionData
-                          ? `${sessionData.session.name}`
-                          : "Game screenshot preview"}
-                      </p>
-                      {isLoaded && (
-                        <p className="text-sm font-bold text-primary px-8">
-                          Scenario: {sessionData.session.scenarioName}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground px-8">
-                        {isLoaded
-                          ? "A multiplayer competition is ready for you. Click start to begin your journey."
-                          : "Placeholder image until gameplay capture is ready"}
-                      </p>
-                    </>
-                  )}
-                </div>{" "}
-              </div>
-
-              <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
-                {isQuoteLoading ? (
-                  <>
-                    <p className="text-base leading-relaxed italic">{quote}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {isTypingQuote
-                        ? "Scribing wisdom from the oracle..."
-                        : "Summoning a wise farmer quote..."}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-base leading-relaxed italic">{quote}</p>
-                    {quoteError ? (
-                      <p className="mt-1 text-xs text-muted-foreground text-[10px]">
-                        LLM fallback active: {quoteError}
-                      </p>
-                    ) : null}
-                  </>
-                )}
+            <CardContent className="pb-6">
+              <div className="relative aspect-16/9 w-full overflow-hidden rounded-xl border border-primary/10 bg-muted/50 shadow-inner">
+                <Image
+                  src="/logo.png"
+                  alt="Wealth Manager Logo"
+                  fill
+                  className="object-contain p-4"
+                  priority
+                  unoptimized
+                />
               </div>
             </CardContent>
           </Card>
