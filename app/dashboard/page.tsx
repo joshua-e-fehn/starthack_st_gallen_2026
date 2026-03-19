@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/table"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { authClient } from "@/lib/auth-client"
+import { getOrCreateGuestId } from "@/lib/guest"
 import { cn } from "@/lib/utils"
 
 function DashboardContent() {
@@ -51,11 +51,18 @@ function DashboardContent() {
   const scenariosSectionRef = useRef<HTMLDivElement>(null)
 
   // Queries
+  const guestId = getOrCreateGuestId()
   const sessionData = useQuery(
     api.game.getSessionWithLeaderboard,
     sessionId ? { sessionId } : "skip",
   )
-  const allSessions = useQuery(api.game.listSessions)
+  const myGameInSession = useQuery(
+    api.game.getMyGameInSession,
+    sessionId ? { sessionId, guestId } : "skip",
+  )
+  const activeSessions = useQuery(api.game.listSessions)
+  const myGames = useQuery(api.game.listMyGames, { guestId })
+  const startGame = useMutation(api.game.startGame)
 
   const isLoaded = !!sessionId && !!sessionData
   const userName = session?.user?.name ?? "Guest"
@@ -70,9 +77,20 @@ function DashboardContent() {
   useEffect(() => {
     if (sessionId || focus !== "scenarios") return
 
-    const timeout = setTimeout(() => {
-      scenariosSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    }, 50)
+      try {
+        const gameId = await startGame({
+          scenarioId: sessionData.session.scenarioId,
+          sessionId: sessionData.session._id,
+          playerName: name,
+          guestId,
+        })
+        router.push(`/dashboard/game?sessionId=${sessionData.session._id}&gameId=${gameId}`)
+      } catch (error) {
+        console.error("Error starting game:", error)
+        alert(error instanceof Error ? error.message : "Failed to start game")
+      }
+    }
+  }
 
     return () => clearTimeout(timeout)
   }, [focus, sessionId])

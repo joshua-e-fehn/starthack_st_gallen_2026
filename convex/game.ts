@@ -5,6 +5,21 @@ import type { Scenario } from "../lib/types/scenario"
 import { mutation, query } from "./_generated/server"
 import { playerActionValidator, scenarioFieldsValidator } from "./validators"
 
+// ─── Helpers ─────────────────────────────────────────────────────
+
+/**
+ * Resolve the player identifier from either an authenticated identity
+ * or a guest ID supplied by the client.
+ *
+ * Authenticated users → identity.subject
+ * Guests             → "guest:<uuid>"
+ */
+function resolvePlayerId(identity: { subject: string } | null, guestId?: string): string {
+  if (identity) return identity.subject
+  if (guestId) return `guest:${guestId}`
+  throw new Error("Must be authenticated or provide a guestId")
+}
+
 // ─── Queries ─────────────────────────────────────────────────────
 
 /** Get current user identity */
@@ -15,29 +30,34 @@ export const getMe = query({
   },
 })
 
-/** Get all games for the authenticated user */
+/** Get all games for the authenticated user or guest */
 export const listMyGames = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { guestId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return []
+    if (!identity && !args.guestId) return []
+
+    const playerId = resolvePlayerId(identity, args.guestId)
 
     return ctx.db
       .query("games")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user", (q) => q.eq("userId", playerId))
       .collect()
   },
 })
 
-/** Get a single game by ID (with auth check) */
+/** Get a single game by ID (auth or guest) */
 export const getGame = query({
-  args: { gameId: v.id("games") },
+  args: { gameId: v.id("games"), guestId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const game = await ctx.db.get(args.gameId)
     if (!game) return null
 
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity || game.userId !== identity.subject) return null
+    if (!identity && !args.guestId) return null
+
+    const playerId = resolvePlayerId(identity, args.guestId)
+    if (game.userId !== playerId) return null
 
     return game
   },
@@ -45,13 +65,15 @@ export const getGame = query({
 
 /** Get the full time series of state vectors for a game */
 export const getGameTimeSeries = query({
-  args: { gameId: v.id("games") },
+  args: { gameId: v.id("games"), guestId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return []
+    if (!identity && !args.guestId) return []
+
+    const playerId = resolvePlayerId(identity, args.guestId)
 
     const game = await ctx.db.get(args.gameId)
-    if (!game || game.userId !== identity.subject) return []
+    if (!game || game.userId !== playerId) return []
 
     return ctx.db
       .query("gameSteps")
@@ -62,13 +84,15 @@ export const getGameTimeSeries = query({
 
 /** Get the latest state vector for a game */
 export const getLatestState = query({
-  args: { gameId: v.id("games") },
+  args: { gameId: v.id("games"), guestId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return null
+    if (!identity && !args.guestId) return null
+
+    const playerId = resolvePlayerId(identity, args.guestId)
 
     const game = await ctx.db.get(args.gameId)
-    if (!game || !identity || game.userId !== identity.subject) return null
+    if (!game || game.userId !== playerId) return null
 
     const steps = await ctx.db
       .query("gameSteps")
@@ -253,16 +277,18 @@ export const listSessionGames = query({
   },
 })
 
-/** Get the authenticated user's game in a specific session */
+/** Get the current player's game in a specific session (auth or guest) */
 export const getMyGameInSession = query({
-  args: { sessionId: v.id("sessions") },
+  args: { sessionId: v.id("sessions"), guestId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return null
+    if (!identity && !args.guestId) return null
+
+    const playerId = resolvePlayerId(identity, args.guestId)
 
     return await ctx.db
       .query("games")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user", (q) => q.eq("userId", playerId))
       .filter((q) => q.eq(q.field("sessionId"), args.sessionId))
       .first()
   },
@@ -377,16 +403,28 @@ export const getSessionLeaderboardHistory = query({
 
 // ─── Mutations (continued) ───────────────────────────────────────
 
-/** Start a new game from a scenario or session */
+/** Start a new game from a scenario or session.
+ *  Authenticated users use their identity; guests pass a guestId. */
 export const startGame = mutation({
   args: {
     scenarioId: v.id("scenarios"),
     sessionId: v.optional(v.id("sessions")),
     playerName: v.string(),
+    guestId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error("Not authenticated")
+
+    // Creating a game outside a session requires authentication
+    if (!args.sessionId && !identity) {
+      throw new Error("Not authenticated")
+    }
+    // Inside a session, either auth or guestId is acceptable
+    if (!identity && !args.guestId) {
+      throw new Error("Must be authenticated or provide a guestId")
+    }
+
+    const playerId = resolvePlayerId(identity, args.guestId)
 
     // If session is provided, ensure playerName is unique within that session
     if (args.sessionId) {
@@ -397,8 +435,7 @@ export const startGame = mutation({
 
       const takenByOthers = existing.some(
         (g) =>
-          g.playerName?.toLowerCase() === args.playerName.toLowerCase() &&
-          g.userId !== identity.subject,
+          g.playerName?.toLowerCase() === args.playerName.toLowerCase() && g.userId !== playerId,
       )
 
       if (takenByOthers) {
@@ -419,7 +456,7 @@ export const startGame = mutation({
     const gameId = await ctx.db.insert("games", {
       scenarioId: args.scenarioId,
       sessionId: args.sessionId,
-      userId: identity.subject,
+      userId: playerId,
       playerName: args.playerName,
       status: "active",
       currentStep: 0,
@@ -449,15 +486,18 @@ export const submitStep = mutation({
   args: {
     gameId: v.id("games"),
     actions: v.array(playerActionValidator),
+    guestId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error("Not authenticated")
+    if (!identity && !args.guestId) throw new Error("Must be authenticated or provide a guestId")
+
+    const playerId = resolvePlayerId(identity, args.guestId)
 
     // Load game
     const game = await ctx.db.get(args.gameId)
     if (!game) throw new Error("Game not found")
-    if (game.userId !== identity.subject) throw new Error("Not your game")
+    if (game.userId !== playerId) throw new Error("Not your game")
     if (game.status !== "active") throw new Error("Game is not active")
 
     // Load scenario
@@ -527,14 +567,16 @@ export const submitStep = mutation({
 
 /** Abandon a game (mark as abandoned) */
 export const abandonGame = mutation({
-  args: { gameId: v.id("games") },
+  args: { gameId: v.id("games"), guestId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error("Not authenticated")
+    if (!identity && !args.guestId) throw new Error("Must be authenticated or provide a guestId")
+
+    const playerId = resolvePlayerId(identity, args.guestId)
 
     const game = await ctx.db.get(args.gameId)
     if (!game) throw new Error("Game not found")
-    if (game.userId !== identity.subject) throw new Error("Not your game")
+    if (game.userId !== playerId) throw new Error("Not your game")
 
     await ctx.db.patch(args.gameId, { status: "abandoned" })
   },

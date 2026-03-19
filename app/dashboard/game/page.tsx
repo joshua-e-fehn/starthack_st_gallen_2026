@@ -31,6 +31,7 @@ import {
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { portfolioValue } from "@/lib/game/engine"
+import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
@@ -455,6 +456,7 @@ function GameContent() {
   }, [])
 
   // ─── Convex data ────────────────────────────────────────────
+  const guestId = getOrCreateGuestId()
   const startGameMutation = useMutation(api.game.startGame)
   const submitStepMutation = useMutation(api.game.submitStep)
 
@@ -466,12 +468,17 @@ function GameContent() {
     sessionIdParam ? { sessionId: sessionIdParam } : "skip",
   )
 
-  const convexGame = useQuery(api.game.getGame, gameId ? { gameId } : "skip")
+  const convexGame = useQuery(api.game.getGame, gameId ? { gameId, guestId } : "skip")
   const convexScenario = useQuery(
     api.game.getScenario,
     convexGame?.scenarioId ? { scenarioId: convexGame.scenarioId } : "skip",
   )
-  const convexHistory = useQuery(api.game.getGameTimeSeries, gameId ? { gameId } : "skip")
+  const convexHistory = useQuery(api.game.getGameTimeSeries, gameId ? { gameId, guestId } : "skip")
+
+  const myGameInSession = useQuery(
+    api.game.getMyGameInSession,
+    sessionIdParam ? { sessionId: sessionIdParam, guestId } : "skip",
+  )
 
   const sessionId = sessionIdParam ?? convexGame?.sessionId ?? null
 
@@ -483,9 +490,8 @@ function GameContent() {
     const playerName = localStorage.getItem("debug_playerName") ?? "Player"
 
     // Check if user already has a game in this session (re-join)
-    const existingActive = sessionData.leaderboard.find((e) => e.status === "active")
-    if (existingActive) {
-      setGameId(existingActive.gameId)
+    if (myGameInSession) {
+      setGameId(myGameInSession._id)
       return
     }
 
@@ -494,6 +500,7 @@ function GameContent() {
       scenarioId: sessionData.session.scenarioId,
       sessionId: sessionIdParam,
       playerName,
+      guestId,
     })
       .then((id) => {
         setGameId(id)
@@ -512,7 +519,9 @@ function GameContent() {
     onboardingChecked,
     sessionIdParam,
     sessionData,
+    myGameInSession,
     startGameMutation,
+    guestId,
     router,
   ])
 
@@ -810,14 +819,14 @@ function GameContent() {
     }
 
     try {
-      await submitStepMutation({ gameId, actions })
+      await submitStepMutation({ gameId, actions, guestId })
       setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
     } catch (e) {
       console.error("Submit step failed:", e)
     } finally {
       setIsSubmitting(false)
     }
-  }, [gameId, isSubmitting, gameOver, tradePlan, submitStepMutation, sessionId, current, router])
+  }, [gameId, isSubmitting, gameOver, tradePlan, submitStepMutation, sessionId, current, router, guestId])
 
   const indicatorY = mapTradeToY(currentTradeClamp, 220, maxBuy, maxSell)
 

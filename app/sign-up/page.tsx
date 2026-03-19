@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { LoginForm } from "@/components/organisms/login-form"
 
 export default function SignUpPage() {
@@ -7,7 +8,9 @@ export default function SignUpPage() {
     <div className="flex min-h-svh flex-col">
       <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
         <div className="flex w-full max-w-sm flex-col gap-6">
-          <LoginForm defaultSignUp />
+          <Suspense>
+            <LoginForm defaultSignUp />
+          </Suspense>
         </div>
       </div>
     </div>
