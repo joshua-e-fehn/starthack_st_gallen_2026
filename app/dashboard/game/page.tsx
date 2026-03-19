@@ -584,7 +584,7 @@ function GameContent() {
           </div>
           <div className="flex items-center justify-center gap-2">
             <AnimatePresence mode="wait">
-              {current.goalReached || _goalAnimation === "reached" ? (
+              {current.goalReached || goalAnimation === "reached" ? (
                 <motion.div
                   key="goal-reached"
                   initial={{ opacity: 0, y: 4 }}
@@ -595,7 +595,7 @@ function GameContent() {
                     🎯 Goal Reached
                   </Badge>
                 </motion.div>
-              ) : _goalAnimation === "lost" ? (
+              ) : goalAnimation === "lost" ? (
                 <motion.div
                   key="goal-lost"
                   initial={{ opacity: 0, y: 4 }}
