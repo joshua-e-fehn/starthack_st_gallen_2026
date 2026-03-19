@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   ArrowRight,
+  Calendar,
   ChevronDown,
   ChevronUp,
   Coins,
@@ -758,10 +759,7 @@ function GameContent() {
                       <CardContent className="p-0">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 gap-4">
                           <div className="flex items-center gap-5">
-                            <div
-                              className="rounded-2xl p-3 shadow-inner"
-                              style={{ backgroundColor: assetColor }}
-                            >
+                            <div className="rounded-2xl p-3 shadow-md bg-white">
                               <Image
                                 src={meta.icon}
                                 alt={meta.name}
@@ -775,9 +773,18 @@ function GameContent() {
                                 {meta.name}
                               </h3>
                               <div className="flex items-center gap-2">
-                                <span className="font-mono text-sm font-black text-muted-foreground">
-                                  {formatTaler(sPrice)}
-                                </span>
+                                <div className="flex items-center gap-1">
+                                  <Image
+                                    src="/asset-classes/taler.webp"
+                                    alt="Taler"
+                                    width={14}
+                                    height={14}
+                                    className="object-contain"
+                                  />
+                                  <span className="font-mono text-sm font-black text-muted-foreground">
+                                    {formatTaler(sPrice)}
+                                  </span>
+                                </div>
                                 <div
                                   className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-white/50 text-[10px] font-bold"
                                   style={{ color: isUp ? "#16a34a" : "#dc2626" }}
@@ -876,18 +883,36 @@ function GameContent() {
                                         <span className="text-[10px] font-bold text-muted-foreground uppercase">
                                           You Buy At
                                         </span>
-                                        <span className="text-lg font-black font-mono">
-                                          {formatTaler(bPrice)}
-                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                          <Image
+                                            src="/asset-classes/taler.webp"
+                                            alt="Taler"
+                                            width={16}
+                                            height={16}
+                                            className="object-contain"
+                                          />
+                                          <span className="text-lg font-black font-mono">
+                                            {formatTaler(bPrice)}
+                                          </span>
+                                        </div>
                                       </div>
                                       <div className="h-8 w-px bg-white mx-4" />
                                       <div className="flex flex-col items-end">
                                         <span className="text-[10px] font-bold text-muted-foreground uppercase">
                                           You Sell At
                                         </span>
-                                        <span className="text-lg font-black font-mono">
-                                          {formatTaler(sPrice)}
-                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                          <Image
+                                            src="/asset-classes/taler.webp"
+                                            alt="Taler"
+                                            width={16}
+                                            height={16}
+                                            className="object-contain"
+                                          />
+                                          <span className="text-lg font-black font-mono">
+                                            {formatTaler(sPrice)}
+                                          </span>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -904,19 +929,36 @@ function GameContent() {
                                         <span className="text-[10px] font-bold text-muted-foreground uppercase">
                                           Quantity
                                         </span>
-                                        <span className="text-lg font-black font-mono">
-                                          {projectedPortfolio[assetKey]} Units
-                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                          <Image
+                                            src={meta.icon}
+                                            alt={meta.name}
+                                            width={16}
+                                            height={16}
+                                            className="object-contain"
+                                          />
+                                          <span className="text-lg font-black font-mono">
+                                            {projectedPortfolio[assetKey]} Units
+                                          </span>
+                                        </div>
                                       </div>
                                       <div className="h-8 w-px bg-white mx-4" />
                                       <div className="flex flex-col items-end text-right">
                                         <span className="text-[10px] font-bold text-muted-foreground uppercase">
                                           Total Position Value
                                         </span>
-                                        <span className="text-lg font-black font-mono text-primary">
-                                          {formatTaler(projectedPortfolio[assetKey] * sPrice)}{" "}
-                                          <span className="text-xs">taler</span>
-                                        </span>
+                                        <div className="flex items-center gap-1.5 justify-end">
+                                          <Image
+                                            src="/asset-classes/taler.webp"
+                                            alt="Taler"
+                                            width={16}
+                                            height={16}
+                                            className="object-contain"
+                                          />
+                                          <span className="text-lg font-black font-mono text-primary">
+                                            {formatTaler(projectedPortfolio[assetKey] * sPrice)}
+                                          </span>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -973,7 +1015,10 @@ function GameContent() {
                       <div className="flex items-center gap-4 leading-none">
                         <div className="flex flex-col items-end">
                           <span className="text-[10px] font-black opacity-70 mb-1">PROCEED TO</span>
-                          <span className="text-xl">NEXT YEAR</span>
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="size-4 opacity-70" />
+                            <span className="text-xl">NEXT YEAR</span>
+                          </div>
                         </div>
                         <ArrowRight className="size-8 animate-pulse" />
                       </div>
