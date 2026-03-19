@@ -23,6 +23,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
 
 import { GameChatbot } from "@/components/molecules/game-chatbot"
+import { EventPopup } from "@/components/organisms/event-popup"
 import { StoryPlayer } from "@/components/organisms/story-player"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -42,6 +43,7 @@ import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
+import type { GameEvent } from "@/lib/types/events"
 import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
 import type { StorySlide } from "@/lib/types/onboarding"
 import type { StateVector } from "@/lib/types/state_vector"
@@ -820,6 +822,13 @@ function GameContent() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [expandedAsset, setExpandedAsset] = useState<TradableAsset | null>(null)
+  const [activeEvent, setActiveEvent] = useState<GameEvent | null>(null)
+  const [isEventPopupOpen, setIsEventPopupOpen] = useState(false)
+  const lastSeenStepRef = useRef<number | null>(null)
+  const eventSeenStorageKey = useMemo(
+    () => (gameId ? `trade-tales:event-seen-step:${gameId}` : null),
+    [gameId],
+  )
 
   const portfolio = current?.portfolio ?? { gold: 0, wood: 0, potatoes: 0, fish: 0 }
   const market = current?.market
@@ -922,6 +931,77 @@ function GameContent() {
       { name: "Fish", value: totalAssetValue.fish, color: lineConfig.fish.color },
     ].filter((d) => d.value > 0)
   }, [totalAssetValue])
+
+  const latestEvent = current?.events?.[0] ?? null
+  const latestEventImpacts = useMemo(() => {
+    if (!latestEvent?.effects) return []
+
+    const chips: string[] = []
+    if (latestEvent.effects.quantityMultiplier !== undefined) {
+      const qty = Math.round((latestEvent.effects.quantityMultiplier - 1) * 100)
+      chips.push(`Quantity ${qty > 0 ? "+" : ""}${qty}%`)
+    }
+    if (latestEvent.effects.goldDelta !== undefined) {
+      chips.push(
+        `Gold ${latestEvent.effects.goldDelta > 0 ? "+" : ""}${latestEvent.effects.goldDelta}`,
+      )
+    }
+    if (latestEvent.effects.priceMultiplier !== undefined) {
+      const price = Math.round((latestEvent.effects.priceMultiplier - 1) * 100)
+      chips.push(`Price ${price > 0 ? "+" : ""}${price}%`)
+    }
+
+    return chips
+  }, [latestEvent])
+
+  const markEventStepSeen = useCallback(
+    (step: number) => {
+      lastSeenStepRef.current = step
+      if (!eventSeenStorageKey) return
+      try {
+        sessionStorage.setItem(eventSeenStorageKey, String(step))
+      } catch {
+        // Ignore storage errors (private mode / blocked storage)
+      }
+    },
+    [eventSeenStorageKey],
+  )
+
+  useEffect(() => {
+    if (!current) return
+
+    if (lastSeenStepRef.current === null) {
+      let initialSeenStep = current.step
+
+      if (eventSeenStorageKey) {
+        try {
+          const stored = sessionStorage.getItem(eventSeenStorageKey)
+          const parsed = stored ? Number.parseInt(stored, 10) : Number.NaN
+          if (Number.isFinite(parsed)) {
+            initialSeenStep = parsed
+          } else {
+            sessionStorage.setItem(eventSeenStorageKey, String(initialSeenStep))
+          }
+        } catch {
+          // Ignore storage errors and fall back to in-memory behavior
+        }
+      }
+
+      lastSeenStepRef.current = initialSeenStep
+      return
+    }
+
+    if (current.step > lastSeenStepRef.current && current.events.length > 0) {
+      setActiveEvent(current.events[0])
+      setIsEventPopupOpen(true)
+      markEventStepSeen(current.step)
+      return
+    }
+
+    if (current.step > lastSeenStepRef.current) {
+      markEventStepSeen(current.step)
+    }
+  }, [current, eventSeenStorageKey, markEventStepSeen])
 
   const handleSubmitTrades = useCallback(async () => {
     if (!gameId || isSubmitting || gameOver) return
@@ -1233,6 +1313,74 @@ function GameContent() {
             )}
           </div>
 
+          {/* Event of the Year */}
+          {latestEvent && (
+            <Card className="overflow-hidden border border-amber-200/70 bg-linear-to-br from-amber-50/90 via-white to-sky-50/60 shadow-sm">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="relative size-12 sm:size-14 shrink-0 rounded-xl border border-amber-200/80 bg-white p-1.5 shadow-xs">
+                    <Image
+                      src={`/events/${latestEvent.type}.webp`}
+                      alt={latestEvent.name}
+                      fill
+                      className="object-contain p-1"
+                      unoptimized
+                    />
+                  </div>
+
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-amber-200 text-amber-900 hover:bg-amber-200 text-[10px] uppercase tracking-wider font-black">
+                        Year Event
+                      </Badge>
+                      {latestEvent.targetAsset && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] uppercase tracking-wide font-black"
+                        >
+                          {latestEvent.targetAsset}
+                        </Badge>
+                      )}
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black leading-tight">
+                      {latestEvent.name}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
+                      {latestEvent.description}
+                    </p>
+
+                    {latestEventImpacts.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {latestEventImpacts.map((impact) => (
+                          <span
+                            key={impact}
+                            className="rounded-full border border-border/70 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-wide"
+                          >
+                            {impact}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8 rounded-full px-3 text-xs font-black uppercase tracking-wide"
+                        onClick={() => {
+                          setActiveEvent(latestEvent)
+                          setIsEventPopupOpen(true)
+                        }}
+                      >
+                        Open Event Details
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Marketplace Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
@@ -1316,6 +1464,15 @@ function GameContent() {
           </div>
         </div>
       </TooltipProvider>
+
+      <EventPopup
+        event={activeEvent}
+        open={isEventPopupOpen}
+        onClose={() => {
+          setIsEventPopupOpen(false)
+          if (current) markEventStepSeen(current.step)
+        }}
+      />
 
       <GameChatbot />
     </main>

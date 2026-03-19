@@ -114,18 +114,26 @@ export async function resolveEvents(
     firedEvents.push(toGameEvent(event))
 
     const { effects } = event
+    const affectedAssets: readonly TradableAsset[] =
+      event.baseEventId === "severe_drought"
+        ? ["wood", "potatoes"]
+        : effects.targetAsset
+          ? [effects.targetAsset]
+          : TRADABLE_ASSET_KEYS
 
     // ── Quantity effects ──────────────────────────────────────────
     if (effects.quantityMultiplier !== undefined) {
-      if (effects.targetAsset) {
-        // Single asset
-        updatedPortfolio[effects.targetAsset] = Math.floor(
-          updatedPortfolio[effects.targetAsset] * effects.quantityMultiplier,
-        )
-      } else {
-        // All assets
-        for (const asset of TRADABLE_ASSET_KEYS) {
-          updatedPortfolio[asset] = Math.floor(updatedPortfolio[asset] * effects.quantityMultiplier)
+      for (const asset of affectedAssets) {
+        updatedPortfolio[asset] = Math.floor(updatedPortfolio[asset] * effects.quantityMultiplier)
+      }
+    }
+
+    // ── Price effects ─────────────────────────────────────────────
+    if (effects.priceMultiplier !== undefined) {
+      for (const asset of affectedAssets) {
+        updatedPrices[asset] = {
+          ...updatedPrices[asset],
+          basePrice: Math.max(0.01, updatedPrices[asset].basePrice * effects.priceMultiplier),
         }
       }
     }
