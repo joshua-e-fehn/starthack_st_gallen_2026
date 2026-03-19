@@ -1,27 +1,53 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { ArrowLeftIcon, PartyPopperIcon, RotateCcwIcon, SparklesIcon } from "lucide-react"
+import { ArrowLeftIcon, ArrowRightIcon, SparklesIcon } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { PublicHeader } from "@/components/organisms/public-header"
 import { Button } from "@/components/ui/button"
 import { useLessonProgress } from "@/hooks/use-lesson-progress"
-import { LESSONS } from "@/lib/lessons/data"
+import { cn } from "@/lib/utils"
+
+const STRATEGIES = [
+  {
+    id: "safe",
+    icon: "🛡️",
+    label: "Safe & Steady",
+    risk: "Low risk",
+    ret: "Low return",
+    desc: "Mostly bonds & cash",
+  },
+  {
+    id: "balanced",
+    icon: "⚖️",
+    label: "Balanced Mix",
+    risk: "Medium risk",
+    ret: "Medium return",
+    desc: "Stocks & bonds blend",
+  },
+  {
+    id: "growth",
+    icon: "🚀",
+    label: "Growth Focus",
+    risk: "High risk",
+    ret: "High return",
+    desc: "Mostly stocks & crypto",
+  },
+] as const
 
 export default function LearnCompletePage() {
   const router = useRouter()
-  const { allCompleted, progress, resetProgress } = useLessonProgress()
+  const { allCompleted, progress } = useLessonProgress()
+  const [strategy, setStrategy] = useState<string | null>(null)
 
-  // If not all completed, redirect back to learn path
   useEffect(() => {
     if (progress.completedLessons.length > 0 && !allCompleted) {
       router.replace("/learn")
     }
   }, [allCompleted, progress.completedLessons.length, router])
 
-  // Don't render content until we confirm progress is loaded
   if (!allCompleted) {
     return (
       <div className="min-h-svh bg-background">
@@ -37,124 +63,106 @@ export default function LearnCompletePage() {
     <div className="min-h-svh bg-background">
       <PublicHeader />
 
-      <main className="mx-auto flex max-w-2xl flex-col items-center px-4 py-12 text-center sm:px-6 sm:py-20">
-        {/* Celebration animation */}
+      <main className="mx-auto flex max-w-lg flex-col items-center px-4 py-6 text-center sm:px-6 sm:py-10">
+        {/* Celebration */}
         <motion.div
           initial={{ scale: 0, rotate: -20 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 180, damping: 14, delay: 0.1 }}
-          className="mb-6"
         >
-          <span className="text-8xl">&#x1F381;</span>
+          <span className="text-6xl">🎁</span>
         </motion.div>
 
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.4 }}
+          className="mt-3"
+        >
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">The Farm Is Yours!</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Congratulations! PostFinance gifts you money to start investing for real.
+          </p>
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full border-2 border-primary bg-primary/10 px-5 py-2">
+            <span className="text-sm font-medium text-muted-foreground">
+              PostFinance gifts you:{" "}
+            </span>
+            <span className="text-xl font-bold text-primary">CHF 20</span>
+          </div>
+        </motion.div>
+
+        {/* Strategy picker */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
+          transition={{ delay: 0.6, duration: 0.5 }}
+          className="mt-5 w-full"
         >
-          <div className="mb-4 flex items-center justify-center gap-2 text-primary">
-            <SparklesIcon className="size-5" />
-            <PartyPopperIcon className="size-5" />
-            <SparklesIcon className="size-5" />
-          </div>
-
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">The Farm Is Yours!</h1>
-          <p className="mt-3 text-lg text-muted-foreground">
-            You completed all {LESSONS.length} lessons and earned the wisdom to buy your farm. But
-            the journey does not end here...
-          </p>
-        </motion.div>
-
-        {/* PostFinance voucher surprise */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 30 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ delay: 1.1, duration: 0.6, type: "spring", stiffness: 140 }}
-          className="mt-8 w-full max-w-md overflow-hidden rounded-2xl border-2 border-primary bg-gradient-to-b from-primary/10 to-primary/5 p-8 text-center shadow-lg"
-        >
-          <motion.div
-            initial={{ rotate: -10, scale: 0.5 }}
-            animate={{ rotate: 0, scale: 1 }}
-            transition={{ delay: 1.4, type: "spring", stiffness: 200 }}
-          >
-            <SparklesIcon className="mx-auto size-10 text-primary" />
-          </motion.div>
-          <motion.h3
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.6 }}
-            className="mt-4 text-xl font-bold"
-          >
-            🎉 Your Real Reward
-          </motion.h3>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.8 }}
-            className="mt-3 text-base leading-relaxed text-foreground"
-          >
-            You proved you understand the fundamentals of investing. Now it is time to put knowledge
-            into practice — <strong>for real.</strong>
-          </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 2.0 }}
-            className="mt-5 rounded-xl border border-primary/30 bg-card px-6 py-5 shadow-sm"
-          >
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-              PostFinance Voucher
-            </p>
-            <p className="mt-2 text-3xl font-bold text-primary">CHF 20</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Invest in one of the selected strategies on{" "}
-              <a
-                href="https://www.postfinance.ch"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+          <p className="mb-3 text-sm font-medium">Choose your strategy:</p>
+          <div className="grid grid-cols-3 gap-2">
+            {STRATEGIES.map((s) => (
+              <button
+                type="button"
+                key={s.id}
+                onClick={() => setStrategy(s.id)}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-xl border-2 p-3 transition-all",
+                  strategy === s.id
+                    ? "border-primary bg-primary/10 shadow-md"
+                    : "border-muted hover:border-primary/40",
+                )}
               >
-                PostFinance.ch
-              </a>
-            </p>
-          </motion.div>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 2.3 }}
-            className="mt-4 text-xs text-muted-foreground/80"
-          >
-            Scan the QR code at the booth or ask a team member to redeem your voucher.
-          </motion.p>
+                <span className="text-2xl">{s.icon}</span>
+                <span className="text-xs font-semibold leading-tight">{s.label}</span>
+                <span className="text-xs text-muted-foreground">{s.risk}</span>
+                <span className="text-xs text-muted-foreground">{s.ret}</span>
+              </button>
+            ))}
+          </div>
         </motion.div>
 
-        {/* Actions */}
+        {/* Open account CTA */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.3 }}
-          className="mt-10 flex flex-wrap items-center justify-center gap-3"
+          transition={{ delay: 0.8, duration: 0.4 }}
+          className="mt-5 w-full"
         >
-          <Button variant="outline" asChild>
+          <Button asChild size="lg" className="w-full text-base" disabled={!strategy}>
+            <a
+              href="https://www.postfinance.ch"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(!strategy && "pointer-events-none opacity-50")}
+            >
+              <SparklesIcon className="mr-2 size-4" />
+              Open Your Account
+              <ArrowRightIcon className="ml-2 size-4" />
+            </a>
+          </Button>
+          {!strategy && (
+            <p className="mt-1.5 text-xs text-muted-foreground">Select a strategy to continue</p>
+          )}
+        </motion.div>
+
+        {/* Bottom actions */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.0 }}
+          className="mt-6 flex items-center justify-center gap-3"
+        >
+          <Button variant="outline" size="sm" asChild>
             <Link href="/learn">
-              <ArrowLeftIcon className="mr-1 size-4" />
+              <ArrowLeftIcon className="mr-1 size-3" />
               Review Lessons
             </Link>
           </Button>
-          <Button asChild>
-            <Link href="/">Play the Full Game</Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              resetProgress()
-              router.push("/learn")
-            }}
-          >
-            <RotateCcwIcon className="mr-1 size-4" />
-            Start Over
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/">
+              Enter the Arena
+              <ArrowRightIcon className="ml-1 size-3" />
+            </Link>
           </Button>
         </motion.div>
       </main>
