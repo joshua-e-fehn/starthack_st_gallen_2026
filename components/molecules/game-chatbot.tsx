@@ -82,7 +82,7 @@ export function GameChatbot() {
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 z-50 w-[420px] max-h-[600px] shadow-2xl">
+    <Card className="fixed bottom-6 right-6 z-50 w-[calc(100vw-3rem)] max-h-[70vh] md:w-[420px] md:max-h-[600px] shadow-2xl">
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-0">
         <Image
           src="/characters/wise_coini.webp"
@@ -108,7 +108,7 @@ export function GameChatbot() {
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4 overflow-y-auto max-h-[500px]">
+      <CardContent className="space-y-4 overflow-y-auto max-h-[calc(70vh-8rem)] md:max-h-[500px]">
         <div className="space-y-2">
           <Textarea
             placeholder="What is your question?"
