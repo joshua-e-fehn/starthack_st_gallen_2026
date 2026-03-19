@@ -1,7 +1,9 @@
 {
   "chat.tools.terminal.autoApprove": {
     "bunx": true,
-    "bun": true
+    "bun": true,
+    "git pull": true,
+    "git stash": true
   },
 
   // Biome as default formatter

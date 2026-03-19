@@ -1,7 +1,7 @@
 "use client"
 
-import confetti from "canvas-confetti"
 import { useMutation, useQuery } from "convex/react"
+import { AnimatePresence, motion } from "framer-motion"
 import { ArrowDown, ArrowUp, Loader2, Minus, Plus, RotateCcw, Trophy } from "lucide-react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -28,12 +28,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 
-type TradableAsset = "wood" | "potatoes" | "fish"
-type AssetKey = TradableAsset | "taler"
-
-type Holdings = Record<TradableAsset, number>
-type TradePlan = Record<TradableAsset, number>
-type Prices = Record<TradableAsset, number>
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { portfolioValue } from "@/lib/game/engine"
@@ -47,6 +41,7 @@ import type { StateVector } from "@/lib/types/state_vector"
 // ─── Constants ───────────────────────────────────────────────────
 
 type AssetKey = TradableAsset | "taler"
+type TradePlan = Record<TradableAsset, number>
 
 type OnboardingStep = {
   targetId: string
@@ -618,39 +613,7 @@ function GameContent() {
     [draftTradeValue, maxBuy, maxSell],
   )
 
-  const projectedHolding = useMemo(() => {
-    if (!selectedAsset) {
-      return 0
-    }
-    return holdings[selectedAsset] + currentTradeClamp
-  }, [holdings, selectedAsset, currentTradeClamp])
-
-  const selectedMeta = useMemo(() => {
-    if (!selectedAsset) {
-      return null
-    }
-    return goodsMeta.find((meta) => meta.key === selectedAsset) ?? null
-  }, [selectedAsset])
-
-  const buyDelta = Math.max(0, currentTradeClamp)
-  const sellDelta = Math.max(0, -currentTradeClamp)
-  const projectedAssetValue = roundMoney(projectedHolding * selectedPrice)
-  const projectedTalerBalance = useMemo(() => {
-    const selectedTradeCost = currentTradeClamp * selectedPrice
-    return roundMoney(taler - tradeCostExcludingSelected - selectedTradeCost)
-  }, [currentTradeClamp, selectedPrice, taler, tradeCostExcludingSelected])
-  const projectedTalerDelta = roundMoney(projectedTalerBalance - taler)
-  const plannedTalerDelta = useMemo(() => {
-    const plannedTradeCost = (Object.keys(tradePlan) as TradableAsset[]).reduce((sum, asset) => {
-      return sum + tradePlan[asset] * priceForAsset(prices, asset)
-    }, 0)
-
-    return roundMoney(-plannedTradeCost)
-  }, [prices, tradePlan])
-  const selectedAssetColor = selectedAsset
-    ? lineConfig[selectedAsset].color
-    : "oklch(0.62 0.14 228)"
-  const currentYear = priceHistory.length
+  const currentYear = history.length
   const activeStep = onboardingSteps[onboardingIndex]
 
   useEffect(() => {
@@ -763,6 +726,7 @@ function GameContent() {
     }
   }, [highlightRect])
 
+  const projectedHolding = useMemo(() => {
     if (!selectedAsset) return 0
     return portfolio[selectedAsset] + currentTradeClamp
   }, [portfolio, selectedAsset, currentTradeClamp])
@@ -857,35 +821,29 @@ function GameContent() {
 
   const indicatorY = mapTradeToY(currentTradeClamp, 220, maxBuy, maxSell)
 
-  // ─── Confetti on goal reached ───────────────────────────────
-  const prevGoalReached = useRef(false)
+  // Track goal-reached transitions for animations
+  const prevGoalReached = useRef<boolean | null>(null)
+  const [goalAnimation, setGoalAnimation] = useState<"reached" | "lost" | null>(null)
   useEffect(() => {
-    if (current?.goalReached && !prevGoalReached.current) {
-      prevGoalReached.current = true
-      const end = Date.now() + 2500
-      const frame = () => {
-        confetti({
-          particleCount: 4,
-          angle: 60,
-          spread: 55,
-          origin: { x: 0, y: 0.7 },
-          colors: ["#FFD700", "#FFA500", "#FF6347", "#00CED1", "#7B68EE"],
-        })
-        confetti({
-          particleCount: 4,
-          angle: 120,
-          spread: 55,
-          origin: { x: 1, y: 0.7 },
-          colors: ["#FFD700", "#FFA500", "#FF6347", "#00CED1", "#7B68EE"],
-        })
-        if (Date.now() < end) requestAnimationFrame(frame)
-      }
-      frame()
+    if (!current) return
+    const wasReached = prevGoalReached.current
+    const isReached = current.goalReached
+    if (wasReached === false && isReached) {
+      setGoalAnimation("reached")
+      const t = setTimeout(() => setGoalAnimation(null), 2000)
+      return () => clearTimeout(t)
     }
-    if (current && !current.goalReached) {
-      prevGoalReached.current = false
+    if (wasReached === true && !isReached) {
+      setGoalAnimation("lost")
+      const t = setTimeout(() => setGoalAnimation(null), 2000)
+      return () => clearTimeout(t)
     }
-  }, [current?.goalReached, current])
+    prevGoalReached.current = isReached
+  }, [current, current?.goalReached])
+  // Keep ref in sync outside effect for next render comparison
+  useEffect(() => {
+    if (current) prevGoalReached.current = current.goalReached
+  })
 
   // ─── Loading / onboarding states ────────────────────────────
   if (!onboardingChecked) return null
@@ -937,11 +895,40 @@ function GameContent() {
             <p className="text-sm font-medium">
               {formatTaler(totalValue)} / {formatTaler(current.goal)} taler
             </p>
-            {current.goalReached && (
-              <Badge variant="default" className="bg-green-600 text-[10px]">
-                🎯 Goal Reached
-              </Badge>
-            )}
+            <AnimatePresence mode="wait">
+              {current.goalReached ? (
+                <motion.div
+                  key="goal-reached"
+                  initial={{ opacity: 0, scale: 0.5, y: 4 }}
+                  animate={
+                    goalAnimation === "reached"
+                      ? { opacity: 1, scale: [1, 1.25, 1], y: 0 }
+                      : { opacity: 1, scale: 1, y: 0 }
+                  }
+                  exit={{ opacity: 0, scale: 0.5, y: 4 }}
+                  transition={
+                    goalAnimation === "reached"
+                      ? { duration: 0.5, ease: "easeInOut" }
+                      : { type: "spring", stiffness: 400, damping: 20 }
+                  }
+                >
+                  <Badge variant="default" className="bg-green-600 text-[10px]">
+                    🎯 Goal Reached
+                  </Badge>
+                </motion.div>
+              ) : goalAnimation === "lost" ? (
+                <motion.div
+                  key="goal-lost"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: [1, 1, 0], y: [0, 0, 8], scale: [1, 1, 0.8] }}
+                  transition={{ duration: 1.5, times: [0, 0.6, 1] }}
+                >
+                  <Badge variant="destructive" className="text-[10px]">
+                    📉 Goal Lost
+                  </Badge>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
             {gameOver && (
               <Badge variant="outline" className="ml-1 text-[10px]">
                 Game Over

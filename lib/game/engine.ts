@@ -358,7 +358,7 @@ export async function gameStep(
         events: precomputed.events,
         actions,
         goal: newGoal,
-        goalReached: prevState.goalReached || totalVal >= newGoal,
+        goalReached: totalVal >= newGoal,
       }
     }
   }
@@ -389,9 +389,9 @@ export async function gameStep(
   const inflationRatio = nextMarket.inflation / prevState.market.inflation
   const newGoal = prevState.goal * inflationRatio
 
-  // 6. Check if goal is reached (sticky — once reached, stays true)
+  // 6. Check if goal is reached (re-evaluated each step)
   const totalValue = portfolioValue(portfolio, nextMarket)
-  const goalReached = prevState.goalReached || totalValue >= newGoal
+  const goalReached = totalValue >= newGoal
 
   return {
     step: prevState.step + 1,

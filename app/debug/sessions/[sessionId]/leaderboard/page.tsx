@@ -1,9 +1,10 @@
 "use client"
 
+import confetti from "canvas-confetti"
 import { useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
@@ -47,6 +48,42 @@ function LeaderboardContent() {
     return () => clearInterval(timer)
   }, [data?.leaderboard?.length])
 
+  // Derive player data (hooks must be before early returns)
+  const leaderboard = data?.leaderboard ?? []
+  const myEntry = leaderboard.find((e) => e.gameId === gameId)
+
+  // Confetti only the FIRST time goal is reached in this session
+  const confettiFired = useRef(false)
+  useEffect(() => {
+    if (!myEntry?.goalReached || confettiFired.current || isRevealing) return
+    const storageKey = `confetti_${sessionId}`
+    if (typeof window !== "undefined" && sessionStorage.getItem(storageKey)) {
+      confettiFired.current = true
+      return
+    }
+    confettiFired.current = true
+    if (typeof window !== "undefined") sessionStorage.setItem(storageKey, "1")
+    const end = Date.now() + 2500
+    const frame = () => {
+      confetti({
+        particleCount: 4,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.7 },
+        colors: ["#FFD700", "#FFA500", "#FF6347", "#00CED1", "#7B68EE"],
+      })
+      confetti({
+        particleCount: 4,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.7 },
+        colors: ["#FFD700", "#FFA500", "#FF6347", "#00CED1", "#7B68EE"],
+      })
+      if (Date.now() < end) requestAnimationFrame(frame)
+    }
+    frame()
+  }, [myEntry?.goalReached, isRevealing, sessionId])
+
   if (data === undefined)
     return (
       <div className="flex h-screen items-center justify-center">
@@ -63,11 +100,10 @@ function LeaderboardContent() {
       </div>
     )
 
-  const { session, scenarioName, leaderboard } = data
+  const { session, scenarioName } = data
 
   // Find current player's rank
   const myRank = leaderboard.findIndex((e) => e.gameId === gameId) + 1
-  const myEntry = leaderboard.find((e) => e.gameId === gameId)
 
   // Medal assignments
   const getMedal = (rank: number) => {
@@ -132,6 +168,30 @@ function LeaderboardContent() {
               {playerName || myEntry.playerName} · Rank {myRank} of {leaderboard.length}
               {myEntry.goalReached && " · 🎯 Goal reached!"}
             </p>
+            {/* Goal progress bar */}
+            {myEntry.goal > 0 && (
+              <div className="mt-3">
+                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Goal Progress</span>
+                  <span className="font-mono tabular-nums">
+                    {myEntry.score.toLocaleString(undefined, { maximumFractionDigits: 0 })} /{" "}
+                    {myEntry.goal.toLocaleString(undefined, { maximumFractionDigits: 0 })} gold
+                  </span>
+                </div>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                  <motion.div
+                    className={`h-full rounded-full ${
+                      myEntry.score >= myEntry.goal ? "bg-green-500" : "bg-primary"
+                    }`}
+                    initial={{ width: 0 }}
+                    animate={{
+                      width: `${Math.min(100, (myEntry.score / myEntry.goal) * 100)}%`,
+                    }}
+                    transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
       )}

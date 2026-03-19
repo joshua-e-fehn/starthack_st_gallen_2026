@@ -11,6 +11,8 @@ import {
   AreaChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
+  Legend,
   Line,
   LineChart,
   Pie,
@@ -32,7 +34,9 @@ import {
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { portfolioValue } from "@/lib/game/engine"
+import { type MonteCarloDataPoint, runMonteCarloSimulations } from "@/lib/game/monte-carlo"
 import { nominalPrice, sellPrice } from "@/lib/types/market"
+import type { Scenario } from "@/lib/types/scenario"
 import type { StateVector } from "@/lib/types/state_vector"
 
 // ─── Constants ───────────────────────────────────────────────────
@@ -589,176 +593,223 @@ function AbsoluteNetWorthChart({ history }: { history: StateVector[] }) {
 
 // ─── Monte Carlo Chart ───────────────────────────────────────────
 
-const monteCarloConfig = {
-  p10: { label: "10th Percentile", color: "oklch(0.65 0.10 200)" },
-  p25: { label: "25th Percentile", color: "oklch(0.70 0.12 200)" },
-  p50: { label: "Median", color: "oklch(0.60 0.18 260)" },
-  p75: { label: "75th Percentile", color: "oklch(0.70 0.12 200)" },
-  p90: { label: "90th Percentile", color: "oklch(0.65 0.10 200)" },
-  player: { label: "Your Net Worth", color: COLORS.total },
+const mcChartConfig = {
+  p10_p90: { label: "P10–P90 range", color: "var(--chart-4)" },
+  p25_p75: { label: "P25–P75 range", color: "var(--chart-4)" },
+  p50: { label: "Median (P50)", color: "var(--chart-4)" },
+  actual: { label: "Your Path", color: COLORS.total },
+  goal: { label: "Goal", color: COLORS.goal },
 } satisfies ChartConfig
 
-function MonteCarloChart({ history }: { history: StateVector[] }) {
-  // Simple client-side Monte Carlo: we re-simulate price growth using the scenario params
-  // from the actual market data to generate percentile bands
-  const { bands, playerData } = useMemo(() => {
-    if (history.length < 2) return { bands: [], playerData: [] }
+const MC_NUM_SIMS = 100
 
-    const NUM_SIMS = 500
-    const steps = history.length
-    const startNW = portfolioValue(history[0].portfolio, history[0].market)
+function MonteCarloChart({
+  history,
+  scenario,
+}: {
+  history: StateVector[]
+  scenario: Scenario | null
+}) {
+  const [mcData, setMcData] = useState<MonteCarloDataPoint[]>([])
 
-    // Calculate actual step-over-step market returns from history to estimate volatility
-    const logReturns: number[] = []
-    for (let i = 1; i < steps; i++) {
-      const prevNW = portfolioValue(history[i - 1].portfolio, history[i - 1].market) || 1
-      const curNW = portfolioValue(history[i].portfolio, history[i].market)
-      logReturns.push(Math.log(curNW / prevNW))
-    }
+  useEffect(() => {
+    if (!scenario || history.length < 2) return
+    runMonteCarloSimulations(history, scenario, MC_NUM_SIMS).then(setMcData)
+  }, [history, scenario])
 
-    const meanReturn = logReturns.reduce((a, b) => a + b, 0) / (logReturns.length || 1)
-    const variance =
-      logReturns.reduce((a, b) => a + (b - meanReturn) ** 2, 0) / (logReturns.length || 1)
-    const vol = Math.sqrt(variance)
+  if (mcData.length < 2) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingUp className="size-4 text-primary" />
+            Monte Carlo Simulation
+          </CardTitle>
+          <CardDescription>Not enough data for the simulation.</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
 
-    // Simulate paths
-    const simPaths: number[][] = []
-    for (let sim = 0; sim < NUM_SIMS; sim++) {
-      const path: number[] = [startNW]
-      for (let t = 1; t < steps; t++) {
-        const u1 = Math.random()
-        const u2 = Math.random()
-        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
-        path.push(path[t - 1] * Math.exp(meanReturn + vol * z))
-      }
-      simPaths.push(path)
-    }
+  // Transform for stacked area bands (recharts needs deltas, not absolute values)
+  const bandData = mcData.map((d) => ({
+    year: d.year,
+    base: d.p10,
+    band_10_25: d.p25 - d.p10,
+    band_25_75: d.p75 - d.p25,
+    band_75_90: d.p90 - d.p75,
+    p50: d.p50,
+    actual: d.actual,
+    goal: d.goal,
+  }))
 
-    // Compute percentiles per step
-    const bandData = []
-    for (let t = 0; t < steps; t++) {
-      const values = simPaths.map((p) => p[t]).sort((a, b) => a - b)
-      const pct = (p: number) => values[Math.floor(p * values.length)] ?? 0
-      bandData.push({
-        date: history[t].date,
-        p10: roundMoney(pct(0.1)),
-        p25: roundMoney(pct(0.25)),
-        p50: roundMoney(pct(0.5)),
-        p75: roundMoney(pct(0.75)),
-        p90: roundMoney(pct(0.9)),
-        player: roundMoney(portfolioValue(history[t].portfolio, history[t].market)),
-      })
-    }
-
-    return { bands: bandData, playerData: bandData }
-  }, [history])
-
-  if (bands.length < 2) return null
+  const last = mcData[mcData.length - 1]
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <TrendingUp className="size-4 text-primary" />
-          Monte Carlo Simulation
+          Monte Carlo Simulation ({MC_NUM_SIMS} runs)
         </CardTitle>
         <CardDescription>
-          Your net worth vs. simulated percentile bands (based on observed market volatility)
+          What could have happened with your same strategy but different market outcomes. Shaded
+          bands show P10–P90 and P25–P75 ranges.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={monteCarloConfig} className="h-64 w-full">
-          <AreaChart data={bands} margin={{ top: 8, right: 16, left: -6, bottom: 0 }}>
-            <defs>
-              <linearGradient id="mc-band-outer" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="oklch(0.65 0.10 200)" stopOpacity={0.12} />
-                <stop offset="100%" stopColor="oklch(0.65 0.10 200)" stopOpacity={0.02} />
-              </linearGradient>
-              <linearGradient id="mc-band-inner" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="oklch(0.70 0.12 200)" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="oklch(0.70 0.12 200)" stopOpacity={0.04} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} />
+        <ChartContainer config={mcChartConfig} className="h-72 w-full">
+          <ComposedChart data={bandData} margin={{ top: 5, right: 16, bottom: 5, left: -6 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
-              dataKey="date"
+              dataKey="year"
               tickLine={false}
               axisLine={false}
-              tickMargin={8}
-              tickFormatter={(v) => `Y${v}`}
+              tickFormatter={(v: number) => `Y${v}`}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
               tickMargin={8}
               width={68}
-              tickFormatter={(v) => Number(v).toLocaleString("de-CH")}
+              tickFormatter={(v: number) =>
+                v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))
+              }
             />
             <ChartTooltip
-              cursor={{ strokeDasharray: "5 5" }}
               content={
                 <ChartTooltipContent
-                  indicator="dot"
-                  labelFormatter={(_, payload) => {
-                    const date = payload?.[0]?.payload?.date
-                    return `Year ${typeof date === "number" ? date : "-"}`
+                  formatter={(value, name) => {
+                    if (
+                      name === "base" ||
+                      name === "band_10_25" ||
+                      name === "band_25_75" ||
+                      name === "band_75_90"
+                    )
+                      return null
+                    return (
+                      <span className="font-mono tabular-nums">
+                        {typeof value === "number" ? formatTaler(value) : value} gold
+                      </span>
+                    )
                   }}
-                  formatter={(value, name) => (
-                    <span className="font-mono tabular-nums">
-                      {name}: {formatTaler(Number(value))}
-                    </span>
-                  )}
                 />
               }
             />
+            <Legend
+              formatter={(value: string) => {
+                const labels: Record<string, string> = {
+                  base: "",
+                  band_10_25: "P10–P90 range",
+                  band_25_75: "P25–P75 range",
+                  band_75_90: "",
+                  p50: "Median (P50)",
+                  actual: "Your Path",
+                  goal: "Goal",
+                }
+                return labels[value] ?? value
+              }}
+            />
+
+            {/* Invisible base to position the bands */}
             <Area
               type="monotone"
-              dataKey="p90"
-              name="90th Percentile"
-              stroke="none"
-              fill="url(#mc-band-outer)"
+              dataKey="base"
+              stackId="band"
+              fill="transparent"
+              stroke="transparent"
+              legendType="none"
             />
+            {/* P10→P25 band (outer) */}
             <Area
               type="monotone"
-              dataKey="p75"
-              name="75th Percentile"
-              stroke="none"
-              fill="url(#mc-band-inner)"
+              dataKey="band_10_25"
+              stackId="band"
+              fill="var(--color-p10_p90)"
+              fillOpacity={0.1}
+              stroke="transparent"
+              name="band_10_25"
+              legendType="none"
             />
+            {/* P25→P75 band (inner / IQR) */}
             <Area
               type="monotone"
-              dataKey="p25"
-              name="25th Percentile"
-              stroke="none"
-              fill="url(#mc-band-inner)"
+              dataKey="band_25_75"
+              stackId="band"
+              fill="var(--color-p25_p75)"
+              fillOpacity={0.2}
+              stroke="transparent"
+              name="band_25_75"
+              legendType="none"
             />
+            {/* P75→P90 band (outer) */}
             <Area
               type="monotone"
-              dataKey="p10"
-              name="10th Percentile"
-              stroke="none"
-              fill="url(#mc-band-outer)"
+              dataKey="band_75_90"
+              stackId="band"
+              fill="var(--color-p10_p90)"
+              fillOpacity={0.1}
+              stroke="transparent"
+              name="band_75_90"
+              legendType="none"
             />
+
+            {/* Median line */}
             <Line
               type="monotone"
               dataKey="p50"
-              name="Median"
-              stroke="oklch(0.60 0.18 260)"
+              name="p50"
+              stroke="var(--color-p50)"
               strokeWidth={1.5}
-              strokeDasharray="4 3"
+              strokeDasharray="4 2"
               dot={false}
+              opacity={0.6}
             />
+            {/* Actual player path */}
             <Line
               type="monotone"
-              dataKey="player"
-              name="Your Net Worth"
-              stroke={COLORS.total}
-              strokeWidth={3}
+              dataKey="actual"
+              name="actual"
+              stroke="var(--color-actual)"
+              strokeWidth={2.5}
               dot={false}
             />
-            <ChartLegend content={<ChartLegendContent />} />
-          </AreaChart>
+            {/* Goal line */}
+            <Line
+              type="monotone"
+              dataKey="goal"
+              name="goal"
+              stroke="var(--color-goal)"
+              strokeWidth={2}
+              strokeDasharray="6 3"
+              dot={false}
+            />
+          </ComposedChart>
         </ChartContainer>
+
+        {/* Summary stats */}
+        <div className="mt-4 grid grid-cols-2 gap-3 text-center sm:grid-cols-5">
+          <div>
+            <p className="text-xs text-muted-foreground">P10 (worst 10%)</p>
+            <p className="font-mono text-sm font-semibold">{formatTaler(last.p10)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">P25</p>
+            <p className="font-mono text-sm font-semibold">{formatTaler(last.p25)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Median (P50)</p>
+            <p className="font-mono text-sm font-semibold">{formatTaler(last.p50)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">P75</p>
+            <p className="font-mono text-sm font-semibold">{formatTaler(last.p75)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">P90 (best 10%)</p>
+            <p className="font-mono text-sm font-semibold">{formatTaler(last.p90)}</p>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
@@ -788,6 +839,13 @@ function ResultsContent() {
     // biome-ignore lint/suspicious/noExplicitAny: Convex doc → StateVector shape match
     return convexHistory as any
   }, [convexHistory])
+
+  // biome-ignore lint/suspicious/noExplicitAny: Convex doc → Scenario shape match
+  const scenario: Scenario | null = useMemo(() => {
+    if (!convexScenario) return null
+    const { _id, _creationTime, ...rest } = convexScenario
+    return { id: _id, ...rest } as any
+  }, [convexScenario])
 
   const current = history.length > 0 ? history[history.length - 1] : null
 
@@ -914,7 +972,7 @@ function ResultsContent() {
             <NetWorthChart history={history} />
 
             {/* Monte Carlo */}
-            <MonteCarloChart history={history} />
+            <MonteCarloChart history={history} scenario={scenario} />
           </motion.div>
         )}
 
