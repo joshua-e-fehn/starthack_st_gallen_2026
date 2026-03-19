@@ -52,7 +52,7 @@ const data = {
       items: [
         {
           title: "Scenarios",
-          url: "/dashboard/scenarios",
+          url: "/dashboard?focus=scenarios",
         },
         {
           title: "General",

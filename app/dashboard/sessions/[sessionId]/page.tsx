@@ -11,7 +11,7 @@ import {
   QrCodeIcon,
   UsersIcon,
 } from "lucide-react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
 import { useCallback, useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -27,6 +27,7 @@ function formatTaler(value: number) {
 
 export default function SessionLobbyPage() {
   const params = useParams()
+  const router = useRouter()
   const sessionId = params.sessionId as Id<"sessions">
 
   const sessionData = useQuery(api.game.getSessionWithLeaderboard, { sessionId })
@@ -52,6 +53,10 @@ export default function SessionLobbyPage() {
     }
   }, [sessionData, joinUrl])
 
+  const handleBack = useCallback(() => {
+    router.back()
+  }, [router])
+
   if (!sessionData) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -71,11 +76,9 @@ export default function SessionLobbyPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <Button variant="ghost" size="sm" className="mb-2 -ml-2" asChild>
-            <a href="/">
-              <ArrowLeftIcon className="mr-1 size-4" />
-              Back
-            </a>
+          <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={handleBack}>
+            <ArrowLeftIcon className="mr-1 size-4" />
+            Back
           </Button>
 
           <Card className="border-primary/20 bg-card/95 shadow-lg backdrop-blur">
