@@ -329,6 +329,54 @@ export const getStepLeaderboard = query({
 
 // ─── Mutations ───────────────────────────────────────────────────
 
+/** Get the full leaderboard history for a session — net worth per player per step.
+ *  Used for the animated year-by-year leaderboard race on the results screen. */
+export const getSessionLeaderboardHistory = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId)
+    if (!session) return null
+
+    const games = await ctx.db
+      .query("games")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect()
+
+    // Build { playerName, gameId, steps: [{ step, date, score, goalReached }] } per player
+    const players = await Promise.all(
+      games.map(async (game) => {
+        const allSteps = await ctx.db
+          .query("gameSteps")
+          .withIndex("by_game", (q) => q.eq("gameId", game._id))
+          .collect()
+
+        return {
+          playerName: game.playerName ?? `Player ${game.userId.substring(0, 4)}`,
+          gameId: game._id as string,
+          userId: game.userId,
+          status: game.status,
+          steps: allSteps.map((s) => ({
+            step: s.step,
+            date: s.date,
+            score: s.score ?? portfolioValue(s.portfolio, s.market),
+            goalReached: s.goalReached,
+          })),
+        }
+      }),
+    )
+
+    const scenario = await ctx.db.get(session.scenarioId)
+
+    return {
+      session,
+      scenarioName: scenario?.name ?? "Unknown",
+      players,
+    }
+  },
+})
+
+// ─── Mutations (continued) ───────────────────────────────────────
+
 /** Start a new game from a scenario or session */
 export const startGame = mutation({
   args: {

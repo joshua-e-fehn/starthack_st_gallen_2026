@@ -1,7 +1,8 @@
 "use client"
 
+import confetti from "canvas-confetti"
 import { useMutation, useQuery } from "convex/react"
-import { ArrowDown, ArrowUp, Loader2, Minus, Plus, RotateCcw } from "lucide-react"
+import { ArrowDown, ArrowUp, Loader2, Minus, Plus, RotateCcw, Trophy } from "lucide-react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -648,18 +649,21 @@ function GameContent() {
     }
 
     setIsSubmitting(true)
+
+    // Navigate to leaderboard BEFORE the mutation resolves so the user
+    // never sees the graph update flash. The mutation runs in the
+    // background and the leaderboard query will pick up the new scores.
+    if (sessionId && current) {
+      const nextStep = current.step + 1
+      const name = localStorage.getItem("debug_playerName") ?? ""
+      router.push(
+        `/dashboard/sessions/${sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
+      )
+    }
+
     try {
       await submitStepMutation({ gameId, actions })
       setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
-
-      // Navigate to leaderboard if in a session
-      if (sessionId && current) {
-        const nextStep = current.step + 1
-        const name = localStorage.getItem("debug_playerName") ?? ""
-        router.push(
-          `/dashboard/sessions/${sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
-        )
-      }
     } catch (e) {
       console.error("Submit step failed:", e)
     } finally {
@@ -668,6 +672,36 @@ function GameContent() {
   }, [gameId, isSubmitting, gameOver, tradePlan, submitStepMutation, sessionId, current, router])
 
   const indicatorY = mapTradeToY(currentTradeClamp, 220, maxBuy, maxSell)
+
+  // ─── Confetti on goal reached ───────────────────────────────
+  const prevGoalReached = useRef(false)
+  useEffect(() => {
+    if (current?.goalReached && !prevGoalReached.current) {
+      prevGoalReached.current = true
+      const end = Date.now() + 2500
+      const frame = () => {
+        confetti({
+          particleCount: 4,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.7 },
+          colors: ["#FFD700", "#FFA500", "#FF6347", "#00CED1", "#7B68EE"],
+        })
+        confetti({
+          particleCount: 4,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.7 },
+          colors: ["#FFD700", "#FFA500", "#FF6347", "#00CED1", "#7B68EE"],
+        })
+        if (Date.now() < end) requestAnimationFrame(frame)
+      }
+      frame()
+    }
+    if (current && !current.goalReached) {
+      prevGoalReached.current = false
+    }
+  }, [current?.goalReached, current])
 
   // ─── Loading / onboarding states ────────────────────────────
   if (!onboardingChecked) return null
@@ -827,24 +861,37 @@ function GameContent() {
           </Card>
         )}
 
-        {/* Submit button */}
-        <Button
-          type="button"
-          className="h-12 w-full text-base"
-          onClick={handleSubmitTrades}
-          disabled={gameOver || isSubmitting}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Processing...
-            </>
-          ) : gameOver ? (
-            "Game Over"
-          ) : (
-            "Done trading & roll events"
-          )}
-        </Button>
+        {/* Submit / Results button */}
+        {gameOver ? (
+          <Button
+            type="button"
+            className="h-12 w-full bg-green-600 text-base hover:bg-green-700"
+            onClick={() =>
+              router.push(
+                `/dashboard/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
+              )
+            }
+          >
+            <Trophy className="mr-2 size-4" />
+            View Results
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            className="h-12 w-full text-base"
+            onClick={handleSubmitTrades}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              "Done trading & roll events"
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Trade drawer */}
