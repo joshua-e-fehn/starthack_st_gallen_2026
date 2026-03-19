@@ -130,68 +130,32 @@ export async function resolveEvents(
       }
     }
 
-    // Price multiplier (market crash — all assets); modifies real base price
-    if (def.priceMultiplier !== undefined) {
-      for (const asset of TRADABLE_ASSET_KEYS) {
-        updatedPrices[asset] = {
-          ...updatedPrices[asset],
-          basePrice: Math.max(0.01, updatedPrices[asset].basePrice * def.priceMultiplier),
+    // ── Price multiplier ──────────────────────────────────────────
+    if (effects.priceMultiplier !== undefined) {
+      if (effects.targetAsset) {
+        // Single asset
+        updatedPrices[effects.targetAsset] = {
+          ...updatedPrices[effects.targetAsset],
+          basePrice: Math.max(
+            0.01,
+            updatedPrices[effects.targetAsset].basePrice * effects.priceMultiplier,
+          ),
+        }
+      } else {
+        // All assets
+        for (const asset of TRADABLE_ASSET_KEYS) {
+          updatedPrices[asset] = {
+            ...updatedPrices[asset],
+            basePrice: Math.max(0.01, updatedPrices[asset].basePrice * effects.priceMultiplier),
+          }
         }
       }
     }
-  }
 
-  // ── 2. Per-asset events ───────────────────────────────────────
-  for (const asset of TRADABLE_ASSET_KEYS) {
-    const eventCfg = scenario.assets[asset].event
-    if (Math.random() >= eventCfg.probability) continue
-
-    firedEvents.push({
-      type: eventCfg.type,
-      name: eventCfg.name,
-      description: eventCfg.description,
-      targetAsset: asset,
-    })
-
-    // Quantity effect on THIS asset only
-    if (eventCfg.quantityMultiplier !== undefined) {
-      updatedPortfolio[asset] = Math.floor(updatedPortfolio[asset] * eventCfg.quantityMultiplier)
+    // ── Gold delta ────────────────────────────────────────────────
+    if (effects.goldDelta !== undefined) {
+      updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold + effects.goldDelta)
     }
-
-    // Price effect on THIS asset only (real base price)
-    if (eventCfg.priceMultiplier !== undefined) {
-      updatedPrices[asset] = {
-        ...updatedPrices[asset],
-        basePrice: Math.max(0.01, updatedPrices[asset].basePrice * eventCfg.priceMultiplier),
-      }
-    }
-  }
-
-  // ── 3. AI event (15% chance) ──────────────────────────────────
-  if (Math.random() < 0.15) {
-    try {
-      const ai = getGeminiClient()
-      const prompt = `Generate a medieval market event. Return JSON: { "name": "Event Name", "description": "What happened", "effect": "price_up" | "price_down" | "gold_gain" | "gold_loss" }`
-      const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
-        contents: prompt,
-        config: { temperature: 0.8, responseMimeType: "application/json", maxOutputTokens: 200 },
-      })
-      const event = JSON.parse(response.text?.trim() || "{}")
-      if (event.name && event.description) {
-        firedEvents.push({ type: "ai_generated", name: event.name, description: event.description })
-        if (event.effect === "price_up") {
-          for (const asset of TRADABLE_ASSET_KEYS) updatedPrices[asset].basePrice *= 1.1
-        } else if (event.effect === "price_down") {
-          for (const asset of TRADABLE_ASSET_KEYS)
-            updatedPrices[asset].basePrice = Math.max(0.01, updatedPrices[asset].basePrice * 0.9)
-        } else if (event.effect === "gold_gain") {
-          updatedPortfolio.gold += 50
-        } else if (event.effect === "gold_loss") {
-          updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold - 30)
-        }
-      }
-    } catch {}
   }
 
   return { firedEvents, portfolio: updatedPortfolio, prices: updatedPrices }

@@ -4,12 +4,10 @@ import { useMutation, useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   ArrowRight,
-  Calendar,
   ChevronDown,
   ChevronUp,
   Coins,
   History,
-  Info,
   Loader2,
   Minus,
   Plus,
@@ -26,8 +24,6 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
 
 import { GameChatbot } from "@/components/molecules/game-chatbot"
-import { EventPopup } from "@/components/organisms/event-popup"
-import { StoryPlayer } from "@/components/organisms/story-player"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -37,7 +33,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -46,9 +41,7 @@ import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
-import type { GameEvent } from "@/lib/types/events"
 import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
-import type { StorySlide } from "@/lib/types/onboarding"
 import type { StateVector } from "@/lib/types/state_vector"
 import { clamp, cn } from "@/lib/utils"
 
@@ -100,46 +93,6 @@ const lineConfig = {
   fish: { color: "oklch(0.78 0.08 236)", label: "Fish" },
   totalValue: { color: "oklch(0.72 0.18 150)", label: "Total Value" },
 }
-
-const ONBOARDING_KEY = "game_onboarding_seen"
-
-const onboardingSlides: StorySlide[] = [
-  {
-    id: "farmer",
-    shortName: "Farmer",
-    title: "You are a farmer and work on a farm",
-    body: "You rise with the sun, tending your fields and animals at the king's court. Life is simple, but every harvest reminds you: hard work alone won't build the future you dream of.",
-    imageSrc: "/onboarding/story1.webp",
-  },
-  {
-    id: "merchant",
-    shortName: "Merchant",
-    title: "You want to diversify and become a merchant",
-    body: "You begin to wonder, what if your taler could work as hard as you do? As whispers of trade and distant markets reach your ears, you decide to become more than a farmer: a merchant in the making.",
-    imageSrc: "/onboarding/story2.webp",
-  },
-  {
-    id: "first-taler",
-    shortName: "First Taler",
-    title: "The village elder gives you your first bag of taler",
-    body: "Seeing your ambition, the village elder entrusts you with a small bag of taler. Use it wisely, he says. Fortunes are not only grown in fields, but in choices.",
-    imageSrc: "/onboarding/story3.webp",
-  },
-  {
-    id: "yearly-income",
-    shortName: "Yearly Income",
-    title: "You receive income every year",
-    body: "Each year, your farm provides steady income. It's your foundation, reliable but limited. How you use it will decide whether you stay a farmer, or rise beyond.",
-    imageSrc: "/onboarding/story4.webp",
-  },
-  {
-    id: "build-future",
-    shortName: "Build Future",
-    title: "Trade, grow, and build your future",
-    body: "Buy, sell, and adapt as seasons change and fortunes rise and fall. Some choices will reward you, others will test you. Stay patient, think long-term, and one day you may own your dream farm worked not by your hands alone, but by those you employ.",
-    imageSrc: "/onboarding/story5.webp",
-  },
-]
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -718,20 +671,6 @@ function GameContent() {
   const gameIdParam = searchParams.get("gameId") as Id<"games"> | null
   const isMobile = useIsMobile()
 
-  const [showOnboarding, setShowOnboarding] = useState(false)
-  const [onboardingChecked, setOnboardingChecked] = useState(false)
-
-  useEffect(() => {
-    const seen = localStorage.getItem(ONBOARDING_KEY)
-    if (!seen) setShowOnboarding(true)
-    setOnboardingChecked(true)
-  }, [])
-
-  const handleOnboardingComplete = useCallback(() => {
-    localStorage.setItem(ONBOARDING_KEY, "true")
-    setShowOnboarding(false)
-  }, [])
-
   const guestId = getOrCreateGuestId()
   const startGameMutation = useMutation(api.game.startGame)
   const submitStepMutation = useMutation(api.game.submitStep)
@@ -759,7 +698,7 @@ function GameContent() {
   const sessionId = sessionIdParam ?? convexGame?.sessionId ?? null
 
   useEffect(() => {
-    if (gameId || isStarting || showOnboarding || !onboardingChecked) return
+    if (gameId || isStarting) return
     if (!sessionIdParam || !sessionData) return
 
     const playerName = localStorage.getItem("debug_playerName") ?? "Player"
@@ -789,8 +728,6 @@ function GameContent() {
   }, [
     gameId,
     isStarting,
-    showOnboarding,
-    onboardingChecked,
     sessionIdParam,
     sessionData,
     myGameInSession,
@@ -947,23 +884,6 @@ function GameContent() {
     if (current) prevGoalReached.current = current.goalReached
   })
 
-  if (!onboardingChecked) return null
-
-  if (showOnboarding) {
-    return (
-      <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
-        <StoryPlayer
-          slides={onboardingSlides}
-          autoAdvanceMs={7000}
-          previousAtStartLabel="Back"
-          completeLabel="Start Playing"
-          onPreviousAtStart={() => router.push("/")}
-          onComplete={handleOnboardingComplete}
-        />
-      </main>
-    )
-  }
-
   if (!gameId || !current || !market) {
     return (
       <main className="mx-auto flex min-h-[60vh] w-full max-w-4xl items-center justify-center px-4 py-6">
@@ -1017,7 +937,7 @@ function GameContent() {
                     <Badge
                       variant={current.market.regime === "peace" ? "default" : "destructive"}
                       className={cn(
-                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-lg font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full bg-[#FFD700] text-black border-none",
+                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-lg font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full",
                       )}
                     >
                       {current.market.regime === "peace" ? "🕊️ Peace" : "⚔️ War"}

@@ -141,12 +141,14 @@
 
 @layer utilities {
   .wood-board {
+    background-color: #d7b899;
     background-image: 
       linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)),
       url('/wood-texture.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+    overflow: hidden;
     
     /* Irregular 'hand-cut' border */
     border: 1px solid rgba(0, 0, 0, 0.1);

@@ -6,6 +6,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useRef } from "react"
 import { PublicHeader } from "@/components/organisms/public-header"
+import { Button } from "@/components/ui/button"
+import { useGameSession } from "@/hooks/use-game-session"
 import { useLessonProgress } from "@/hooks/use-lesson-progress"
 import { LESSONS } from "@/lib/lessons/data"
 import { cn } from "@/lib/utils"
@@ -26,6 +28,7 @@ const NODE_SIZE = 72
 
 export default function LearnPage() {
   const { isCompleted, isUnlocked, progress } = useLessonProgress()
+  const { hasJoinedEvent, gameSession } = useGameSession()
   const currentRef = useRef<HTMLDivElement>(null)
 
   const completedCount = progress.completedLessons.length
@@ -220,6 +223,25 @@ export default function LearnPage() {
           })}
         </div>
       </main>
+
+      {/* Floating "Back to Game" button when player has an active session */}
+      {hasJoinedEvent && gameSession && (
+        <motion.div
+          initial={{ y: 80, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.5, type: "spring", stiffness: 200, damping: 22 }}
+          className="fixed inset-x-0 bottom-5 z-50 flex justify-center px-4"
+        >
+          <Link href={`/?sessionId=${gameSession.sessionId}`}>
+            <Button
+              size="lg"
+              className="gap-2.5 rounded-full px-7 py-3 text-base font-bold shadow-[0_4px_20px_oklch(0.75_0.18_90/0.45)] hover:shadow-[0_6px_28px_oklch(0.75_0.18_90/0.55)] transition-shadow"
+            >
+              {"\u2694\uFE0F"} Back to Arena
+            </Button>
+          </Link>
+        </motion.div>
+      )}
     </div>
   )
 }
