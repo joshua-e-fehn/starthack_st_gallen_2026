@@ -18,11 +18,13 @@ import {
   Wallet,
 } from "lucide-react"
 import Image from "next/image"
-import { useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
 
 import { GameChatbot } from "@/components/molecules/game-chatbot"
+import { EventPopup } from "@/components/organisms/event-popup"
+import { StoryPlayer } from "@/components/organisms/story-player"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -41,7 +43,9 @@ import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
+import type { GameEvent } from "@/lib/types/events"
 import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
+import type { StorySlide } from "@/lib/types/onboarding"
 import type { StateVector } from "@/lib/types/state_vector"
 import { clamp, cn } from "@/lib/utils"
 
@@ -93,6 +97,46 @@ const lineConfig = {
   fish: { color: "oklch(0.78 0.08 236)", label: "Fish" },
   totalValue: { color: "oklch(0.72 0.18 150)", label: "Total Value" },
 }
+
+const ONBOARDING_KEY = "game_onboarding_seen"
+
+const onboardingSlides: StorySlide[] = [
+  {
+    id: "farmer",
+    shortName: "Farmer",
+    title: "You are a farmer and work on a farm",
+    body: "You rise with the sun, tending your fields and animals at the king's court. Life is simple, but every harvest reminds you: hard work alone won't build the future you dream of.",
+    imageSrc: "/onboarding/story1.webp",
+  },
+  {
+    id: "merchant",
+    shortName: "Merchant",
+    title: "You want to diversify and become a merchant",
+    body: "You begin to wonder, what if your taler could work as hard as you do? As whispers of trade and distant markets reach your ears, you decide to become more than a farmer: a merchant in the making.",
+    imageSrc: "/onboarding/story2.webp",
+  },
+  {
+    id: "first-taler",
+    shortName: "First Taler",
+    title: "The village elder gives you your first bag of taler",
+    body: "Seeing your ambition, the village elder entrusts you with a small bag of taler. Use it wisely, he says. Fortunes are not only grown in fields, but in choices.",
+    imageSrc: "/onboarding/story3.webp",
+  },
+  {
+    id: "yearly-income",
+    shortName: "Yearly Income",
+    title: "You receive income every year",
+    body: "Each year, your farm provides steady income. It's your foundation, reliable but limited. How you use it will decide whether you stay a farmer, or rise beyond.",
+    imageSrc: "/onboarding/story4.webp",
+  },
+  {
+    id: "build-future",
+    shortName: "Build Future",
+    title: "Trade, grow, and build your future",
+    body: "Buy, sell, and adapt as seasons change and fortunes rise and fall. Some choices will reward you, others will test you. Stay patient, think long-term, and one day you may own your dream farm worked not by your hands alone, but by those you employ.",
+    imageSrc: "/onboarding/story5.webp",
+  },
+]
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -664,11 +708,27 @@ function AssetCard({
 // ─── Main Game Page ──────────────────────────────────────────────
 
 function GameContent() {
+  const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionIdParam = searchParams.get("sessionId") as Id<"sessions"> | null
   const gameIdParam = searchParams.get("gameId") as Id<"games"> | null
+  const shouldShowEventOnReturn = searchParams.get("showEvent") === "1"
   const isMobile = useIsMobile()
+
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [onboardingChecked, setOnboardingChecked] = useState(false)
+
+  useEffect(() => {
+    const seen = localStorage.getItem(ONBOARDING_KEY)
+    if (!seen) setShowOnboarding(true)
+    setOnboardingChecked(true)
+  }, [])
+
+  const handleOnboardingComplete = useCallback(() => {
+    localStorage.setItem(ONBOARDING_KEY, "true")
+    setShowOnboarding(false)
+  }, [])
 
   const guestId = getOrCreateGuestId()
   const startGameMutation = useMutation(api.game.startGame)
@@ -697,7 +757,7 @@ function GameContent() {
   const sessionId = sessionIdParam ?? convexGame?.sessionId ?? null
 
   useEffect(() => {
-    if (gameId || isStarting) return
+    if (gameId || isStarting || showOnboarding || !onboardingChecked) return
     if (!sessionIdParam || !sessionData) return
 
     const playerName = localStorage.getItem("debug_playerName") ?? "Player"
@@ -716,7 +776,7 @@ function GameContent() {
     })
       .then((id) => {
         setGameId(id)
-        router.replace(`/game?sessionId=${sessionIdParam}&gameId=${id}`)
+        router.replace(`/dashboard/game?sessionId=${sessionIdParam}&gameId=${id}`)
       })
       .catch((e) => {
         console.error("Failed to start game:", e)
@@ -727,6 +787,8 @@ function GameContent() {
   }, [
     gameId,
     isStarting,
+    showOnboarding,
+    onboardingChecked,
     sessionIdParam,
     sessionData,
     myGameInSession,
@@ -765,6 +827,7 @@ function GameContent() {
   const [activeEvent, setActiveEvent] = useState<GameEvent | null>(null)
   const [isEventPopupOpen, setIsEventPopupOpen] = useState(false)
   const lastSeenStepRef = useRef<number | null>(null)
+  const returnEventHandledRef = useRef(false)
   const eventSeenStorageKey = useMemo(
     () => (gameId ? `trade-tales:event-seen-step:${gameId}` : null),
     [gameId],
@@ -910,6 +973,18 @@ function GameContent() {
   useEffect(() => {
     if (!current) return
 
+    if (shouldShowEventOnReturn && !returnEventHandledRef.current && current.events.length > 0) {
+      setActiveEvent(current.events[0])
+      setIsEventPopupOpen(true)
+      markEventStepSeen(current.step)
+      returnEventHandledRef.current = true
+
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("showEvent")
+      router.replace(`${pathname}?${params.toString()}`)
+      return
+    }
+
     if (lastSeenStepRef.current === null) {
       let initialSeenStep = current.step
 
@@ -941,7 +1016,15 @@ function GameContent() {
     if (current.step > lastSeenStepRef.current) {
       markEventStepSeen(current.step)
     }
-  }, [current, eventSeenStorageKey, markEventStepSeen])
+  }, [
+    current,
+    eventSeenStorageKey,
+    markEventStepSeen,
+    pathname,
+    router,
+    searchParams,
+    shouldShowEventOnReturn,
+  ])
 
   const handleSubmitTrades = useCallback(async () => {
     if (!gameId || isSubmitting || gameOver) return
@@ -963,7 +1046,7 @@ function GameContent() {
       const name = localStorage.getItem("debug_playerName") ?? ""
       if (isFiveYearCheckpoint || isFinalYear) {
         router.push(
-          `/game/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
+          `/dashboard/sessions/${sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
         )
       }
     }
@@ -1010,6 +1093,23 @@ function GameContent() {
   useEffect(() => {
     if (current) prevGoalReached.current = current.goalReached
   })
+
+  if (!onboardingChecked) return null
+
+  if (showOnboarding) {
+    return (
+      <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
+        <StoryPlayer
+          slides={onboardingSlides}
+          autoAdvanceMs={7000}
+          previousAtStartLabel="Back"
+          completeLabel="Start Playing"
+          onPreviousAtStart={() => router.push("/")}
+          onComplete={handleOnboardingComplete}
+        />
+      </main>
+    )
+  }
 
   if (!gameId || !current || !market) {
     return (
@@ -1064,7 +1164,7 @@ function GameContent() {
                     <Badge
                       variant={current.market.regime === "peace" ? "default" : "destructive"}
                       className={cn(
-                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-lg font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full",
+                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-lg font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full bg-[#FFD700] text-black border-none",
                       )}
                     >
                       {current.market.regime === "peace" ? "🕊️ Peace" : "⚔️ War"}
@@ -1349,7 +1449,7 @@ function GameContent() {
                   className="relative h-16 sm:h-20 w-full rounded-2xl bg-green-600 text-xl sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:bg-green-700 hover:scale-[1.02]"
                   onClick={() =>
                     router.push(
-                      `/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
+                      `/dashboard/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
                     )
                   }
                 >
