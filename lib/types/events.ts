@@ -5,10 +5,10 @@ import type { TradableAsset } from "./assets"
 /**
  * Global event types (affect all assets or the overall economy).
  * Real-world ↔ Game-world:
- *   Market crash  → Krieg / Krisen (war / crises)
- *   Theft/fraud   → Diebe (thieves) — steal gold
- *   Plague        → Pest — destroys portion of ALL holdings
- *   Windfall      → Gute Ernte (good harvest) — positive surprise
+ *   Market crash  → War / Economic crisis
+ *   Theft/fraud   → Thieves — steal gold
+ *   Plague        → Plague — destroys portion of ALL holdings
+ *   Windfall      → Good Harvest — positive surprise
  */
 export const GLOBAL_EVENT_TYPES = ["plague", "thieves", "market_crash", "good_harvest"] as const
 export type GlobalEventType = (typeof GLOBAL_EVENT_TYPES)[number]
@@ -16,11 +16,11 @@ export type GlobalEventType = (typeof GLOBAL_EVENT_TYPES)[number]
 /**
  * Per-asset event types (each tradable asset has its own specific risk).
  * Real-world ↔ Game-world:
- *   Wood      → Waldbrand (forest wildfire)
- *   Potatoes  → Ernteausfall (crop failure)
- *   Fish      → Kühlungsausfall (cooling failure)
+ *   Wood      → Fire
+ *   Potatoes  → Mice Infestation
+ *   Fish      → Cooling Failure
  */
-export const ASSET_EVENT_TYPES = ["forest_wildfire", "crop_failure", "cooling_failure"] as const
+export const ASSET_EVENT_TYPES = ["fire", "mice_infestation", "cooling_failure"] as const
 export type AssetEventType = (typeof ASSET_EVENT_TYPES)[number]
 
 /** Union of all event types */
@@ -29,20 +29,20 @@ export type EventType = GlobalEventType | AssetEventType
 
 /** Maps each tradable asset to its specific risk event type */
 export const ASSET_SPECIFIC_EVENT: Record<TradableAsset, AssetEventType> = {
-  wood: "forest_wildfire",
-  potatoes: "crop_failure",
+  wood: "fire",
+  potatoes: "mice_infestation",
   fish: "cooling_failure",
 }
 
 /** Human-readable event names for display */
 export const EVENT_DISPLAY_NAMES: Record<EventType, string> = {
-  plague: "Pest (Plague)",
-  thieves: "Diebe (Thieves)",
-  market_crash: "Krise (Market Crash)",
-  good_harvest: "Gute Ernte (Good Harvest)",
-  forest_wildfire: "Waldbrand (Forest Wildfire)",
-  crop_failure: "Ernteausfall (Crop Failure)",
-  cooling_failure: "Kühlungsausfall (Cooling Failure)",
+  plague: "Plague",
+  thieves: "Thieves",
+  market_crash: "Market Crash",
+  good_harvest: "Good Harvest",
+  fire: "Fire",
+  mice_infestation: "Mice Infestation",
+  cooling_failure: "Cooling Failure",
 }
 
 /** A global event definition configured in the scenario (α) */

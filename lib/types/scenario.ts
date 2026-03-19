@@ -27,8 +27,8 @@ export type MarketParams = {
  * Full scenario configuration (α on the whiteboard).
  *
  * Static parameters that define a game:
- *   Startkapital, Einkommen, Event-Wahrscheinlichkeit,
- *   Asset-Wachstumsrate, Asset-Volatilitäten
+ *   Start capital, Income, Event probabilities,
+ *   Asset growth rates, Asset volatilities
  */
 export type Scenario = {
   id: string
@@ -36,8 +36,10 @@ export type Scenario = {
   description: string
   startCapital: number
   recurringRevenue: number
-  startDate: string
-  endDate: string
+  /** First year of the simulation (e.g. 1400) */
+  startYear: number
+  /** Last year (exclusive) — game ends when year >= endYear */
+  endYear: number
   /** Multiplicative factor for buy price (> 1, e.g. 1.05 = 5 % markup) */
   buyFactor: number
   /** Multiplicative factor for sell price (< 1, e.g. 0.95 = 5 % discount) */
@@ -48,6 +50,8 @@ export type Scenario = {
   inflationVolatility: number
   market: MarketParams
   assets: AssetPricingMap
-  /** Global events that can fire each step (Pest, Diebe, Krise, etc.) */
+  /** Global events that can fire each step (Plague, Thieves, Crisis, etc.) */
   globalEvents: GlobalEventDefinition[]
+  /** Target portfolio value the player must reach (nominal, adjusts with inflation) */
+  goalAmount: number
 }

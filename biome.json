@@ -56,6 +56,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["app/dashboard/debug/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
     }
   ],
   "javascript": {

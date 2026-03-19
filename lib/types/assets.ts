@@ -9,8 +9,8 @@
  *   Mid risk : Aktien     ↔ Potatoes (moderate volatility)
  *   High risk: Bitcoin    ↔ Fish   (high volatility, high potential return)
  *
- * Income (Einkommen) = recurring gold from your Bauernhof (farm)
- * Market phase: Bull/Bear = guter/böser König (good/evil king)
+ * Income = recurring gold from your farm
+ * Market phase: Bull/Bear = good/evil king
  */
 
 export const ASSET_KEYS = ["gold", "wood", "potatoes", "fish"] as const

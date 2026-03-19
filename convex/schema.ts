@@ -28,11 +28,13 @@ const schema = defineSchema({
   gameSteps: defineTable({
     gameId: v.id("games"),
     step: v.number(),
-    date: v.string(),
+    date: v.number(),
     portfolio: portfolioValidator,
     market: marketStateValidator,
     events: v.array(gameEventValidator),
     actions: v.array(playerActionValidator),
+    goal: v.number(),
+    goalReached: v.boolean(),
   })
     .index("by_game", ["gameId"])
     .index("by_game_step", ["gameId", "step"]),
