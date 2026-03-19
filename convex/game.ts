@@ -176,6 +176,8 @@ export const getSessionWithLeaderboard = query({
     const session = await ctx.db.get(args.sessionId)
     if (!session) return null
 
+    const scenario = await ctx.db.get(session.scenarioId)
+
     const games = await ctx.db
       .query("games")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
@@ -205,7 +207,12 @@ export const getSessionWithLeaderboard = query({
     )
 
     return {
-      session,
+      session: {
+        ...session,
+        scenarioName: scenario?.name,
+        scenarioIcon: scenario?.icon,
+        playerCount: games.length,
+      },
       leaderboard: leaderboard
         .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
         .sort((a, b) => b.netWorth - a.netWorth),
@@ -243,6 +250,80 @@ export const listSessionGames = query({
       .query("games")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .collect()
+  },
+})
+
+/** Get the authenticated user's game in a specific session */
+export const getMyGameInSession = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    return await ctx.db
+      .query("games")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .filter((q) => q.eq(q.field("sessionId"), args.sessionId))
+      .first()
+  },
+})
+
+/** Get leaderboard for a specific session at a specific step (year).
+ *  Returns all players' scores at that step, sorted by score descending. */
+export const getStepLeaderboard = query({
+  args: {
+    sessionId: v.id("sessions"),
+    step: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId)
+    if (!session) return null
+
+    // Get all games in this session
+    const games = await ctx.db
+      .query("games")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect()
+
+    // For each game, find the state at the requested step
+    const entries = await Promise.all(
+      games.map(async (game) => {
+        const stepDoc = await ctx.db
+          .query("gameSteps")
+          .withIndex("by_game_step", (q) => q.eq("gameId", game._id).eq("step", args.step))
+          .first()
+
+        if (!stepDoc) return null
+
+        const score = stepDoc.score ?? portfolioValue(stepDoc.portfolio, stepDoc.market)
+
+        return {
+          userId: game.userId,
+          playerName: game.playerName ?? `Player ${game.userId.substring(0, 4)}`,
+          gameId: game._id,
+          step: stepDoc.step,
+          date: stepDoc.date,
+          score,
+          goal: stepDoc.goal,
+          goalReached: stepDoc.goalReached,
+          status: game.status,
+        }
+      }),
+    )
+
+    const leaderboard = entries
+      .filter((e): e is NonNullable<typeof e> => e !== null)
+      .sort((a, b) => b.score - a.score)
+
+    // Compute scenario info for context
+    const scenario = await ctx.db.get(session.scenarioId)
+
+    return {
+      session,
+      scenarioName: scenario?.name ?? "Unknown",
+      step: args.step,
+      leaderboard,
+    }
   },
 })
 
@@ -308,6 +389,7 @@ export const startGame = mutation({
       actions: initialState.actions,
       goal: initialState.goal,
       goalReached: initialState.goalReached,
+      score: portfolioValue(initialState.portfolio, initialState.market),
     })
 
     return gameId
@@ -364,6 +446,9 @@ export const submitStep = mutation({
     // Check if game is over
     const gameOver = isGameOver(scenario, newState)
 
+    // Compute score
+    const score = portfolioValue(newState.portfolio, newState.market)
+
     // Persist new state vector
     await ctx.db.insert("gameSteps", {
       gameId: args.gameId,
@@ -375,6 +460,7 @@ export const submitStep = mutation({
       actions: newState.actions,
       goal: newState.goal,
       goalReached: newState.goalReached,
+      score,
     })
 
     // Update game record
@@ -386,7 +472,7 @@ export const submitStep = mutation({
     return {
       state: newState,
       gameOver,
-      portfolioValue: portfolioValue(newState.portfolio, newState.market),
+      portfolioValue: score,
     }
   },
 })

@@ -1,11 +1,10 @@
 "use client"
 
-import { useConvex, useQuery } from "convex/react"
+import { useConvex, useMutation, useQuery } from "convex/react"
 import { motion } from "framer-motion"
 import {
   ActivityIcon,
   ArrowRightIcon,
-  ImageIcon,
   InfoIcon,
   Loader2Icon,
   PlayIcon,
@@ -13,9 +12,10 @@ import {
   TrophyIcon,
   UsersIcon,
 } from "lucide-react"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Suspense, useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,10 +29,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { fetchLandingQuoteStream } from "@/lib/api/landing"
 import { cn } from "@/lib/utils"
-
-const quoteTopic = "wise farmer strategy for long-term wealth"
 
 function formatTaler(value: number) {
   return `${new Intl.NumberFormat("de-CH").format(Math.round(value))} taler`
@@ -49,21 +46,13 @@ function HomeContent() {
     api.game.getSessionWithLeaderboard,
     sessionId ? { sessionId } : "skip",
   )
+  const myGameInSession = useQuery(api.game.getMyGameInSession, sessionId ? { sessionId } : "skip")
   const isLoaded = !!sessionId && !!sessionData
   const isLoadingSession = !!sessionId && sessionData === undefined
 
   // --- Existing Logic ---
   const [playerName, setPlayerName] = useState("")
   const [nameError, setNameError] = useState("")
-
-  const [quote, setQuote] = useState("")
-  const [quoteError, setQuoteError] = useState("")
-  const [isQuoteLoading, setIsQuoteLoading] = useState(true)
-  const [isTypingQuote, setIsTypingQuote] = useState(false)
-
-  const quoteQueueRef = useRef("")
-  const typewriterIntervalRef = useRef<number | null>(null)
-  const isQuoteLoadingRef = useRef(true)
 
   // --- Multiplayer Logic ---
   const [joinCode, setJoinCode] = useState("")
@@ -74,76 +63,7 @@ function HomeContent() {
     if (savedName) setPlayerName(savedName)
   }, [])
 
-  useEffect(() => {
-    let ignore = false
-
-    function stopTypewriter() {
-      if (typewriterIntervalRef.current !== null) {
-        window.clearInterval(typewriterIntervalRef.current)
-        typewriterIntervalRef.current = null
-      }
-      setIsTypingQuote(false)
-    }
-
-    function startTypewriter() {
-      if (typewriterIntervalRef.current !== null) {
-        return
-      }
-
-      setIsTypingQuote(true)
-      typewriterIntervalRef.current = window.setInterval(() => {
-        const queue = quoteQueueRef.current
-
-        if (!queue) {
-          if (!isQuoteLoadingRef.current) {
-            stopTypewriter()
-          }
-          return
-        }
-
-        const nextCharacter = queue.slice(0, 1)
-        quoteQueueRef.current = queue.slice(1)
-        setQuote((previous) => previous + nextCharacter)
-      }, 18)
-    }
-
-    async function loadLandingContent() {
-      setQuote("")
-      setQuoteError("")
-      setIsQuoteLoading(true)
-      isQuoteLoadingRef.current = true
-      quoteQueueRef.current = ""
-
-      try {
-        await fetchLandingQuoteStream(quoteTopic, (chunk) => {
-          if (ignore) return
-          quoteQueueRef.current += chunk
-          startTypewriter()
-        })
-      } catch (error) {
-        if (ignore) return
-        const message = error instanceof Error ? error.message : "Failed to load landing content"
-        setQuoteError(message)
-        setQuote("Plant patience before dawn, and your barn will outlast the storm.")
-        quoteQueueRef.current = ""
-        stopTypewriter()
-      } finally {
-        if (!ignore) {
-          setIsQuoteLoading(false)
-          isQuoteLoadingRef.current = false
-          if (quoteQueueRef.current.length === 0) stopTypewriter()
-        }
-      }
-    }
-
-    loadLandingContent()
-
-    return () => {
-      ignore = true
-      if (typewriterIntervalRef.current !== null)
-        window.clearInterval(typewriterIntervalRef.current)
-    }
-  }, [])
+  const startGame = useMutation(api.game.startGame)
 
   async function onStartGame() {
     const trimmedName = playerName.trim()
@@ -153,8 +73,24 @@ function HomeContent() {
     }
     localStorage.setItem("debug_playerName", trimmedName)
 
-    if (isLoaded) {
-      router.push(`/dashboard/game?sessionId=${sessionId}`)
+    if (isLoaded && sessionData) {
+      // If we already have a game in this session, just go there
+      if (myGameInSession) {
+        router.push(`/dashboard/game?sessionId=${sessionId}&gameId=${myGameInSession._id}`)
+        return
+      }
+
+      try {
+        const gameId = await startGame({
+          scenarioId: sessionData.session.scenarioId,
+          sessionId: sessionData.session._id,
+          playerName: trimmedName,
+        })
+        router.push(`/dashboard/game?sessionId=${sessionData.session._id}&gameId=${gameId}`)
+      } catch (error) {
+        console.error("Error starting game:", error)
+        alert(error instanceof Error ? error.message : "Failed to start game")
+      }
       return
     }
   }
@@ -185,68 +121,29 @@ function HomeContent() {
   return (
     <main className="min-h-screen bg-[radial-gradient(120%_80%_at_20%_0%,hsl(var(--primary)/0.22)_0%,transparent_50%),linear-gradient(180deg,hsl(var(--secondary)/0.14)_0%,hsl(var(--background))_55%)] px-4 py-6 sm:px-6 sm:py-8">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
-        {/* Quote / Intro Section */}
+        {/* Hero Section */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
         >
-          <Card className="border-primary/20 bg-card/95 shadow-lg backdrop-blur">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-semibold tracking-tight flex items-center justify-between">
-                Wealth Manager Arena
-                {(isLoaded || isLoadingSession) && (
-                  <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
-                    Session {isLoadingSession ? "Loading..." : "Loaded"}
-                  </Badge>
-                )}
+          <Card className="border-primary/20 bg-card/95 shadow-lg backdrop-blur overflow-hidden">
+            <CardHeader className="pb-4 text-center">
+              <CardTitle className="text-3xl font-black tracking-tighter uppercase italic text-primary">
+                Wealth Manager
               </CardTitle>
-              <CardDescription>Learn to invest. Play to understand.</CardDescription>
+              <CardDescription>Master the markets. Build your empire.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative aspect-16/10 w-full overflow-hidden rounded-xl border border-primary/20 bg-muted">
-                <div className="absolute inset-0 bg-linear-to-br from-primary/20 via-secondary/20 to-background" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-foreground/80">
-                  {isLoadingSession ? (
-                    <Loader2Icon className="size-8 animate-spin text-primary" />
-                  ) : (
-                    <>
-                      <ImageIcon className="size-7 text-primary" />
-                      <p className="text-base font-medium">
-                        {isLoaded && sessionData
-                          ? sessionData.session.name
-                          : "Game screenshot preview"}
-                      </p>
-                      <p className="text-xs text-muted-foreground px-8">
-                        {isLoaded
-                          ? "A multiplayer competition is ready for you. Click start to begin your journey."
-                          : "Placeholder image until gameplay capture is ready"}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
-                {isQuoteLoading ? (
-                  <>
-                    <p className="text-base leading-relaxed italic">{quote}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {isTypingQuote
-                        ? "Scribing wisdom from the oracle..."
-                        : "Summoning a wise farmer quote..."}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-base leading-relaxed italic">{quote}</p>
-                    {quoteError ? (
-                      <p className="mt-1 text-xs text-muted-foreground text-[10px]">
-                        LLM fallback active: {quoteError}
-                      </p>
-                    ) : null}
-                  </>
-                )}
+            <CardContent className="pb-6">
+              <div className="relative aspect-16/9 w-full overflow-hidden rounded-xl border border-primary/10 bg-muted/50 shadow-inner">
+                <Image
+                  src="/logo.png"
+                  alt="Wealth Manager Logo"
+                  fill
+                  className="object-contain p-4"
+                  priority
+                  unoptimized
+                />
               </div>
             </CardContent>
           </Card>
@@ -271,19 +168,42 @@ function HomeContent() {
               <div className="flex flex-col">
                 <div className="bg-primary/10 px-6 py-4 border-b border-primary/10">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-bold text-primary">
-                        Session: {sessionData.session.name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground px-0">
-                        Join code:{" "}
-                        <span className="font-mono font-bold">{sessionData.session.joinCode}</span>
-                      </p>
+                    <div className="flex items-center gap-3">
+                      {sessionData.session.scenarioIcon && (
+                        <div className="relative size-10 overflow-hidden rounded-lg border border-primary/20 bg-background shadow-sm">
+                          <Image
+                            src={sessionData.session.scenarioIcon}
+                            alt={sessionData.session.scenarioName || "Scenario Icon"}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-bold text-primary leading-tight">
+                          {sessionData.session.name}
+                        </h3>
+                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">
+                          Scenario: {sessionData.session.scenarioName}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Join code:{" "}
+                          <span className="font-mono font-bold text-foreground">
+                            {sessionData.session.joinCode}
+                          </span>
+                        </p>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="bg-background/50">
-                      <UsersIcon className="mr-1 size-3" />
-                      {sessionData.leaderboard.length}
-                    </Badge>
+                    <div className="text-right flex flex-col items-end gap-1">
+                      <Badge
+                        variant="outline"
+                        className="bg-background/50 border-primary/20 text-primary font-bold"
+                      >
+                        <UsersIcon className="mr-1.5 size-3" />
+                        {sessionData.session.playerCount} Joined
+                      </Badge>
+                    </div>
                   </div>
                 </div>
                 <CardContent className="pt-6 space-y-4">
