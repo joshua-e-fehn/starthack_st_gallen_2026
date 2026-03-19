@@ -74,12 +74,14 @@ const lineConfig = {
   wood: { color: "oklch(0.42 0.07 43)", label: "Wood" },
   potatoes: { color: "oklch(0.56 0.21 33)", label: "Potatoes" },
   fish: { color: "oklch(0.78 0.08 236)", label: "Fish" },
+  totalValue: { color: "oklch(0.72 0.18 150)", label: "Total Value" },
 }
 
 const priceChartConfig = {
   wood: { label: "Wood", color: lineConfig.wood.color },
   potatoes: { label: "Potatoes", color: lineConfig.potatoes.color },
   fish: { label: "Fish", color: lineConfig.fish.color },
+  totalValue: { label: "Total Value", color: lineConfig.totalValue.color },
 } satisfies ChartConfig
 
 function clamp(n: number, min: number, max: number) {
@@ -126,29 +128,49 @@ function mapTradeToY(value: number, height: number, maxBuy: number, maxSell: num
   return center + ratio * center
 }
 
-function MiniPriceGraph({ data }: { data: PriceSnapshot[] }) {
-  const keys: TradableAsset[] = ["wood", "potatoes", "fish"]
+function MiniPriceGraph({
+  data,
+  taler,
+  holdings,
+}: {
+  data: PriceSnapshot[]
+  taler: number
+  holdings: Holdings
+}) {
+  const keys: Array<TradableAsset | "totalValue"> = ["wood", "potatoes", "fish", "totalValue"]
   const [selectedIndex, setSelectedIndex] = useState(Math.max(0, data.length - 1))
 
   useEffect(() => {
     setSelectedIndex(Math.max(0, data.length - 1))
   }, [data.length])
 
-  const safeSelectedIndex = clamp(selectedIndex, 0, Math.max(0, data.length - 1))
-  const selectedPoint = data[safeSelectedIndex]
+  const chartData = useMemo(() => {
+    return data.map((point) => ({
+      ...point,
+      totalValue: roundMoney(
+        taler +
+          holdings.wood * point.wood +
+          holdings.potatoes * point.potatoes +
+          holdings.fish * point.fish,
+      ),
+    }))
+  }, [data, holdings, taler])
+
+  const safeSelectedIndex = clamp(selectedIndex, 0, Math.max(0, chartData.length - 1))
+  const selectedPoint = chartData[safeSelectedIndex]
 
   return (
     <div className="rounded-xl border bg-muted/40 p-3">
       <ChartContainer config={priceChartConfig} className="h-56 w-full">
         <AreaChart
-          data={data}
+          data={chartData}
           onClick={(state) => {
             const activeIndex = state?.activeTooltipIndex
             if (typeof activeIndex === "number") {
               setSelectedIndex(activeIndex)
             }
           }}
-          margin={{ top: 12, right: 10, left: -10, bottom: 0 }}
+          margin={{ top: 12, right: 16, left: -6, bottom: 0 }}
         >
           <defs>
             {keys.map((key) => (
@@ -168,7 +190,23 @@ function MiniPriceGraph({ data }: { data: PriceSnapshot[] }) {
             minTickGap={24}
             tickFormatter={(value) => `Y${value}`}
           />
-          <YAxis tickLine={false} axisLine={false} tickMargin={8} width={42} />
+          <YAxis
+            yAxisId="price"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            width={42}
+            tickFormatter={(value) => value.toLocaleString("de-CH")}
+          />
+          <YAxis
+            yAxisId="portfolio"
+            orientation="right"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            width={68}
+            tickFormatter={(value) => value.toLocaleString("de-CH")}
+          />
           <ChartTooltip
             cursor={{ strokeDasharray: "5 5" }}
             content={
@@ -193,6 +231,8 @@ function MiniPriceGraph({ data }: { data: PriceSnapshot[] }) {
           {selectedPoint ? (
             <ReferenceLine
               x={selectedPoint.step}
+              xAxisId={0}
+              yAxisId="price"
               stroke="currentColor"
               strokeOpacity={0.22}
               strokeDasharray="5 5"
@@ -204,13 +244,14 @@ function MiniPriceGraph({ data }: { data: PriceSnapshot[] }) {
               key={key}
               type="monotone"
               dataKey={key}
+              yAxisId={key === "totalValue" ? "portfolio" : "price"}
               name={lineConfig[key].label}
               stroke={lineConfig[key].color}
-              strokeWidth={2.5}
+              strokeWidth={key === "totalValue" ? 3 : 2.5}
               fill={`url(#fill-${key})`}
-              activeDot={{ r: 6 }}
+              activeDot={{ r: key === "totalValue" ? 7 : 6 }}
               dot={{
-                r: 2.5,
+                r: key === "totalValue" ? 3 : 2.5,
                 strokeWidth: 1.2,
                 fill: lineConfig[key].color,
               }}
@@ -218,6 +259,68 @@ function MiniPriceGraph({ data }: { data: PriceSnapshot[] }) {
           ))}
 
           <ChartLegend content={<ChartLegendContent />} />
+        </AreaChart>
+      </ChartContainer>
+    </div>
+  )
+}
+
+function DrawerAssetHistoryGraph({ data, asset }: { data: PriceSnapshot[]; asset: TradableAsset }) {
+  const assetChartConfig = {
+    [asset]: {
+      label: lineConfig[asset].label,
+      color: lineConfig[asset].color,
+    },
+  } satisfies ChartConfig
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-2">
+      <p className="mb-2 text-xs font-medium text-muted-foreground">Price History</p>
+      <ChartContainer config={assetChartConfig} className="h-36 w-full">
+        <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`drawer-fill-${asset}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={lineConfig[asset].color} stopOpacity={0.42} />
+              <stop offset="95%" stopColor={lineConfig[asset].color} stopOpacity={0.06} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="step"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            minTickGap={18}
+            tickFormatter={(value) => `Y${value}`}
+          />
+          <YAxis tickLine={false} axisLine={false} tickMargin={8} width={42} />
+          <ChartTooltip
+            cursor={{ strokeDasharray: "4 4" }}
+            content={
+              <ChartTooltipContent
+                indicator="dot"
+                labelFormatter={(_, payload) => {
+                  const step = payload?.[0]?.payload?.step
+                  return `Year ${typeof step === "number" ? step : "-"}`
+                }}
+                formatter={(value) => (
+                  <span className="font-mono tabular-nums">
+                    {Number(value).toLocaleString("de-CH")} taler
+                  </span>
+                )}
+              />
+            }
+          />
+          <Area
+            type="monotone"
+            dataKey={asset}
+            name={lineConfig[asset].label}
+            stroke={lineConfig[asset].color}
+            strokeWidth={2.5}
+            fill={`url(#drawer-fill-${asset})`}
+            activeDot={{ r: 5 }}
+            dot={{ r: 2.5, strokeWidth: 1, fill: lineConfig[asset].color }}
+          />
         </AreaChart>
       </ChartContainer>
     </div>
@@ -247,7 +350,6 @@ export default function Game() {
     { step: 3, taler: 1, wood: 11.5, potatoes: 9.4, fish: 14.6 },
     { step: 4, taler: 1, wood: 12.8, potatoes: 10.2, fish: 13.8 },
   ])
-  const [eventLog, setEventLog] = useState<string[]>([])
 
   const [selectedAsset, setSelectedAsset] = useState<TradableAsset | null>(null)
   const [draftTradeValue, setDraftTradeValue] = useState(0)
@@ -402,20 +504,10 @@ export default function Game() {
       fish: roundMoney(Math.max(1, prices.fish * (0.7 + Math.random() * 0.5))),
     }
 
-    const events = [
-      "Good harvest reduced potato volatility this turn.",
-      "River tolls increased fish transport costs.",
-      "Royal lumber demand pushed wood prices up.",
-      "Traveling merchant brought rare fish supply.",
-    ]
-
-    const randomEvent = events[Math.floor(Math.random() * events.length)]
-
     setTaler(roundMoney(nextTaler))
     setHoldings(nextHoldings)
     setPrices(rolledPrices)
     setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
-    setEventLog((previous) => [`Year ${priceHistory.length + 1}: ${randomEvent}`, ...previous])
     setPriceHistory((previous) => [
       ...previous,
       {
@@ -516,7 +608,7 @@ export default function Game() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <MiniPriceGraph data={priceHistory} />
+            <MiniPriceGraph data={priceHistory} taler={taler} holdings={holdings} />
           </CardContent>
         </Card>
 
@@ -590,6 +682,12 @@ export default function Game() {
                 </div>
               </div>
             </div>
+
+            {selectedAsset ? (
+              <div className="mb-4">
+                <DrawerAssetHistoryGraph data={priceHistory} asset={selectedAsset} />
+              </div>
+            ) : null}
 
             <div className="mb-4 space-y-3">
               <button
