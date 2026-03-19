@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Suspense } from "react"
+import { Suspense, useEffect, useRef } from "react"
 import { ScenarioViewer } from "@/components/organisms/scenario-viewer"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -47,6 +47,8 @@ function DashboardContent() {
   const searchParams = useSearchParams()
   const { data: session } = authClient.useSession()
   const sessionId = searchParams.get("sessionId") as Id<"sessions"> | null
+  const focus = searchParams.get("focus")
+  const scenariosSectionRef = useRef<HTMLDivElement>(null)
 
   // Queries
   const sessionData = useQuery(
@@ -64,6 +66,16 @@ function DashboardContent() {
     await authClient.signOut()
     router.push("/")
   }
+
+  useEffect(() => {
+    if (sessionId || focus !== "scenarios") return
+
+    const timeout = setTimeout(() => {
+      scenariosSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 50)
+
+    return () => clearTimeout(timeout)
+  }, [focus, sessionId])
 
   return (
     <div className="flex flex-1 flex-col gap-8 p-4 md:p-8 pt-0">
@@ -369,7 +381,7 @@ function DashboardContent() {
           </div>
 
           {/* Scenarios Section */}
-          <div className="space-y-4">
+          <div id="scenarios" ref={scenariosSectionRef} className="space-y-4 scroll-mt-24">
             <div>
               <h2 className="text-2xl font-bold tracking-tight">Scenario Templates</h2>
               <p className="text-muted-foreground text-sm">

@@ -16,7 +16,7 @@ export default function CreateScenarioPage() {
     setIsCreating(true)
     try {
       await createScenario(formattedData)
-      router.push("/dashboard/scenarios")
+      router.push("/dashboard?focus=scenarios")
     } catch (error) {
       console.error("Error creating scenario:", error)
       alert("Failed to create scenario.")

@@ -71,7 +71,7 @@ export default function CreateSessionPage() {
                   variant="ghost"
                   size="sm"
                   className="h-6 px-2 text-[10px] uppercase tracking-wider text-muted-foreground"
-                  onClick={() => router.push("/dashboard/scenarios")}
+                  onClick={() => router.push("/dashboard?focus=scenarios")}
                 >
                   Manage
                 </Button>
@@ -131,9 +131,7 @@ export default function CreateSessionPage() {
                           </div>
                         )}
                       </div>
-                      <span className="max-w-[100px] truncate text-xs font-medium">
-                        {scenario.name}
-                      </span>
+                      <span className="max-w-25 truncate text-xs font-medium">{scenario.name}</span>
                     </button>
                   ))}
                 </div>
