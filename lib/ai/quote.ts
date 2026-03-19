@@ -11,7 +11,7 @@ export async function* generateGeminiResponseStream({
   temperature?: number
 }): AsyncGenerator<string> {
   const ai = getGeminiClient()
-  const model = process.env.GEMINI_MODEL ?? "gemini-flash-latest"
+  const model = process.env.GEMINI_MODEL ?? "gemini-flash-lite-latest"
 
   const response = await ai.models.generateContentStream({
     model,
