@@ -1,6 +1,6 @@
 "use client"
 
-import { Minus, Plus, RotateCcw } from "lucide-react"
+import { ArrowDown, ArrowUp, Minus, Plus, RotateCcw } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -281,6 +281,13 @@ export default function Game() {
     return roundMoney(taler - tradeCostExcludingSelected - selectedTradeCost)
   }, [currentTradeClamp, selectedPrice, taler, tradeCostExcludingSelected])
   const projectedTalerDelta = roundMoney(projectedTalerBalance - taler)
+  const plannedTalerDelta = useMemo(() => {
+    const plannedTradeCost = (Object.keys(tradePlan) as TradableAsset[]).reduce((sum, asset) => {
+      return sum + tradePlan[asset] * priceForAsset(prices, asset)
+    }, 0)
+
+    return roundMoney(-plannedTradeCost)
+  }, [prices, tradePlan])
   const selectedAssetColor = selectedAsset
     ? lineConfig[selectedAsset].color
     : "oklch(0.62 0.14 228)"
@@ -386,14 +393,14 @@ export default function Game() {
           {goodsMeta.map((meta) => {
             const value = totalAssetValue[meta.key]
             const opacity = value / maxAssetValue
-            const plannedTrade =
+            const tradeDelta = meta.key === "taler" ? plannedTalerDelta : tradePlan[meta.key]
+            const hasTradeDelta = tradeDelta !== 0
+            const isTradeDeltaPositive = tradeDelta > 0
+            const tradeDeltaLabel =
               meta.key === "taler"
-                ? null
-                : tradePlan[meta.key] === 0
-                  ? null
-                  : tradePlan[meta.key] > 0
-                    ? `+${tradePlan[meta.key]}`
-                    : String(tradePlan[meta.key])
+                ? `${isTradeDeltaPositive ? "+" : ""}${roundMoney(tradeDelta).toLocaleString("de-CH")}`
+                : `${isTradeDeltaPositive ? "+" : ""}${tradeDelta}`
+            const tradeDeltaColor = lineConfig[meta.key].color
 
             return (
               <button
@@ -419,6 +426,17 @@ export default function Game() {
                     style={{ height: `${Math.max(20, opacity * 100)}%` }}
                   />
 
+                  {hasTradeDelta ? (
+                    <div className="absolute top-2 right-2 z-20 flex items-center gap-1 rounded-md bg-background/85 px-2 py-1 text-xs font-semibold shadow-sm">
+                      {isTradeDeltaPositive ? (
+                        <ArrowUp className="size-3.5" style={{ color: tradeDeltaColor }} />
+                      ) : (
+                        <ArrowDown className="size-3.5" style={{ color: tradeDeltaColor }} />
+                      )}
+                      <span style={{ color: tradeDeltaColor }}>{tradeDeltaLabel}</span>
+                    </div>
+                  ) : null}
+
                   {/* Content layer - icon and text on top */}
                   <div className="absolute inset-0 flex w-full items-end justify-center">
                     <div className="flex flex-col items-center w-full py-3 pb-3">
@@ -435,15 +453,10 @@ export default function Game() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-1 space-y-0.5">
+                <div className="mt-1">
                   <p className="text-sm text-center font-medium">
                     {value.toLocaleString("de-CH")} Talers
                   </p>
-                  {plannedTrade ? (
-                    <p className="text-xs font-medium text-primary">
-                      Planned trade: {plannedTrade}
-                    </p>
-                  ) : null}
                 </div>
               </button>
             )
