@@ -1,10 +1,16 @@
 "use client"
 
-import { useCallback, useState } from "react"
-
+import { useCallback, useMemo, useState } from "react"
+import { Area, CartesianGrid, ComposedChart, Legend, Line, XAxis, YAxis } from "recharts"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -28,6 +34,7 @@ import {
   resolveEvents,
   stepMarket,
 } from "@/lib/game/engine"
+import { runMonteCarloSimulations } from "@/lib/game/monte-carlo"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { Portfolio, TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
@@ -104,6 +111,424 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="text-sm font-semibold tracking-tight">{children}</h3>
 }
 
+// ─── Chart configuration ─────────────────────────────────────────
+
+const chartConfig = {
+  netWorth: {
+    label: "Net Worth",
+    color: "var(--chart-1)",
+  },
+  goal: {
+    label: "Goal",
+    color: "var(--chart-3)",
+  },
+  market: {
+    label: "Market Index",
+    color: "var(--chart-2)",
+  },
+} satisfies ChartConfig
+
+/** Compute chart data from game history */
+function buildChartData(history: StateVector[], scenario: Scenario) {
+  // Get initial market value for normalizing the market index
+  const initial = history[0]
+  const initialMarketSum = TRADABLE_ASSET_KEYS.reduce(
+    (sum, asset) => sum + nominalPrice(initial.market.prices[asset], initial.market.inflation),
+    0,
+  )
+  // Scale factor: normalize market index so it starts at the same value as starting capital
+  const marketScale = initialMarketSum > 0 ? scenario.startCapital / initialMarketSum : 1
+
+  return history.map((state) => {
+    const netWorth = portfolioValue(state.portfolio, state.market)
+    const marketSum = TRADABLE_ASSET_KEYS.reduce(
+      (sum, asset) => sum + nominalPrice(state.market.prices[asset], state.market.inflation),
+      0,
+    )
+    return {
+      year: state.date,
+      netWorth: Math.round(netWorth * 100) / 100,
+      goal: Math.round(state.goal * 100) / 100,
+      market: Math.round(marketSum * marketScale * 100) / 100,
+    }
+  })
+}
+
+function PerformanceChart({ history, scenario }: { history: StateVector[]; scenario: Scenario }) {
+  const data = buildChartData(history, scenario)
+
+  if (data.length < 2) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Performance Over Time</CardTitle>
+          <CardDescription>Play at least one year to see the chart.</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Performance Over Time</CardTitle>
+        <CardDescription>
+          Portfolio net worth vs inflation-adjusted goal vs market index
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={chartConfig} className="h-[350px] w-full">
+          <ComposedChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="year"
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) => String(v)}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) =>
+                v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))
+              }
+            />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  formatter={(value) => (
+                    <span className="font-mono">
+                      {typeof value === "number" ? value.toLocaleString() : value} gold
+                    </span>
+                  )}
+                />
+              }
+            />
+            <Legend />
+            <Area
+              type="monotone"
+              dataKey="netWorth"
+              name="Net Worth"
+              fill="var(--color-netWorth)"
+              fillOpacity={0.1}
+              stroke="var(--color-netWorth)"
+              strokeWidth={2.5}
+            />
+            <Line
+              type="monotone"
+              dataKey="goal"
+              name="Goal"
+              stroke="var(--color-goal)"
+              strokeWidth={2}
+              strokeDasharray="6 3"
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="market"
+              name="Market Index"
+              stroke="var(--color-market)"
+              strokeWidth={1.5}
+              strokeDasharray="3 3"
+              dot={false}
+              opacity={0.7}
+            />
+          </ComposedChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Monte Carlo chart ───────────────────────────────────────────
+
+const mcChartConfig = {
+  p10_p90: {
+    label: "P10–P90 range",
+    color: "var(--chart-4)",
+  },
+  p25_p75: {
+    label: "P25–P75 range",
+    color: "var(--chart-4)",
+  },
+  p50: {
+    label: "Median (P50)",
+    color: "var(--chart-4)",
+  },
+  actual: {
+    label: "Your Path",
+    color: "var(--chart-1)",
+  },
+  goal: {
+    label: "Goal",
+    color: "var(--chart-3)",
+  },
+} satisfies ChartConfig
+
+const NUM_SIMS = 100
+
+function MonteCarloChart({ history, scenario }: { history: StateVector[]; scenario: Scenario }) {
+  const mcData = useMemo(
+    () => runMonteCarloSimulations(history, scenario, NUM_SIMS),
+    [history, scenario],
+  )
+
+  if (mcData.length < 2) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Monte Carlo Simulation</CardTitle>
+          <CardDescription>Play at least one year to see the simulation.</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  // Transform data for stacked area bands
+  // Recharts stacked areas need the *delta* between bands, not absolute values
+  const bandData = mcData.map((d) => ({
+    year: d.year,
+    // Base (invisible) — bottom of the fan
+    base: d.p10,
+    // P10→P25 band
+    band_10_25: d.p25 - d.p10,
+    // P25→P75 band (IQR)
+    band_25_75: d.p75 - d.p25,
+    // P75→P90 band
+    band_75_90: d.p90 - d.p75,
+    // Lines (absolute)
+    p50: d.p50,
+    actual: d.actual,
+    goal: d.goal,
+  }))
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Monte Carlo Simulation ({NUM_SIMS} runs)</CardTitle>
+        <CardDescription>
+          What could have happened with your same strategy but different market outcomes. Shaded
+          bands show the P10–P90 and P25–P75 ranges. Bold line is your actual path.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={mcChartConfig} className="h-[400px] w-full">
+          <ComposedChart data={bandData} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="year"
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) => String(v)}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) =>
+                v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))
+              }
+            />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  formatter={(value, name) => {
+                    // Hide the stacking helper fields
+                    if (
+                      name === "base" ||
+                      name === "band_10_25" ||
+                      name === "band_25_75" ||
+                      name === "band_75_90"
+                    )
+                      return null
+                    return (
+                      <span className="font-mono">
+                        {typeof value === "number" ? value.toLocaleString() : value} gold
+                      </span>
+                    )
+                  }}
+                />
+              }
+            />
+            <Legend
+              formatter={(value: string) => {
+                const labels: Record<string, string> = {
+                  base: "",
+                  band_10_25: "P10–P90 range",
+                  band_25_75: "P25–P75 range",
+                  band_75_90: "",
+                  p50: "Median (P50)",
+                  actual: "Your Path",
+                  goal: "Goal",
+                }
+                return labels[value] ?? value
+              }}
+            />
+
+            {/* Invisible base to position the bands correctly */}
+            <Area
+              type="monotone"
+              dataKey="base"
+              stackId="band"
+              fill="transparent"
+              stroke="transparent"
+              legendType="none"
+            />
+            {/* P10→P25 band (outer) */}
+            <Area
+              type="monotone"
+              dataKey="band_10_25"
+              stackId="band"
+              fill="var(--color-p10_p90)"
+              fillOpacity={0.1}
+              stroke="transparent"
+              name="band_10_25"
+              legendType="none"
+            />
+            {/* P25→P75 band (inner / IQR) */}
+            <Area
+              type="monotone"
+              dataKey="band_25_75"
+              stackId="band"
+              fill="var(--color-p25_p75)"
+              fillOpacity={0.2}
+              stroke="transparent"
+              name="band_25_75"
+              legendType="none"
+            />
+            {/* P75→P90 band (outer) */}
+            <Area
+              type="monotone"
+              dataKey="band_75_90"
+              stackId="band"
+              fill="var(--color-p10_p90)"
+              fillOpacity={0.1}
+              stroke="transparent"
+              name="band_75_90"
+              legendType="none"
+            />
+
+            {/* Median line */}
+            <Line
+              type="monotone"
+              dataKey="p50"
+              name="p50"
+              stroke="var(--color-p50)"
+              strokeWidth={1.5}
+              strokeDasharray="4 2"
+              dot={false}
+              opacity={0.6}
+            />
+            {/* Actual player path */}
+            <Line
+              type="monotone"
+              dataKey="actual"
+              name="actual"
+              stroke="var(--color-actual)"
+              strokeWidth={2.5}
+              dot={false}
+            />
+            {/* Goal line */}
+            <Line
+              type="monotone"
+              dataKey="goal"
+              name="goal"
+              stroke="var(--color-goal)"
+              strokeWidth={2}
+              strokeDasharray="6 3"
+              dot={false}
+            />
+          </ComposedChart>
+        </ChartContainer>
+
+        {/* Summary stats */}
+        {mcData.length > 1 && (
+          <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-5">
+            {(() => {
+              const last = mcData[mcData.length - 1]
+              return (
+                <>
+                  <div className="text-center">
+                    <p className="text-muted-foreground text-xs">P10 (worst 10%)</p>
+                    <p className="font-mono text-sm font-semibold">{last.p10.toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-muted-foreground text-xs">P25</p>
+                    <p className="font-mono text-sm font-semibold">{last.p25.toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-muted-foreground text-xs">Median (P50)</p>
+                    <p className="font-mono text-sm font-semibold">{last.p50.toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-muted-foreground text-xs">P75</p>
+                    <p className="font-mono text-sm font-semibold">{last.p75.toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-muted-foreground text-xs">P90 (best 10%)</p>
+                    <p className="font-mono text-sm font-semibold">{last.p90.toLocaleString()}</p>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Strategy: target allocation (buy-only rebalancing) ──────
+
+/** Compute buy-only actions to move portfolio toward target allocation percentages */
+function computeStrategyActions(
+  portfolio: Portfolio,
+  market: MarketState,
+  targetPcts: { gold: number; wood: number; potatoes: number; fish: number },
+): PlayerAction[] {
+  const total = portfolioValue(portfolio, market)
+  const actions: PlayerAction[] = []
+  const sumPcts = targetPcts.gold + targetPcts.wood + targetPcts.potatoes + targetPcts.fish
+  if (sumPcts <= 0) return actions
+
+  // How much gold to keep as cash based on target gold %
+  const goldTarget = total * (targetPcts.gold / sumPcts)
+  const spendableGold = Math.max(0, portfolio.gold - goldTarget)
+  if (spendableGold <= 0) return actions
+
+  // Calculate deficit for each tradable asset vs target allocation
+  const deficits: { asset: TradableAsset; deficit: number }[] = []
+  let totalDeficit = 0
+
+  for (const asset of TRADABLE_ASSET_KEYS) {
+    const assetPct = targetPcts[asset] / sumPcts
+    const targetValue = total * assetPct
+    const currentValue = portfolio[asset] * sellPrice(market.prices[asset], market.inflation)
+    const deficit = Math.max(0, targetValue - currentValue)
+    if (deficit > 0) {
+      deficits.push({ asset, deficit })
+      totalDeficit += deficit
+    }
+  }
+
+  if (totalDeficit <= 0) return actions
+
+  // Allocate spendable gold proportionally to deficits
+  let remainingGold = spendableGold
+  for (const { asset, deficit } of deficits) {
+    if (remainingGold <= 0) break
+    const allocatedGold = spendableGold * (deficit / totalDeficit)
+    const bp = buyPrice(market.prices[asset], market.inflation)
+    if (bp <= 0) continue
+    const qty = Math.floor(Math.min(allocatedGold, remainingGold) / bp)
+    if (qty > 0) {
+      actions.push({ type: "buy", asset, quantity: qty })
+      remainingGold -= qty * bp
+    }
+  }
+
+  return actions
+}
+
 export default function DebugPage() {
   const [scenario, setScenario] = useState<Scenario>(() => structuredClone(DEBUG_SCENARIO))
   const [history, setHistory] = useState<StateVector[]>(() => [initializeGame(scenario)])
@@ -117,6 +542,9 @@ export default function DebugPage() {
 
   // ─── Step-by-step phase state ───────────────────────────────
   const [phaseState, setPhaseState] = useState<PhaseState>({ phase: "trade" })
+
+  // ─── Strategy auto-run ──────────────────────────────────────
+  const [strategyAlloc, setStrategyAlloc] = useState({ gold: 20, wood: 30, potatoes: 30, fish: 20 })
 
   const current = history[history.length - 1]
   const gameOver = isGameOver(scenario, current)
@@ -332,6 +760,23 @@ export default function DebugPage() {
     [current, history, scenario],
   )
 
+  /** Auto-run with target allocation strategy (buy-only rebalancing) */
+  const handleAutoRunStrategy = useCallback(
+    (steps: number) => {
+      let state = current
+      const newHistory = [...history]
+      for (let i = 0; i < steps; i++) {
+        if (isGameOver(scenario, state)) break
+        const actions = computeStrategyActions(state.portfolio, state.market, strategyAlloc)
+        state = gameStep(scenario, state, actions)
+        newHistory.push(state)
+      }
+      setHistory(newHistory)
+      setPhaseState({ phase: "trade" })
+    },
+    [current, history, scenario, strategyAlloc],
+  )
+
   const fmt = (n: number) => n.toFixed(2)
 
   return (
@@ -379,12 +824,92 @@ export default function DebugPage() {
         </div>
       </div>
 
+      {/* Strategy auto-run */}
+      <Card>
+        <CardContent className="flex flex-wrap items-end gap-3 py-3">
+          <SectionTitle>Target Allocation</SectionTitle>
+          <div className="flex items-center gap-1">
+            <Label className="text-muted-foreground w-14 text-xs">Gold %</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={strategyAlloc.gold}
+              onChange={(e) =>
+                setStrategyAlloc((prev) => ({ ...prev, gold: Number(e.target.value) || 0 }))
+              }
+              className="h-8 w-16 font-mono text-xs"
+            />
+          </div>
+          {TRADABLE_ASSET_KEYS.map((asset) => (
+            <div key={asset} className="flex items-center gap-1">
+              <Label className="text-muted-foreground w-14 text-xs">
+                {asset === "wood" ? "🪵" : asset === "potatoes" ? "🥔" : "🐟"}{" "}
+                {asset.charAt(0).toUpperCase() + asset.slice(1)} %
+              </Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={strategyAlloc[asset]}
+                onChange={(e) =>
+                  setStrategyAlloc((prev) => ({
+                    ...prev,
+                    [asset]: Number(e.target.value) || 0,
+                  }))
+                }
+                className="h-8 w-16 font-mono text-xs"
+              />
+            </div>
+          ))}
+          <span
+            className={`font-mono text-xs ${
+              strategyAlloc.gold +
+                strategyAlloc.wood +
+                strategyAlloc.potatoes +
+                strategyAlloc.fish ===
+              100
+                ? "text-muted-foreground"
+                : "text-destructive font-bold"
+            }`}
+          >
+            Σ{" "}
+            {strategyAlloc.gold + strategyAlloc.wood + strategyAlloc.potatoes + strategyAlloc.fish}%
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleAutoRunStrategy(1)}
+            disabled={gameOver}
+          >
+            Strategy +1
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleAutoRunStrategy(5)}
+            disabled={gameOver}
+          >
+            Strategy +5
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => handleAutoRunStrategy(100)}
+            disabled={gameOver}
+          >
+            Strategy to End
+          </Button>
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="step-by-step">
         <TabsList>
           <TabsTrigger value="step-by-step">Step-by-Step</TabsTrigger>
           <TabsTrigger value="state">Current State</TabsTrigger>
           <TabsTrigger value="actions">Quick Actions</TabsTrigger>
           <TabsTrigger value="history">History ({history.length})</TabsTrigger>
+          <TabsTrigger value="charts">Charts</TabsTrigger>
           <TabsTrigger value="scenario">Scenario Config</TabsTrigger>
         </TabsList>
 
@@ -1322,6 +1847,12 @@ export default function DebugPage() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ─── Charts Tab ──────────────────────────────────────── */}
+        <TabsContent value="charts" className="space-y-4">
+          <PerformanceChart history={history} scenario={scenario} />
+          <MonteCarloChart history={history} scenario={scenario} />
         </TabsContent>
 
         {/* ─── Scenario Config Tab (editable) ──────────────────────── */}

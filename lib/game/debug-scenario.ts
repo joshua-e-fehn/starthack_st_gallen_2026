@@ -17,10 +17,10 @@ export const DEBUG_SCENARIO: Scenario = {
   inflationReturn: 0.02, // 2% per year
   inflationVolatility: 0.01,
   market: {
-    bearToBullProbability: 0.15,
+    bearToBullProbability: 0.25,
     bullToBearProbability: 0.1,
     bullReturn: 0.08, // 8% per year in bull
-    bearReturn: -0.12, // -12% per year in bear
+    bearReturn: -0.06, // -6% per year in bear
     bullVolatility: 0.05,
     bearVolatility: 0.05,
   },
