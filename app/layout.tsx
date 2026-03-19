@@ -34,9 +34,7 @@ export default async function RootLayout({
       <body>
         <ConvexClientProvider initialToken={token}>
           <QueryProvider>
-            <ThemeProvider>
-              <AuthGuard>{children}</AuthGuard>
-            </ThemeProvider>
+            <ThemeProvider>{children}</ThemeProvider>
           </QueryProvider>
         </ConvexClientProvider>
       </body>
