@@ -36,13 +36,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -55,7 +48,7 @@ import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
 import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
 import type { StorySlide } from "@/lib/types/onboarding"
 import type { StateVector } from "@/lib/types/state_vector"
-import { clamp } from "@/lib/utils"
+import { clamp, cn } from "@/lib/utils"
 
 // ─── Constants ───────────────────────────────────────────────────
 
@@ -160,23 +153,17 @@ function formatTaler(n: number) {
 
 /**
  * Maps a pixel coordinate (X) within the trade bar width to a trade quantity.
- * Middle (width/2) is 0. Left (0) is -maxSell. Right (width) is maxBuy.
  */
 function mapXToTrade(x: number, width: number, maxBuy: number, maxSell: number): number {
   const mid = width / 2
   if (x <= mid) {
-    // 0 to mid maps to [-maxSell, 0]
     const progress = x / mid
     return Math.round((progress - 1) * maxSell)
   }
-  // mid to width maps to [0, maxBuy]
   const progress = (x - mid) / mid
   return Math.round(progress * maxBuy)
 }
 
-/**
- * Maps a trade quantity back to a pixel coordinate (X).
- */
 function mapTradeToX(trade: number, width: number, maxBuy: number, maxSell: number): number {
   const mid = width / 2
   if (trade >= 0) {
@@ -332,6 +319,172 @@ function AssetCard({
     setTradePlan((prev) => ({ ...prev, [assetKey]: val }))
   }
 
+  if (isMobile) {
+    return (
+      <Card
+        className={cn(
+          "overflow-hidden border-2 transition-all",
+          isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50",
+        )}
+        style={{ backgroundColor: `${assetColor}15` }}
+      >
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            {/* Left: Icon */}
+            <div className="rounded-xl p-2 bg-white shadow-sm flex-shrink-0">
+              <Image src={meta.icon} alt="" width={32} height={32} className="object-contain" />
+            </div>
+
+            {/* Middle: Info & Slider */}
+            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase truncate">{meta.name}</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 text-[9px] font-bold text-muted-foreground">
+                    <Image src="/asset-classes/taler.webp" alt="" width={8} height={8} />
+                    <span>{formatTaler(sPrice)}</span>
+                    <span className="mx-0.5 opacity-30">|</span>
+                    <span>{projectedPortfolio[assetKey]} Units</span>
+                  </div>
+                  <div style={{ color: isUp ? "#16a34a" : "#dc2626" }}>
+                    {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                  </div>
+                </div>
+              </div>
+
+              {!gameOver && (
+                <div className="flex flex-col gap-1">
+                  <div
+                    ref={tradeBarRef}
+                    className="relative h-8 rounded-full border-2 border-white/60 bg-white/40 shadow-inner overflow-hidden touch-none"
+                    onPointerDown={(e) => {
+                      setIsDragging(true)
+                      onPointerUpdate(e.clientX)
+                    }}
+                    onPointerMove={(e) => {
+                      if (isDragging) onPointerUpdate(e.clientX)
+                    }}
+                    onPointerUp={() => setIsDragging(false)}
+                    onPointerLeave={() => setIsDragging(false)}
+                  >
+                    <div className="absolute inset-0 flex">
+                      <div className="w-1/2 h-full bg-linear-to-r from-rose-500/10 to-transparent" />
+                      <div className="w-1/2 h-full bg-linear-to-l from-emerald-500/10 to-transparent" />
+                    </div>
+                    <div className="absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 bg-black/10" />
+
+                    {/* Handle */}
+                    <motion.div
+                      className="absolute top-1/2 z-20 h-7 w-7 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white bg-white shadow-md flex items-center justify-center"
+                      style={{ left: `${mapTradeToX(tradeQty, 100, maxBuy, maxSell)}%` }}
+                      animate={{ scale: isDragging ? 1.15 : 1 }}
+                    >
+                      <div
+                        className="absolute inset-0.5 rounded-full"
+                        style={{ backgroundColor: assetColor }}
+                      />
+                    </motion.div>
+
+                    {/* Text Overlay */}
+                    {tradeQty !== 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span
+                          className={cn(
+                            "text-[9px] font-black",
+                            tradeQty > 0 ? "text-emerald-700" : "text-rose-700",
+                          )}
+                        >
+                          {tradeQty > 0 ? "+" : ""}
+                          {tradeQty}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-between items-center px-1.5">
+                    <span className="text-[7px] font-black uppercase tracking-widest text-rose-600/60">
+                      Sell
+                    </span>
+                    <span className="text-[7px] font-black uppercase tracking-widest text-emerald-600/60">
+                      Buy
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right: Expand Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 rounded-full flex-shrink-0"
+              onClick={() => setExpandedAsset(isExpanded ? null : assetKey)}
+            >
+              {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+            </Button>
+          </div>
+
+          <AnimatePresence>
+            {isExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="mt-3 space-y-3 pt-3 border-t border-black/5"
+              >
+                <AssetHistoryGraph history={history} asset={assetKey} />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-white/60 rounded-xl p-2 flex flex-col gap-1 border border-white/80">
+                    <span className="text-[8px] font-black uppercase text-muted-foreground">
+                      Buy Price
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Image src="/asset-classes/taler.webp" alt="" width={10} height={10} />
+                      <span className="text-xs font-black">{formatTaler(bPrice)}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/60 rounded-xl p-2 flex flex-col gap-1 border border-white/80">
+                    <span className="text-[8px] font-black uppercase text-muted-foreground">
+                      Sell Price
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Image src="/asset-classes/taler.webp" alt="" width={10} height={10} />
+                      <span className="text-xs font-black">{formatTaler(sPrice)}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/60 rounded-xl p-2 flex flex-col gap-1 border border-white/80">
+                    <span className="text-[8px] font-black uppercase text-muted-foreground">
+                      Position Value
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Image src="/asset-classes/taler.webp" alt="" width={10} height={10} />
+                      <span className="text-xs font-black text-primary">
+                        {formatTaler(projectedPortfolio[assetKey] * sPrice)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="bg-white/60 rounded-xl p-2 flex flex-col gap-1 border border-white/80">
+                    <span className="text-[8px] font-black uppercase text-muted-foreground">
+                      Total Units
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <div
+                        className="size-2.5 rounded-full"
+                        style={{ backgroundColor: assetColor }}
+                      />
+                      <span className="text-xs font-black">
+                        {projectedPortfolio[assetKey]} Units
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card
       className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50"}`}
@@ -436,80 +589,6 @@ function AssetCard({
               </Button>
             </div>
           </div>
-
-          {isMobile && !gameOver && (
-            <div className="space-y-3 pt-2 border-t border-black/5">
-              <div className="flex justify-between items-end px-1">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase opacity-50">Sell Mode</span>
-                  <span className="text-xs font-bold text-rose-600">-{maxSell} Max</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">
-                    Trade Plan
-                  </span>
-                  <span
-                    className={`text-xl font-black tabular-nums ${tradeQty > 0 ? "text-green-600" : tradeQty < 0 ? "text-rose-600" : ""}`}
-                  >
-                    {tradeQty > 0 ? "+" : ""}
-                    {tradeQty}
-                  </span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-[9px] font-black uppercase opacity-50">Buy Mode</span>
-                  <span className="text-xs font-bold text-green-600">+{maxBuy} Max</span>
-                </div>
-              </div>
-
-              <div
-                ref={tradeBarRef}
-                className="relative h-12 rounded-2xl border-2 border-white/60 bg-white/40 shadow-inner overflow-hidden touch-none"
-                onPointerDown={(e) => {
-                  setIsDragging(true)
-                  onPointerUpdate(e.clientX)
-                }}
-                onPointerMove={(e) => {
-                  if (isDragging) onPointerUpdate(e.clientX)
-                }}
-                onPointerUp={() => setIsDragging(false)}
-                onPointerLeave={() => setIsDragging(false)}
-              >
-                <div className="absolute inset-0 flex">
-                  <div className="w-1/2 h-full bg-linear-to-r from-rose-500/10 to-transparent" />
-                  <div className="w-1/2 h-full bg-linear-to-l from-emerald-500/10 to-transparent" />
-                </div>
-                <div className="absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 bg-black/10" />
-                <motion.div
-                  className="absolute top-1/2 z-20 h-10 w-10 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white bg-white shadow-lg flex items-center justify-center"
-                  style={{ left: `${mapTradeToX(tradeQty, 100, maxBuy, maxSell)}%` }}
-                  animate={{ scale: isDragging ? 1.1 : 1 }}
-                >
-                  <div
-                    className="absolute inset-1 rounded-full shadow-inner"
-                    style={{ backgroundColor: assetColor }}
-                  />
-                </motion.div>
-              </div>
-
-              <div className="flex justify-between items-center px-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-[10px] font-black"
-                  onClick={() => setTradePlan((p) => ({ ...p, [assetKey]: 0 }))}
-                >
-                  <RotateCcw className="size-3 mr-1" /> RESET
-                </Button>
-                <span className="text-[10px] font-bold opacity-60">
-                  {tradeQty !== 0
-                    ? tradeQty > 0
-                      ? `Cost: ${formatTaler(tradeQty * bPrice)}`
-                      : `Gain: ${formatTaler(Math.abs(tradeQty) * sPrice)}`
-                    : "No change"}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
 
         <AnimatePresence>
@@ -724,6 +803,7 @@ function GameContent() {
   const scenario = useMemo(() => {
     if (!convexScenario) return null
     const { _id, _creationTime, ...rest } = convexScenario
+    // biome-ignore lint/suspicious/noExplicitAny: shape match
     return { id: _id, ...rest } as any
   }, [convexScenario])
 
@@ -887,129 +967,190 @@ function GameContent() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+    <main className={cn("mx-auto w-full max-w-5xl px-4 py-4 sm:px-6", isMobile && "space-y-4")}>
       <TooltipProvider>
-        <div className="space-y-8">
+        <div className="space-y-6 lg:space-y-8">
           {/* 1. Combined Header & Overview Section */}
-          <div className="relative overflow-hidden rounded-[2.5rem] border-4 border-muted bg-[#F9F8F3] p-8 shadow-xl">
-            <div className="relative z-10 flex flex-col gap-10">
+          <div
+            className={cn(
+              "relative overflow-hidden",
+              isMobile
+                ? "bg-transparent p-0 border-none shadow-none"
+                : "rounded-[2.5rem] border-4 border-muted bg-[#F9F8F3] p-8 shadow-xl",
+            )}
+          >
+            <div className="relative z-10 flex flex-col gap-6 lg:gap-10">
               {/* Top Row: Timeline, Assets Grid, Donut Chart */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 lg:gap-10">
                 {/* Timeline & Market */}
-                <div className="space-y-6">
-                  <div className="space-y-1">
-                    <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                      Timeline
-                    </span>
-                    <h1 className="text-5xl font-black tabular-nums tracking-tighter text-[#1A1A1A]">
+                <div
+                  className={cn(
+                    "flex flex-row lg:flex-col items-baseline lg:items-start justify-between lg:justify-start gap-4",
+                    isMobile && "w-full",
+                  )}
+                >
+                  <div className="space-y-0 lg:space-y-1">
+                    {!isMobile && (
+                      <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                        Timeline
+                      </span>
+                    )}
+                    <h1 className="text-4xl lg:text-5xl font-black tabular-nums tracking-tighter text-[#1A1A1A]">
                       Year {current.date}
                     </h1>
                   </div>
-                  <div className="space-y-3">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                      Market Condition
-                    </span>
+                  <div className="flex flex-col lg:space-y-3">
+                    {!isMobile && (
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                        Market Condition
+                      </span>
+                    )}
                     <Badge
                       variant={current.market.regime === "bull" ? "default" : "destructive"}
-                      className="px-6 py-2 text-base font-black uppercase tracking-widest shadow-md rounded-full bg-[#FFD700] text-black border-none hover:bg-[#FFD700]/90"
+                      className={cn(
+                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-base font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full bg-[#FFD700] text-black border-none",
+                      )}
                     >
-                      {current.market.regime === "bull" ? "🐂 Bull Market" : "🐻 Bear Market"}
+                      {current.market.regime === "bull" ? "🐂 Bull" : "🐻 Bear"}
                     </Badge>
                   </div>
                 </div>
 
-                {/* 2x2 Asset Grid */}
-                <div className="grid grid-cols-2 gap-px bg-muted/10 rounded-3xl overflow-hidden border border-muted shadow-sm">
-                  {[
-                    goodsMeta.find((m) => m.key === "potatoes"),
-                    goodsMeta.find((m) => m.key === "fish"),
-                    goodsMeta.find((m) => m.key === "taler"),
-                    goodsMeta.find((m) => m.key === "wood"),
-                  ].map(
-                    (meta) =>
-                      meta && (
-                        <div
-                          key={meta.key}
-                          className="bg-white p-4 flex items-center gap-4 min-w-[140px]"
-                        >
-                          <div
-                            className={`p-2 rounded-2xl shadow-sm`}
-                            style={{ backgroundColor: lineConfig[meta.key].color }}
-                          >
-                            <Image
-                              src={meta.icon}
-                              alt={meta.name}
-                              width={32}
-                              height={32}
-                              className="object-contain"
-                            />
-                          </div>
-                          <span className="font-mono text-2xl font-black tabular-nums">
-                            {meta.key === "taler"
-                              ? Math.round(projectedPortfolio.gold)
-                              : projectedPortfolio[meta.key as TradableAsset]}
-                          </span>
-                        </div>
-                      ),
+                {/* Assets + Pie Chart Container (Row on Mobile) */}
+                <div
+                  className={cn(
+                    "flex items-center gap-4 lg:gap-10",
+                    isMobile ? "w-full justify-between" : "flex-col lg:flex-row",
                   )}
-                </div>
+                >
+                  {/* 2x2 Asset Grid */}
+                  <div
+                    className={cn(
+                      "grid grid-cols-2 gap-px bg-muted/10 rounded-2xl lg:rounded-3xl overflow-hidden border border-muted shadow-xs lg:shadow-sm",
+                      isMobile && "flex-1",
+                    )}
+                  >
+                    {[
+                      goodsMeta.find((m) => m.key === "potatoes"),
+                      goodsMeta.find((m) => m.key === "fish"),
+                      goodsMeta.find((m) => m.key === "taler"),
+                      goodsMeta.find((m) => m.key === "wood"),
+                    ].map(
+                      (meta) =>
+                        meta && (
+                          <div
+                            key={meta.key}
+                            className={cn(
+                              "bg-white flex items-center gap-2 lg:gap-4",
+                              isMobile ? "p-2 min-w-0" : "p-4 min-w-[140px]",
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "rounded-lg lg:rounded-2xl shadow-xs",
+                                isMobile ? "p-1 flex-shrink-0" : "p-2",
+                              )}
+                              style={{ backgroundColor: lineConfig[meta.key].color }}
+                            >
+                              <Image
+                                src={meta.icon}
+                                alt={meta.name}
+                                width={isMobile ? 16 : 32}
+                                height={isMobile ? 16 : 32}
+                                className="object-contain"
+                              />
+                            </div>
+                            <span
+                              className={cn(
+                                "font-mono font-black tabular-nums",
+                                isMobile ? "text-sm" : "text-2xl",
+                              )}
+                            >
+                              {meta.key === "taler"
+                                ? Math.round(projectedPortfolio.gold)
+                                : projectedPortfolio[meta.key as TradableAsset]}
+                            </span>
+                          </div>
+                        ),
+                    )}
+                  </div>
 
-                {/* Larger Donut Chart */}
-                <div className="flex flex-col items-center bg-white p-4 rounded-[2rem] shadow-sm border border-muted/50">
-                  <div className="h-40 w-40 relative">
-                    <PieChart width={160} height={160}>
-                      <Pie
-                        data={allocationData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={80}
-                        paddingAngle={0}
-                        dataKey="value"
-                        stroke="none"
-                        animationDuration={1000}
-                      >
-                        {allocationData.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
+                  {/* Donut Chart */}
+                  <div
+                    className={cn(
+                      "flex flex-col items-center bg-white rounded-[1.5rem] lg:rounded-[2rem] shadow-xs lg:shadow-sm border border-muted/50",
+                      isMobile ? "p-2" : "p-4",
+                    )}
+                  >
+                    <div className={isMobile ? "h-20 w-20 relative" : "h-40 w-40 relative"}>
+                      <PieChart width={isMobile ? 80 : 160} height={isMobile ? 80 : 160}>
+                        <Pie
+                          data={allocationData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={isMobile ? 22 : 45}
+                          outerRadius={isMobile ? 40 : 80}
+                          paddingAngle={0}
+                          dataKey="value"
+                          stroke="none"
+                          animationDuration={1000}
+                        >
+                          {allocationData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Bottom Labels: Portfolio Value & Target */}
-              <div className="flex items-end justify-between px-2 pt-4 border-t border-muted/20">
-                <div className="flex flex-col gap-1">
+              <div
+                className={cn(
+                  "flex items-end justify-between px-2 pt-2 lg:pt-4",
+                  !isMobile && "border-t border-muted/20",
+                )}
+              >
+                <div className="flex flex-col gap-0 lg:gap-1">
                   <div className="flex items-center gap-2">
-                    <Wallet className="size-4 text-muted-foreground/60" />
-                    <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                    <Wallet className="size-3 lg:size-4 text-muted-foreground/60" />
+                    <span className="text-[9px] lg:text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/60">
                       Portfolio Value
                     </span>
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black tabular-nums text-[#1A1A1A]">
+                  <div className="flex items-baseline gap-1.5 lg:gap-2">
+                    <span className="text-2xl lg:text-3xl font-black tabular-nums text-[#1A1A1A]">
                       {formatTaler(totalValue)}
                     </span>
-                    <span className="text-xs font-black uppercase text-[#1A1A1A]/60">taler</span>
+                    {!isMobile && (
+                      <span className="text-xs font-black uppercase text-[#1A1A1A]/60">taler</span>
+                    )}
                   </div>
                 </div>
-                <div className="text-right space-y-1">
+                <div className="text-right space-y-0 lg:space-y-1">
                   <div className="flex items-center justify-end gap-2 text-[#FFD700]">
-                    <Trophy className="size-4" />
-                    <span className="text-xs font-black uppercase tracking-[0.2em]">Target</span>
+                    <Trophy className="size-3 lg:size-4" />
+                    <span className="text-[9px] lg:text-xs font-black uppercase tracking-[0.2em]">
+                      Target
+                    </span>
                   </div>
                   <div className="flex items-baseline justify-end gap-1">
-                    <span className="text-2xl font-black text-[#FFD700] drop-shadow-sm">
+                    <span className="text-lg lg:text-2xl font-black text-[#FFD700] drop-shadow-sm">
                       {formatTaler(current.goal)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Much slimmer Full-width Progress Bar */}
-              <div className="relative group -mx-2">
-                <div className="h-4 w-full overflow-hidden rounded-full border-2 border-white bg-white shadow-lg">
+              {/* Massive Full-width Progress Bar */}
+              <div className="relative group lg:-mx-2">
+                <div
+                  className={cn(
+                    "w-full overflow-hidden rounded-full border-white bg-white shadow-md lg:shadow-lg",
+                    isMobile ? "h-2 border" : "h-4 border-2",
+                  )}
+                >
                   <div className="h-full w-full rounded-full overflow-hidden bg-muted/10 relative">
                     <motion.div
                       initial={{ width: 0 }}
@@ -1022,7 +1163,7 @@ function GameContent() {
                         initial={{ x: "-100%" }}
                         animate={{ x: "200%" }}
                         transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
-                        className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/40 to-transparent skew-x-[-25deg]"
+                        className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg]"
                       />
                     )}
                   </div>
@@ -1040,7 +1181,7 @@ function GameContent() {
                     >
                       <Badge
                         variant="default"
-                        className="bg-green-600 px-8 py-3 text-sm font-black uppercase tracking-widest shadow-xl ring-8 ring-green-500/10 rounded-full"
+                        className="bg-green-600 px-6 lg:px-8 py-2 lg:py-3 text-[10px] lg:text-sm font-black uppercase tracking-widest shadow-xl ring-4 lg:ring-8 ring-green-500/10 rounded-full"
                       >
                         🎯 MISSION ACCOMPLISHED
                       </Badge>
@@ -1054,7 +1195,7 @@ function GameContent() {
                     >
                       <Badge
                         variant="destructive"
-                        className="px-8 py-3 text-sm font-black uppercase tracking-widest shadow-xl ring-8 ring-destructive/10 rounded-full"
+                        className="px-6 lg:px-8 py-2 lg:py-3 text-[10px] lg:text-sm font-black uppercase tracking-widest shadow-xl ring-4 lg:ring-8 ring-destructive/10 rounded-full"
                       >
                         📉 FORTUNE DIMINISHED
                       </Badge>
@@ -1064,9 +1205,9 @@ function GameContent() {
                       {gameOver && (
                         <Badge
                           variant="outline"
-                          className="px-4 py-2 text-xs font-black uppercase tracking-widest bg-white shadow-sm border-primary/20 rounded-full"
+                          className="px-3 lg:px-4 py-1.5 lg:py-2 text-[9px] lg:text-xs font-black uppercase tracking-widest bg-white shadow-sm border-primary/20 rounded-full"
                         >
-                          ⌛ THE FINAL YEAR
+                          ⌛ FINAL YEAR
                         </Badge>
                       )}
                     </div>
@@ -1074,33 +1215,25 @@ function GameContent() {
                 </AnimatePresence>
               </div>
             </div>
-            <div className="absolute -right-20 -bottom-20 opacity-[0.03] pointer-events-none rotate-12">
-              <Coins size={400} />
-            </div>
+            {!isMobile && (
+              <div className="absolute -right-20 -bottom-20 opacity-[0.03] pointer-events-none rotate-12">
+                <Coins size={400} />
+              </div>
+            )}
           </div>
 
-          {/* 3. Marketplace: Asset Trading */}
+          {/* Marketplace Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-2">
                 <Store className="size-4 text-primary" />
-                <h2 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
+                <h2 className="text-[10px] lg:text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
                   The Marketplace
                 </h2>
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-6 rounded-full">
-                    <Info className="size-3 text-muted-foreground" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="text-[10px] max-w-[200px]">
-                  Adjust your holdings for the next season. Remember: Buy low, sell high.
-                </TooltipContent>
-              </Tooltip>
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:gap-4">
               {goodsMeta
                 .filter((m) => m.key !== "taler")
                 .map((meta) => (
@@ -1123,15 +1256,15 @@ function GameContent() {
             </div>
           </div>
 
-          {/* 4. Footer Action */}
-          <div className="sticky bottom-6 z-40 px-4 sm:px-0">
+          {/* Footer Action */}
+          <div className="sticky bottom-4 z-40 px-4 sm:px-0">
             <div className="group relative">
               <div className="absolute -inset-1 rounded-2xl bg-linear-to-r from-primary to-amber-500 opacity-25 blur-lg transition duration-1000 group-hover:opacity-50 group-hover:duration-200" />
 
               {gameOver ? (
                 <Button
                   type="button"
-                  className="relative h-16 sm:h-20 w-full rounded-2xl bg-green-600 text-xl sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:bg-green-700 hover:scale-[1.02] active:scale-95"
+                  className="relative h-16 sm:h-20 w-full rounded-2xl bg-green-600 text-xl sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:bg-green-700 hover:scale-[1.02]"
                   onClick={() =>
                     router.push(
                       `/dashboard/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
@@ -1139,38 +1272,30 @@ function GameContent() {
                   }
                 >
                   <Trophy className="mr-4 size-6 sm:size-8" />
-                  VIEW RESULTS
+                  RESULTS
                 </Button>
               ) : (
                 <Button
                   type="button"
-                  className="relative h-16 sm:h-20 w-full rounded-2xl text-lg sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-80"
+                  className="relative h-14 sm:h-20 w-full rounded-2xl text-base sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:scale-[1.02] disabled:opacity-80"
                   onClick={handleSubmitTrades}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
-                    <div className="flex items-center gap-4">
-                      <Loader2 className="size-6 sm:size-8 animate-spin" />
-                      PROCESSING...
-                    </div>
+                    <Loader2 className="size-6 sm:size-8 animate-spin" />
                   ) : (
                     <div className="flex items-center justify-between w-full px-4 sm:px-8">
                       <div className="flex items-center gap-2 sm:gap-4">
-                        <Store className="size-6 sm:size-8" />
-                        <span className="text-[15px] sm:text-xl leading-none">FINISH TRADING</span>
+                        <Store className="size-5 sm:size-8" />
+                        <span className="text-sm sm:text-xl">DONE</span>
                       </div>
-                      <div className="h-10 w-px bg-white/20" />
+                      <div className="h-8 sm:h-10 w-px bg-white/20" />
                       <div className="flex items-center gap-2 sm:gap-4 leading-none text-right">
                         <div className="flex flex-col items-end">
-                          <span className="text-[8px] sm:text-[10px] font-black opacity-70 mb-0.5 sm:mb-1 uppercase">
-                            PROCEED TO
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="size-3 sm:size-4 opacity-70" />
-                            <span className="text-base sm:text-xl">NEXT YEAR</span>
-                          </div>
+                          <span className="text-[8px] sm:text-[10px] opacity-70 mb-0.5">NEXT</span>
+                          <span className="text-xs sm:text-xl">YEAR</span>
                         </div>
-                        <ArrowRight className="size-6 sm:size-8 animate-pulse" />
+                        <ArrowRight className="size-5 sm:size-8 animate-pulse" />
                       </div>
                     </div>
                   )}
