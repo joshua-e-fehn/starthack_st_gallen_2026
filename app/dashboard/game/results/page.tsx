@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/chart"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { clearStoredGameSession } from "@/hooks/use-game-session"
 import { portfolioValue } from "@/lib/game/engine"
 import { type MonteCarloDataPoint, runMonteCarloSimulations } from "@/lib/game/monte-carlo"
 import { getOrCreateGuestId } from "@/lib/guest"
@@ -286,17 +287,21 @@ function LeaderboardRace({
 // ─── Portfolio Donut ─────────────────────────────────────────────
 
 const donutConfig = {
-  taler: { label: "Taler (Cash)", color: COLORS.taler },
-  wood: { label: "Wood", color: COLORS.wood },
-  potatoes: { label: "Potatoes", color: COLORS.potatoes },
-  fish: { label: "Fish", color: COLORS.fish },
+  Taler: { label: "Taler (Cash)", color: COLORS.taler },
+  Wood: { label: "Wood", color: COLORS.wood },
+  Potatoes: { label: "Potatoes", color: COLORS.potatoes },
+  Fish: { label: "Fish", color: COLORS.fish },
 } satisfies ChartConfig
 
 function PortfolioDonut({ state }: { state: StateVector }) {
   const inf = state.market.inflation
   const data = useMemo(
     () => [
-      { name: "Taler", value: roundMoney(state.portfolio.gold), fill: COLORS.taler },
+      {
+        name: "Taler",
+        value: roundMoney(state.portfolio.gold),
+        fill: COLORS.taler,
+      },
       {
         name: "Wood",
         value: roundMoney(state.portfolio.wood * sellPrice(state.market.prices.wood, inf)),
@@ -331,14 +336,27 @@ function PortfolioDonut({ state }: { state: StateVector }) {
         <ChartContainer config={donutConfig} className="mx-auto aspect-square h-56">
           <PieChart>
             <ChartTooltip
+              trigger="click"
+              cursor={false}
               content={
                 <ChartTooltipContent
-                  formatter={(value) => (
-                    <span className="font-mono tabular-nums">
-                      {formatTaler(Number(value))} taler (
-                      {total > 0 ? Math.round((Number(value) / total) * 100) : 0}%)
-                    </span>
-                  )}
+                  hideLabel
+                  formatter={(value, _name, item) => {
+                    const point = item.payload as { name: string; fill?: string }
+                    const distribution = total > 0 ? Math.round((Number(value) / total) * 100) : 0
+
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="size-2.5 shrink-0 rounded-[2px]"
+                          style={{ backgroundColor: point.fill ?? item.color }}
+                        />
+                        <span className="font-mono tabular-nums">
+                          {point.name}: {formatTaler(Number(value))} taler ({distribution}%)
+                        </span>
+                      </div>
+                    )
+                  }}
                 />
               }
             />
@@ -842,11 +860,10 @@ function ResultsContent() {
     return convexHistory as any
   }, [convexHistory])
 
-  // biome-ignore lint/suspicious/noExplicitAny: cast Convex doc union to Scenario
   const scenario: Scenario | null = useMemo(() => {
     if (!convexScenario) return null
     const { _id, _creationTime, ...rest } = convexScenario
-    return { id: _id, ...rest } as any
+    return { id: _id, ...rest } as unknown as Scenario
   }, [convexScenario])
 
   const current = history.length > 0 ? history[history.length - 1] : null
@@ -988,7 +1005,10 @@ function ResultsContent() {
           {sessionId && (
             <Button
               className="h-12 w-full text-base"
-              onClick={() => router.push(`/dashboard/sessions/${sessionId}`)}
+              onClick={() => {
+                clearStoredGameSession()
+                router.push(`/dashboard/sessions/${sessionId}`)
+              }}
             >
               Back to Session Lobby
             </Button>
@@ -996,7 +1016,10 @@ function ResultsContent() {
           <Button
             variant="outline"
             className="h-12 w-full text-base"
-            onClick={() => router.push("/")}
+            onClick={() => {
+              clearStoredGameSession()
+              router.push("/")
+            }}
           >
             Back to Home
           </Button>

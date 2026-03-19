@@ -236,52 +236,18 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Price of a Dream",
         content:
-          "The farm costs 1 000 coins today. You earn 100 coins per year. If you just save, it will take 10 years — simple, right? But there is a catch nobody told you about.",
+          "The farm costs 500 gold today. You earn 50 gold per year. If you just save, it will take 10 years — simple, right? But there is a catch nobody told you about.",
       },
       {
-        title: "The Coin Pile",
+        title: "The Gold Pile",
         content:
-          "You stash coins under your mattress. It feels safe — but watch what happens to their real value over time.",
-        chart: {
-          xKey: "year",
-          yLabel: "Coins",
-          ySuffix: "",
-          yDomain: [50, 100],
-          lines: [
-            { key: "real", label: "Purchasing power of 100 coins", color: "oklch(0.55 0.2 25)" },
-          ],
-          data: [
-            { year: "Yr 0", real: 100 },
-            { year: "Yr 5", real: 86 },
-            { year: "Yr 10", real: 74 },
-            { year: "Yr 15", real: 64 },
-            { year: "Yr 20", real: 55 },
-          ],
-        },
-        tip: "Even though you still hold 100 coins, after 20 years they only buy what 55 coins could buy today. That is the hidden cost of doing nothing.",
+          "You have been stashing gold under your mattress for years. It feels safe — nobody can take it. But look at the market: the blacksmith charges more for tools this year. Bread costs more. Even the farm price keeps climbing.",
       },
       {
-        title: "The Rising Price of the Farm",
+        title: "The Silent Thief",
         content:
-          "The farm costs 1 000 coins today. At 3% inflation, it keeps climbing every year — your flat savings can never catch up.",
-        chart: {
-          xKey: "year",
-          yLabel: "Coins",
-          ySuffix: "",
-          yDomain: [950, 1350],
-          lines: [
-            { key: "farmPrice", label: "Farm price (3% inflation)", color: "oklch(0.55 0.2 25)" },
-          ],
-          data: [
-            { year: "Yr 0", farmPrice: 1000 },
-            { year: "Yr 2", farmPrice: 1061 },
-            { year: "Yr 4", farmPrice: 1126 },
-            { year: "Yr 6", farmPrice: 1194 },
-            { year: "Yr 8", farmPrice: 1267 },
-            { year: "Yr 10", farmPrice: 1344 },
-          ],
-        },
-        tip: "After 10 years of saving 100 coins/year you have 1 000 — but the farm now costs 1 344. The gap only widens.",
+          "After 10 years of saving, you finally have 500 gold. But the farm now costs 650 gold! Prices rose about 3% each year — a force called inflation. Your gold stayed the same while everything around it got more expensive.",
+        tip: "Inflation typically runs 1–3% per year. Over decades, it dramatically reduces your buying power.",
       },
       {
         title: "Lesson Learned",
@@ -304,50 +270,25 @@ export const LESSONS: Lesson[] = [
       {
         title: "Too Little to Matter?",
         content:
-          "Many villagers think: 'I only have 20 coins to spare — what difference could that make?' So they spend it at the tavern instead. But one farmer thinks differently.",
-        tip: "Spoiler: those 20 coins will matter a lot.",
+          "Many villagers think: 'I only have 5 gold to spare — what difference could that make?' So they spend it at the tavern instead. But one farmer thinks differently.",
       },
       {
-        title: "20 Coins a Month",
+        title: "The Power of Starting Small",
         content:
-          "He sets aside just 20 coins every single month — the price of a mug of mead. Not a fortune. But he invests it instead of spending it, and lets it grow year after year.",
-        tip: "In the real world, 20 CHF per month is enough to start. PostFinance lets you invest from as little as 20 CHF.",
+          "She invests just 5 gold into a small bundle of wood. A year later it is worth 5.25 gold — a 5% return. Not exciting? She does it again the next year... and the year after that.",
+        tip: "You do not need to be rich to start investing. Consistency matters far more than size.",
       },
       {
-        title: "The Compound Effect",
+        title: "The Magic of Compounding",
         content:
-          "His investments earn about 10% per year. After 10 years he invested 2 400 coins — but his portfolio is already worth over 4 000. The earnings earn their own earnings.",
-        chart: {
-          xKey: "year",
-          ySuffix: "",
-          yDomain: [
-            0,
-            Math.round((COMPOUND_DATA[COMPOUND_DATA.length - 1].portfolio as number) / 1000) *
-              1000 +
-              1000,
-          ],
-          lines: [
-            {
-              key: "invested",
-              label: "Total coins invested",
-              color: "oklch(0.75 0.15 85)",
-              dashed: true,
-            },
-            {
-              key: "portfolio",
-              label: "Portfolio value (10% return)",
-              color: "oklch(0.65 0.2 145)",
-            },
-          ],
-          data: COMPOUND_DATA,
-        },
-        tip: "After 40 years, 20 coins/month (9 600 total) grow to over 126 000. That is the magic of compound interest. 🚀",
+          "After 5 years of investing 5 gold each year, she does not have just 25 gold. She has 29 gold — because each year's gains earn their own gains. After 20 years, her small contributions have grown to over 175 gold!",
+        tip: "Compound interest is called the 'eighth wonder of the world.' Your money earns money on its own.",
       },
       {
         title: "The Tavern Spender vs. the Investor",
         image: "/farm.webp",
         content:
-          "His neighbor spent 20 coins a month on feasts. After 40 years he has nothing. Our farmer turned those same small coins into a fortune — enough to buy a farm and retire comfortably.",
+          "Her neighbor spent the same 5 gold per year on mead and feasts. After 20 years, he has nothing saved. She is halfway to buying the farm — all from coins he thought were 'too small to matter.'",
       },
       {
         title: "Lesson Learned",
@@ -420,20 +361,7 @@ export const LESSONS: Lesson[] = [
       {
         title: "All Three — Compared",
         content:
-          "Same starting investment, three very different journeys. Notice how the spread increases with risk.",
-        chart: {
-          xKey: "year",
-          ySuffix: "%",
-          yDomain: [-150, 950],
-          xInterval: 10,
-          lines: [
-            { key: "wood", label: "Wood", color: "#6B4226" },
-            { key: "potatoes", label: "Potatoes", color: "#B8860B" },
-            { key: "fish", label: "Fish", color: "#1E90FF" },
-          ],
-          data: buildCombinedChart(),
-        },
-        tip: "Higher potential returns come with wilder swings. That trade-off is the fundamental law of investing.",
+          "Over 10 years: wood might turn 50 gold into 70. Potatoes could make it 100 — or drop it to 40 first. Fish might soar to 250... or crash to 15. Every asset class has a different risk-return profile. The right mix depends on your goals and your stomach.",
       },
       {
         title: "Lesson Learned",
@@ -501,17 +429,7 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Hidden Cost of Swings",
         content:
-          "If fish loses 50% then gains 50%, you are NOT back to even. 100 → 50 → 75. Volatility itself destroys value — a concept called 'volatility drag.'",
-        chart: {
-          xKey: "year",
-          ySuffix: "",
-          yDomain: [20, 110],
-          lines: [
-            { key: "hold", label: "Holding steady (100 coins)", color: "#6B4226", dashed: true },
-            { key: "volatile", label: "±50% swings each year", color: "#dc2626" },
-          ],
-          data: VOLATILITY_DRAG_DATA,
-        },
+          "Here is a tricky truth: if your fish loses 50% one year and gains 50% the next, you are NOT back to even. 50 gold → 25 gold → 38 gold. Volatility itself destroys value — a concept called 'volatility drag.'",
         tip: "A 50% loss requires a 100% gain just to break even. That is why managing volatility matters.",
       },
       {
@@ -535,58 +453,30 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Impatient Trader",
         content:
-          "Some traders buy and sell every day, chasing small gains. But each trade costs a fee — and those fees add up fast.",
-        chart: {
-          xKey: "year",
-          ySuffix: "",
-          yDomain: [70, 190],
-          lines: [
-            { key: "holder", label: "Buy & hold", color: "#16a34a" },
-            {
-              key: "trader",
-              label: "Frequent trader (after fees)",
-              color: "#dc2626",
-              dashed: true,
-            },
-          ],
-          data: TRADER_VS_HOLDER_DATA,
-        },
-        tip: "Transaction fees, taxes, and bad timing eat into returns. Doing less often means earning more.",
+          "Some traders buy and sell every day, chasing small profits. They pay fees to the merchant on every trade and spend all their time watching prices. After a year of frantic trading, they often end up with less than they started.",
       },
       {
-        title: "Zoom Out",
+        title: "The Patient Farmer",
         content:
-          "Up close, potatoes look terrifying — wild swings every year. But zoom out to 30 years and the trend is unmistakable: up.",
-        chart: {
-          xKey: "year",
-          ySuffix: "%",
-          yDomain: [-30, 400],
-          xInterval: 10,
-          lines: [{ key: "asset", label: "Potatoes (cumulative return)", color: "#B8860B" }],
-          data: buildSingleAssetChart("potatoes"),
-        },
+          "Meanwhile, a quiet farmer bought wood and potatoes years ago and simply held them. Through good kings and bad kings — peace times and war times — the value of her holdings grew steadily. Time was her greatest ally.",
+
+        tip: "Historically, major stock indices have always recovered from crashes — given enough time.",
       },
       {
-        title: "Dollar-Cost Averaging",
+        title: "The Good King & The Bad King",
         content:
-          "Instead of timing the market, invest the same amount every month. When prices drop, you buy more shares. When they rise, you buy fewer. Your average cost smooths out.",
-        chart: {
-          xKey: "month",
-          ySuffix: "",
-          yDomain: [4, 14],
-          lines: [
-            { key: "price", label: "Market price", color: "#1E90FF" },
-            { key: "avgCost", label: "Your average cost", color: "#16a34a", dashed: true },
-          ],
-          data: DCA_DATA,
-        },
-        tip: "DCA removes the stress of 'when should I buy?' — you just invest regularly and let math work for you.",
+          "Under the Good King, trade flourishes and prices rise. But kings change — the Bad King raises taxes and frightens merchants. Prices fall. Panic spreads. Those who sell during the Bad King's reign lock in their losses forever. Those who wait almost always see a new Good King rise.",
       },
       {
-        title: "Time in the Market",
+        title: "Keeping Your Nerves",
         content:
-          "Trying to predict the best days to buy is nearly impossible. Missing just the 10 best days over 20 years can cut your returns in half. Being invested consistently matters more than being invested perfectly.",
-        tip: "'Time in the market beats timing the market' — this is not just a saying, it is backed by decades of data.",
+          "In 2008, many real-world investors sold their stocks in terror. Those who held on saw their portfolios fully recover within a few years — and then grow to new highs. The hardest part of investing is doing nothing when everything screams 'act!'",
+        tip: "The market rewards patience. Over any 20-year period in history, broad stock indices have always ended higher than they started.",
+      },
+      {
+        title: "Compound Growth in Action",
+        content:
+          "Each year, the patient farmer's investments grew a little. And the next year, those gains earned their own gains. After 25 years, her modest portfolio had multiplied many times over. Compound growth turned her patience into prosperity.",
       },
       {
         title: "Lesson Learned",
