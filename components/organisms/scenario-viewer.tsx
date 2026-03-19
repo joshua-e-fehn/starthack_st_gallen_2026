@@ -43,23 +43,31 @@ export function ScenarioViewer({
 
   if (scenarios.length === 0) {
     return (
-      <Card className="flex flex-col items-center justify-center p-8 text-center">
-        <div className="rounded-full bg-muted p-4 mb-4">
-          <LayoutGrid className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <CardTitle>No scenarios found</CardTitle>
-        <CardDescription className="max-w-xs mt-2">
-          Create your first scenario to start building trading worlds.
-        </CardDescription>
-        <Button
-          variant="outline"
-          className="mt-6"
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="flex flex-col items-center justify-center p-8 text-center md:col-span-1 lg:col-span-2">
+          <div className="rounded-full bg-muted p-4 mb-4">
+            <LayoutGrid className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <CardTitle>No scenarios found</CardTitle>
+          <CardDescription className="max-w-xs mt-2">
+            Create your first scenario to start building trading worlds.
+          </CardDescription>
+        </Card>
+
+        {/* Create New Card */}
+        <Card
+          className="overflow-hidden flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
           onClick={() => router.push("/dashboard/scenarios/create")}
         >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Create Scenario
-        </Button>
-      </Card>
+          <div className="rounded-full bg-muted p-4 group-hover:bg-primary/10 transition-colors">
+            <PlusCircle className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
+          </div>
+          <div className="text-center">
+            <p className="font-semibold text-sm">Create New Scenario</p>
+            <p className="text-xs text-muted-foreground">Add another game template</p>
+          </div>
+        </Card>
+      </div>
     )
   }
 
@@ -142,7 +150,7 @@ export function ScenarioViewer({
             </div>
           </CardHeader>
 
-          <CardContent className="flex-grow pb-3">
+          <CardContent className="grow pb-3">
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="rounded-lg p-2 bg-muted/50">
                 <p className="text-muted-foreground">Duration</p>

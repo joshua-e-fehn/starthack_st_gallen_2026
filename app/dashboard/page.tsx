@@ -293,13 +293,29 @@ function DashboardContent() {
                 </CardContent>
               </Card>
             ) : allSessions.length === 0 ? (
-              <Card className="flex flex-col items-center justify-center p-12 text-center">
-                <Users className="h-12 w-12 text-muted-foreground/20 mb-4" />
-                <CardTitle>No sessions yet</CardTitle>
-                <CardDescription className="mt-2">
-                  Create your first session to start hosting games.
-                </CardDescription>
-              </Card>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Card className="flex flex-col items-center justify-center p-12 text-center md:col-span-1 lg:col-span-2">
+                  <Users className="h-12 w-12 text-muted-foreground/20 mb-4" />
+                  <CardTitle>No sessions yet</CardTitle>
+                  <CardDescription className="mt-2">
+                    Create your first session to start hosting games.
+                  </CardDescription>
+                </Card>
+
+                {/* Create New Session Card */}
+                <Card
+                  className="overflow-hidden flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                  onClick={() => router.push("/dashboard/sessions/create")}
+                >
+                  <div className="rounded-full bg-muted p-4 group-hover:bg-primary/10 transition-colors">
+                    <PlusCircle className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold text-sm">Create New Session</p>
+                    <p className="text-xs text-muted-foreground">Start a new competition</p>
+                  </div>
+                </Card>
+              </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {allSessions.map((session) => (
