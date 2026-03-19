@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect } from "react"
 import { authClient } from "@/lib/auth-client"
 
-const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up"]
+const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/learn"]
 
 /** Paths accessible to guest (unauthenticated) players. */
 const GUEST_ALLOWED_PATHS = ["/dashboard/game", "/dashboard/sessions"]
