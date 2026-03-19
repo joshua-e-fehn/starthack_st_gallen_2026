@@ -141,36 +141,36 @@
 
 @layer utilities {
   .wood-board {
-    background-color: #4a3728;
+    background-color: #d7b899;
     background-image: 
-      /* Bark-like texture / grain */
+      /* Bark-like texture / grain - Lighter pine/oak colors */
       repeating-radial-gradient(
         circle at 20% 50%,
-        #5d4037 0%,
-        #4a3728 5%,
-        #3e2723 10%
+        #e5ccb9 0%,
+        #d7b899 5%,
+        #c4a484 10%
       ),
       /* Overlaid grain lines */
       repeating-linear-gradient(
         15deg,
-        rgba(0, 0, 0, 0.05) 0px,
-        rgba(0, 0, 0, 0.05) 1px,
+        rgba(0, 0, 0, 0.03) 0px,
+        rgba(0, 0, 0, 0.03) 1px,
         transparent 1px,
         transparent 4px
       ),
-      /* Deepening shadows */
+      /* Subtle depth shadows */
       linear-gradient(
         to bottom,
-        rgba(0, 0, 0, 0.2) 0%,
+        rgba(255, 255, 255, 0.1) 0%,
         transparent 20%,
         transparent 80%,
-        rgba(0, 0, 0, 0.3) 100%
+        rgba(0, 0, 0, 0.1) 100%
       );
     background-blend-mode: multiply;
     background-size: 200% 200%, 100% 100%, 100% 100%;
     
     /* Irregular 'hand-cut' border */
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     clip-path: polygon(
       0% 2%, 5% 0%, 15% 1%, 25% 0%, 35% 2%, 45% 0%, 55% 1%, 65% 0%, 75% 2%, 85% 0%, 95% 1%, 100% 2%,
       99% 15%, 100% 25%, 98% 35%, 100% 45%, 99% 55%, 100% 65%, 98% 75%, 100% 85%, 99% 95%, 98% 100%,
@@ -178,8 +178,8 @@
       1% 85%, 0% 75%, 2% 65%, 0% 55%, 1% 45%, 0% 35%, 2% 25%, 0% 15%
     );
     box-shadow: 
-      inset 0 0 30px rgba(0, 0, 0, 0.5),
-      0 10px 20px rgba(0, 0, 0, 0.3);
+      inset 0 0 20px rgba(0, 0, 0, 0.2),
+      0 8px 16px rgba(0, 0, 0, 0.15);
     position: relative;
   }
 }
