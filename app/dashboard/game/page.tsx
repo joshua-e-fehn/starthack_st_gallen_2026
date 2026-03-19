@@ -1020,13 +1020,15 @@ function GameContent() {
                 <div
                   className={cn(
                     "flex items-center gap-4 lg:gap-10",
-                    isMobile ? "w-full justify-between" : "flex-col lg:flex-row",
+                    isMobile
+                      ? "w-full justify-between"
+                      : "flex-col lg:flex-row wood-board p-6 rounded-[3rem] shadow-2xl",
                   )}
                 >
                   {/* 2x2 Asset Grid */}
                   <div
                     className={cn(
-                      "grid grid-cols-2 gap-px bg-muted/10 rounded-2xl lg:rounded-3xl overflow-hidden border border-muted shadow-xs lg:shadow-sm",
+                      "grid grid-cols-2 gap-px bg-muted/10 rounded-2xl lg:rounded-3xl overflow-hidden border border-muted shadow-xs lg:shadow-md",
                       isMobile && "flex-1",
                     )}
                   >
