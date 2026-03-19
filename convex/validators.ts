@@ -33,32 +33,26 @@ export const playerActionValidator = v.object({
 
 // ─── Event validators ────────────────────────────────────────────
 
-const globalEventTypeValidator = v.union(
-  v.literal("plague"),
-  v.literal("thieves"),
-  v.literal("market_crash"),
-  v.literal("good_harvest"),
-)
+/**
+ * Event validator - type field contains the event ID (e.g. "forest_fire", "mice_infestation")
+ */
+export const gameEventValidator = v.object({
+  type: v.string(),
+  name: v.string(),
+  description: v.string(),
+  targetAsset: v.optional(v.union(v.literal("wood"), v.literal("potatoes"), v.literal("fish"))),
+  effects: v.optional(
+    v.object({
+      quantityMultiplier: v.optional(v.number()),
+      goldDelta: v.optional(v.number()),
+      priceMultiplier: v.optional(v.number()),
+    }),
+  ),
+})
 
-const assetEventTypeValidator = v.union(
-  v.literal("fire"),
-  v.literal("mice_infestation"),
-  v.literal("cooling_failure"),
-)
-
-const eventTypeValidator = v.union(
-  v.literal("plague"),
-  v.literal("thieves"),
-  v.literal("market_crash"),
-  v.literal("good_harvest"),
-  v.literal("fire"),
-  v.literal("mice_infestation"),
-  v.literal("cooling_failure"),
-  v.literal("ai_generated"), // AI-generated events
-)
-
+// Legacy validators for old scenario data (not used by new event system)
 export const globalEventDefinitionValidator = v.object({
-  type: globalEventTypeValidator,
+  type: v.string(),
   name: v.string(),
   description: v.string(),
   probability: v.number(),
@@ -68,19 +62,12 @@ export const globalEventDefinitionValidator = v.object({
 })
 
 export const assetEventConfigValidator = v.object({
-  type: assetEventTypeValidator,
+  type: v.string(),
   name: v.string(),
   description: v.string(),
   probability: v.number(),
   quantityMultiplier: v.optional(v.number()),
   priceMultiplier: v.optional(v.number()),
-})
-
-export const gameEventValidator = v.object({
-  type: eventTypeValidator,
-  name: v.string(),
-  description: v.string(),
-  targetAsset: v.optional(v.union(v.literal("wood"), v.literal("potatoes"), v.literal("fish"))),
 })
 
 // ─── Scenario validators ─────────────────────────────────────────

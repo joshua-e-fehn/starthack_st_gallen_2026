@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recharts"
 import { GameChatbot } from "@/components/molecules/game-chatbot"
+import { EventPopup } from "@/components/organisms/event-popup"
 import { StoryPlayer } from "@/components/organisms/story-player"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -562,6 +563,7 @@ function GameContent() {
   const [onboardingIndex, setOnboardingIndex] = useState(0)
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [eventToShow, setEventToShow] = useState<(typeof current.events)[number] | null>(null)
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
   const onboardingAssistantVideoRef = useRef<HTMLVideoElement | null>(null)
 
@@ -938,6 +940,15 @@ function GameContent() {
   useEffect(() => {
     if (current) prevGoalReached.current = current.goalReached
   })
+
+  // Show event popup when new events occur
+  useEffect(() => {
+    if (!current?.events?.length) return
+    const latestEvent = current.events[current.events.length - 1]
+    if (latestEvent) {
+      setEventToShow(latestEvent)
+    }
+  }, [current?.events]) // Trigger when events change
 
   // ─── Loading / onboarding states ────────────────────────────
   if (!onboardingChecked) return null
@@ -1479,6 +1490,8 @@ function GameContent() {
           </AnimatePresence>
         </div>
       ) : null}
+
+      <EventPopup event={eventToShow} open={!!eventToShow} onClose={() => setEventToShow(null)} />
 
       <GameChatbot />
     </main>

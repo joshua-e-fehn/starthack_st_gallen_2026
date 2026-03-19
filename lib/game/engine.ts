@@ -1,4 +1,3 @@
-import { getGeminiClient } from "../ai/gemini-client"
 import type { PlayerAction } from "../types/actions"
 import type { Portfolio, TradableAsset } from "../types/assets"
 import { createPortfolio, TRADABLE_ASSET_KEYS } from "../types/assets"
@@ -7,6 +6,7 @@ import type { AssetMarketPrice, MarketState } from "../types/market"
 import { buyPrice, sellPrice } from "../types/market"
 import type { PrecomputedStep, Scenario } from "../types/scenario"
 import type { StateVector } from "../types/state_vector"
+import { generateEvents, toGameEvent } from "./event-generator"
 
 // ─── Random helpers ──────────────────────────────────────────────
 
@@ -88,17 +88,15 @@ export function applyActions(
 // ─── Event resolution (z vector) ─────────────────────────────────
 
 /**
- * Roll for random events defined in the scenario.
+ * Roll for random events using the new base event system.
  *
- * Two categories:
- *  1. **Global events** (scenario.globalEvents) — affect all assets or gold
- *  2. **Per-asset events** (scenario.assets[asset].event) — each tradable
- *     asset carries its own specific risk (wood→wildfire, potatoes→crop failure, fish→cooling failure)
- *
- * Returns the list of events that fired and their effects on portfolio/prices.
+ * Flow:
+ *  1. Generate events (probability checks + effect sampling via RNG)
+ *  2. Apply effects to portfolio and prices
+ *  3. Return resolved events and updated state
  */
 export async function resolveEvents(
-  scenario: Scenario,
+  _scenario: Scenario,
   portfolio: Portfolio,
   prices: Record<TradableAsset, AssetMarketPrice>,
 ): Promise<{
@@ -106,97 +104,73 @@ export async function resolveEvents(
   portfolio: Portfolio
   prices: Record<TradableAsset, AssetMarketPrice>
 }> {
+  const resolvedEvents = await generateEvents()
   const firedEvents: GameEvent[] = []
-  let updatedPortfolio = { ...portfolio }
+  const updatedPortfolio = { ...portfolio }
   const updatedPrices = { ...prices }
 
-  // ── 1. Global events ──────────────────────────────────────────
-  for (const def of scenario.globalEvents) {
-    if (Math.random() >= def.probability) continue
+  // Apply each resolved event
+  for (const event of resolvedEvents) {
+    firedEvents.push(toGameEvent(event))
 
-    firedEvents.push({
-      type: def.type,
-      name: def.name,
-      description: def.description,
-    })
+    const { effects } = event
 
-    // Quantity effects (plague, etc.) — all tradable assets
-    if (def.quantityMultiplier !== undefined) {
-      for (const asset of TRADABLE_ASSET_KEYS) {
-        updatedPortfolio[asset] = Math.floor(updatedPortfolio[asset] * def.quantityMultiplier)
-      }
-    }
-
-    // Gold delta (thieves steal gold)
-    if (def.goldDelta !== undefined) {
-      updatedPortfolio = {
-        ...updatedPortfolio,
-        gold: Math.max(0, updatedPortfolio.gold + def.goldDelta),
-      }
-    }
-
-    // Price multiplier (market crash — all assets); modifies real base price
-    if (def.priceMultiplier !== undefined) {
-      for (const asset of TRADABLE_ASSET_KEYS) {
-        updatedPrices[asset] = {
-          ...updatedPrices[asset],
-          basePrice: Math.max(0.01, updatedPrices[asset].basePrice * def.priceMultiplier),
+    // ── Quantity effects ──────────────────────────────────────────
+    if (effects.quantityMultiplier !== undefined) {
+      if (effects.targetAsset) {
+        // Single asset
+        updatedPortfolio[effects.targetAsset] = Math.floor(
+          updatedPortfolio[effects.targetAsset] * effects.quantityMultiplier,
+        )
+      } else {
+        // All assets
+        for (const asset of TRADABLE_ASSET_KEYS) {
+          updatedPortfolio[asset] = Math.floor(updatedPortfolio[asset] * effects.quantityMultiplier)
         }
       }
     }
-  }
 
-  // ── 2. Per-asset events ───────────────────────────────────────
-  for (const asset of TRADABLE_ASSET_KEYS) {
-    const eventCfg = scenario.assets[asset].event
-    if (Math.random() >= eventCfg.probability) continue
-
-    firedEvents.push({
-      type: eventCfg.type,
-      name: eventCfg.name,
-      description: eventCfg.description,
-      targetAsset: asset,
-    })
-
-    // Quantity effect on THIS asset only
-    if (eventCfg.quantityMultiplier !== undefined) {
-      updatedPortfolio[asset] = Math.floor(updatedPortfolio[asset] * eventCfg.quantityMultiplier)
+    // ── Gold delta ────────────────────────────────────────────────
+    if (effects.goldDelta !== undefined) {
+      updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold + effects.goldDelta)
     }
 
-    // Price effect on THIS asset only (real base price)
-    if (eventCfg.priceMultiplier !== undefined) {
-      updatedPrices[asset] = {
-        ...updatedPrices[asset],
-        basePrice: Math.max(0.01, updatedPrices[asset].basePrice * eventCfg.priceMultiplier),
-      }
-    }
-  }
-
-  // ── 3. AI event (15% chance) ──────────────────────────────────
-  if (Math.random() < 0.15) {
-    try {
-      const ai = getGeminiClient()
-      const prompt = `Generate a medieval market event. Return JSON: { "name": "Event Name", "description": "What happened", "effect": "price_up" | "price_down" | "gold_gain" | "gold_loss" }`
-      const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
-        contents: prompt,
-        config: { temperature: 0.8, responseMimeType: "application/json", maxOutputTokens: 200 },
-      })
-      const event = JSON.parse(response.text?.trim() || "{}")
-      if (event.name && event.description) {
-        firedEvents.push({ type: "ai_generated", name: event.name, description: event.description })
-        if (event.effect === "price_up") {
-          for (const asset of TRADABLE_ASSET_KEYS) updatedPrices[asset].basePrice *= 1.1
-        } else if (event.effect === "price_down") {
-          for (const asset of TRADABLE_ASSET_KEYS)
-            updatedPrices[asset].basePrice = Math.max(0.01, updatedPrices[asset].basePrice * 0.9)
-        } else if (event.effect === "gold_gain") {
-          updatedPortfolio.gold += 50
-        } else if (event.effect === "gold_loss") {
-          updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold - 30)
+    // ── Price effects ─────────────────────────────────────────────
+    if (effects.priceMultiplier !== undefined) {
+      // Special cases for events with custom asset targeting
+      if (event.baseEventId === "severe_drought") {
+        // Only affects wood and potatoes
+        for (const asset of ["wood", "potatoes"] as TradableAsset[]) {
+          updatedPrices[asset] = {
+            ...updatedPrices[asset],
+            basePrice: Math.max(0.01, updatedPrices[asset].basePrice * effects.priceMultiplier),
+          }
+          // Also apply quantity effect
+          if (effects.quantityMultiplier !== undefined) {
+            updatedPortfolio[asset] = Math.floor(
+              updatedPortfolio[asset] * effects.quantityMultiplier,
+            )
+          }
+        }
+      } else if (effects.targetAsset) {
+        // Single asset
+        updatedPrices[effects.targetAsset] = {
+          ...updatedPrices[effects.targetAsset],
+          basePrice: Math.max(
+            0.01,
+            updatedPrices[effects.targetAsset].basePrice * effects.priceMultiplier,
+          ),
+        }
+      } else {
+        // All assets
+        for (const asset of TRADABLE_ASSET_KEYS) {
+          updatedPrices[asset] = {
+            ...updatedPrices[asset],
+            basePrice: Math.max(0.01, updatedPrices[asset].basePrice * effects.priceMultiplier),
+          }
         }
       }
-    } catch {}
+    }
   }
 
   return { firedEvents, portfolio: updatedPortfolio, prices: updatedPrices }
@@ -312,48 +286,28 @@ export async function gameStep(
 
     if (precomputed) {
       // Apply actions first
-      const resultPortfolio = applyActions(prevState.portfolio, actions, prevState.market)
+      const portfolioAfterActions = applyActions(prevState.portfolio, actions, prevState.market)
 
-      // Resolve specific events from precomputed data
-      const updatedPortfolio = { ...resultPortfolio }
-      for (const ev of precomputed.events) {
-        // Find matching definition to get multipliers
-        const globalDef = scenario.globalEvents.find((d) => d.type === ev.type)
-        if (globalDef) {
-          if (globalDef.quantityMultiplier !== undefined) {
-            for (const asset of TRADABLE_ASSET_KEYS) {
-              updatedPortfolio[asset] = Math.floor(
-                updatedPortfolio[asset] * globalDef.quantityMultiplier,
-              )
-            }
-          }
-          if (globalDef.goldDelta !== undefined) {
-            updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold + globalDef.goldDelta)
-          }
-        }
-
-        if (ev.targetAsset) {
-          const assetCfg = scenario.assets[ev.targetAsset]
-          if (assetCfg.event.quantityMultiplier !== undefined) {
-            updatedPortfolio[ev.targetAsset] = Math.floor(
-              updatedPortfolio[ev.targetAsset] * assetCfg.event.quantityMultiplier,
-            )
-          }
-        }
-      }
+      // In precomputed mode, events are pre-generated and stored
+      // We just use the stored market state and events
+      // Note: Event effects on quantities are NOT reapplied here since precomputed
+      // trajectories only store market evolution, not player-specific portfolio effects
 
       // Add recurring revenue
-      updatedPortfolio.gold += scenario.recurringRevenue
+      const portfolio: Portfolio = {
+        ...portfolioAfterActions,
+        gold: portfolioAfterActions.gold + scenario.recurringRevenue,
+      }
 
       // Goal inflation adjustment
       const inflationRatio = precomputed.market.inflation / prevState.market.inflation
       const newGoal = prevState.goal * inflationRatio
-      const totalVal = portfolioValue(updatedPortfolio, precomputed.market)
+      const totalVal = portfolioValue(portfolio, precomputed.market)
 
       return {
         step: prevState.step + 1,
         date: advanceYear(prevState.date),
-        portfolio: updatedPortfolio,
+        portfolio,
         market: precomputed.market,
         events: precomputed.events,
         actions,
@@ -414,7 +368,7 @@ export async function generateTrajectories(scenario: Scenario): Promise<Precompu
   const years = scenario.endYear - scenario.startYear
 
   for (let i = 0; i < years; i++) {
-    // 1. Roll events
+    // 1. Roll events (uses new base event system)
     const { firedEvents, prices: pricesAfterEvents } = await resolveEvents(
       scenario,
       createPortfolio(0), // Portfolio doesn't matter for price/event generation
