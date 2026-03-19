@@ -31,6 +31,36 @@ const data = {
       items: [],
     },
     {
+      title: "Games",
+      url: "#",
+      icon: <GalleryVerticalEndIcon />,
+      items: [
+        {
+          title: "All Games",
+          url: "/dashboard",
+        },
+        {
+          title: "Create Game",
+          url: "/dashboard/sessions/create",
+        },
+      ],
+    },
+    {
+      title: "Configuration",
+      url: "#",
+      icon: <Settings2Icon />,
+      items: [
+        {
+          title: "Scenarios",
+          url: "/dashboard/scenarios",
+        },
+        {
+          title: "General",
+          url: "#",
+        },
+      ],
+    },
+    {
       title: "Settings",
       url: "#",
       icon: <Settings2Icon />,

@@ -109,6 +109,7 @@ export const precomputedStepValidator = v.object({
 export const scenarioFieldsValidator = {
   name: v.string(),
   description: v.string(),
+  icon: v.optional(v.string()),
   mode: v.optional(v.union(v.literal("live"), v.literal("precomputed"))),
   precomputedTrajectories: v.optional(v.array(precomputedStepValidator)),
   startCapital: v.number(),
