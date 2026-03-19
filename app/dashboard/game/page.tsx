@@ -1042,83 +1042,44 @@ function GameContent() {
                       goodsMeta.find((m) => m.key === "fish"),
                       goodsMeta.find((m) => m.key === "taler"),
                       goodsMeta.find((m) => m.key === "wood"),
-                    ].map((meta) => {
-                      if (!meta) return null
-                      const assetKey = meta.key as TradableAsset
-                      const isTaler = meta.key === "taler"
-
-                      let isUp = true
-                      let sPrice = 0
-                      if (!isTaler) {
-                        const currentPrice = current.market.prices[assetKey]
-                        const prevMarket =
-                          history.length > 1 ? history[history.length - 2].market : null
-                        const prevPrice = prevMarket ? prevMarket.prices[assetKey] : null
-                        isUp = prevPrice ? currentPrice.basePrice >= prevPrice.basePrice : true
-                        sPrice = sellPrice(currentPrice, current.market.inflation)
-                      }
-
-                      return (
-                        <div
-                          key={meta.key}
-                          className={cn(
-                            "bg-white/70 flex items-center gap-2 lg:gap-4",
-                            isMobile ? "p-2 min-w-0" : "p-4 min-w-[160px]",
-                          )}
-                        >
+                    ].map(
+                      (meta) =>
+                        meta && (
                           <div
+                            key={meta.key}
                             className={cn(
-                              "rounded-lg lg:rounded-2xl shadow-xs",
-                              isMobile ? "p-1 flex-shrink-0" : "p-2",
+                              "bg-white/70 flex items-center gap-2 lg:gap-4",
+                              isMobile ? "p-2 min-w-0" : "p-4 min-w-[140px]",
                             )}
-                            style={{ backgroundColor: lineConfig[meta.key].color }}
                           >
-                            <Image
-                              src={meta.icon}
-                              alt={meta.name}
-                              width={isMobile ? 16 : 32}
-                              height={isMobile ? 16 : 32}
-                              className="object-contain"
-                            />
-                          </div>
-                          <div className="flex flex-col leading-tight">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[8px] lg:text-[10px] font-black uppercase opacity-40">
-                                Units:
-                              </span>
-                              <span
-                                className={cn(
-                                  "font-mono font-black tabular-nums",
-                                  isMobile ? "text-sm" : "text-xl",
-                                )}
-                              >
-                                {isTaler
-                                  ? Math.round(projectedPortfolio.gold)
-                                  : projectedPortfolio[assetKey]}
-                              </span>
+                            <div
+                              className={cn(
+                                "rounded-lg lg:rounded-2xl shadow-xs",
+                                isMobile ? "p-1 flex-shrink-0" : "p-2",
+                              )}
+                              style={{ backgroundColor: lineConfig[meta.key].color }}
+                            >
+                              <Image
+                                src={meta.icon}
+                                alt={meta.name}
+                                width={isMobile ? 16 : 32}
+                                height={isMobile ? 16 : 32}
+                                className="object-contain"
+                              />
                             </div>
-                            {!isTaler && (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[8px] lg:text-[10px] font-black uppercase opacity-40">
-                                  Price:
-                                </span>
-                                <span
-                                  className={cn(
-                                    "font-mono font-bold tabular-nums opacity-70",
-                                    isMobile ? "text-[10px]" : "text-sm",
-                                  )}
-                                >
-                                  {formatTaler(sPrice)}
-                                </span>
-                                <div style={{ color: isUp ? "#16a34a" : "#dc2626" }}>
-                                  {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                                </div>
-                              </div>
-                            )}
+                            <span
+                              className={cn(
+                                "font-mono font-black tabular-nums",
+                                isMobile ? "text-sm" : "text-2xl",
+                              )}
+                            >
+                              {meta.key === "taler"
+                                ? Math.round(projectedPortfolio.gold)
+                                : projectedPortfolio[meta.key as TradableAsset]}
+                            </span>
                           </div>
-                        </div>
-                      )
-                    })}
+                        ),
+                    )}
                   </div>
 
                   {/* Pie Chart */}
