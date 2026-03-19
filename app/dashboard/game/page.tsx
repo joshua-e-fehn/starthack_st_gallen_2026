@@ -78,9 +78,10 @@ const lineConfig = {
 }
 
 const priceChartConfig = {
-  wood: { label: "Wood", color: lineConfig.wood.color },
-  potatoes: { label: "Potatoes", color: lineConfig.potatoes.color },
-  fish: { label: "Fish", color: lineConfig.fish.color },
+  talerBalance: { label: "Taler", color: lineConfig.taler.color },
+  woodValue: { label: "Wood Value", color: lineConfig.wood.color },
+  potatoesValue: { label: "Potatoes Value", color: lineConfig.potatoes.color },
+  fishValue: { label: "Fish Value", color: lineConfig.fish.color },
   totalValue: { label: "Total Value", color: lineConfig.totalValue.color },
 } satisfies ChartConfig
 
@@ -137,7 +138,14 @@ function MiniPriceGraph({
   taler: number
   holdings: Holdings
 }) {
-  const keys: Array<TradableAsset | "totalValue"> = ["wood", "potatoes", "fish", "totalValue"]
+  const keys = ["talerBalance", "woodValue", "potatoesValue", "fishValue", "totalValue"] as const
+  const seriesColors: Record<(typeof keys)[number], string> = {
+    talerBalance: lineConfig.taler.color,
+    woodValue: lineConfig.wood.color,
+    potatoesValue: lineConfig.potatoes.color,
+    fishValue: lineConfig.fish.color,
+    totalValue: lineConfig.totalValue.color,
+  }
   const [selectedIndex, setSelectedIndex] = useState(Math.max(0, data.length - 1))
 
   useEffect(() => {
@@ -147,6 +155,10 @@ function MiniPriceGraph({
   const chartData = useMemo(() => {
     return data.map((point) => ({
       ...point,
+      talerBalance: roundMoney(taler),
+      woodValue: roundMoney(holdings.wood * point.wood),
+      potatoesValue: roundMoney(holdings.potatoes * point.potatoes),
+      fishValue: roundMoney(holdings.fish * point.fish),
       totalValue: roundMoney(
         taler +
           holdings.wood * point.wood +
@@ -175,8 +187,8 @@ function MiniPriceGraph({
           <defs>
             {keys.map((key) => (
               <linearGradient key={`fill-${key}`} id={`fill-${key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={lineConfig[key].color} stopOpacity={0.4} />
-                <stop offset="95%" stopColor={lineConfig[key].color} stopOpacity={0.03} />
+                <stop offset="5%" stopColor={seriesColors[key]} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={seriesColors[key]} stopOpacity={0.03} />
               </linearGradient>
             ))}
           </defs>
@@ -191,16 +203,6 @@ function MiniPriceGraph({
             tickFormatter={(value) => `Y${value}`}
           />
           <YAxis
-            yAxisId="price"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            width={42}
-            tickFormatter={(value) => value.toLocaleString("de-CH")}
-          />
-          <YAxis
-            yAxisId="portfolio"
-            orientation="right"
             tickLine={false}
             axisLine={false}
             tickMargin={8}
@@ -220,7 +222,7 @@ function MiniPriceGraph({
                   <div className="flex w-full items-center justify-between gap-3">
                     <span className="text-muted-foreground">{name}</span>
                     <span className="font-mono tabular-nums">
-                      {Number(value).toLocaleString("de-CH")}
+                      {Number(value).toLocaleString("de-CH")} taler
                     </span>
                   </div>
                 )}
@@ -232,31 +234,62 @@ function MiniPriceGraph({
             <ReferenceLine
               x={selectedPoint.step}
               xAxisId={0}
-              yAxisId="price"
               stroke="currentColor"
               strokeOpacity={0.22}
               strokeDasharray="5 5"
             />
           ) : null}
 
-          {keys.map((key) => (
-            <Area
-              key={key}
-              type="monotone"
-              dataKey={key}
-              yAxisId={key === "totalValue" ? "portfolio" : "price"}
-              name={lineConfig[key].label}
-              stroke={lineConfig[key].color}
-              strokeWidth={key === "totalValue" ? 3 : 2.5}
-              fill={`url(#fill-${key})`}
-              activeDot={{ r: key === "totalValue" ? 7 : 6 }}
-              dot={{
-                r: key === "totalValue" ? 3 : 2.5,
-                strokeWidth: 1.2,
-                fill: lineConfig[key].color,
-              }}
-            />
-          ))}
+          <Area
+            type="monotone"
+            dataKey="talerBalance"
+            name="Taler"
+            stroke={lineConfig.taler.color}
+            strokeWidth={2.5}
+            fill="url(#fill-talerBalance)"
+            activeDot={{ r: 6 }}
+            dot={{ r: 2.5, strokeWidth: 1.2, fill: lineConfig.taler.color }}
+          />
+          <Area
+            type="monotone"
+            dataKey="woodValue"
+            name="Wood Value"
+            stroke={lineConfig.wood.color}
+            strokeWidth={2.5}
+            fill="url(#fill-woodValue)"
+            activeDot={{ r: 6 }}
+            dot={{ r: 2.5, strokeWidth: 1.2, fill: lineConfig.wood.color }}
+          />
+          <Area
+            type="monotone"
+            dataKey="potatoesValue"
+            name="Potatoes Value"
+            stroke={lineConfig.potatoes.color}
+            strokeWidth={2.5}
+            fill="url(#fill-potatoesValue)"
+            activeDot={{ r: 6 }}
+            dot={{ r: 2.5, strokeWidth: 1.2, fill: lineConfig.potatoes.color }}
+          />
+          <Area
+            type="monotone"
+            dataKey="fishValue"
+            name="Fish Value"
+            stroke={lineConfig.fish.color}
+            strokeWidth={2.5}
+            fill="url(#fill-fishValue)"
+            activeDot={{ r: 6 }}
+            dot={{ r: 2.5, strokeWidth: 1.2, fill: lineConfig.fish.color }}
+          />
+          <Area
+            type="monotone"
+            dataKey="totalValue"
+            name="Total Value"
+            stroke={lineConfig.totalValue.color}
+            strokeWidth={3}
+            fill="url(#fill-totalValue)"
+            activeDot={{ r: 7 }}
+            dot={{ r: 3, strokeWidth: 1.2, fill: lineConfig.totalValue.color }}
+          />
 
           <ChartLegend content={<ChartLegendContent />} />
         </AreaChart>
@@ -604,7 +637,7 @@ export default function Game() {
           <CardHeader>
             <CardTitle>Year {currentYear}</CardTitle>
             <CardDescription>
-              Combined price development of taler, wood, potatoes, and fish.
+              Asset values over time in talers (cash, each asset class, and total value).
             </CardDescription>
           </CardHeader>
           <CardContent>
