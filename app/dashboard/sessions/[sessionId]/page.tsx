@@ -1,17 +1,19 @@
 "use client"
 
 import { useQuery } from "convex/react"
-import { motion } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
 import {
   ActivityIcon,
   ArrowLeftIcon,
   CheckIcon,
+  ChevronDown,
   CopyIcon,
   Loader2,
   QrCodeIcon,
   TrophyIcon,
   UsersIcon,
 } from "lucide-react"
+import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
 import { useCallback, useMemo, useState } from "react"
@@ -30,11 +32,32 @@ function formatTaler(value: number) {
   return `${new Intl.NumberFormat("de-CH").format(Math.round(value))} taler`
 }
 
+const ASSET_META = [
+  { key: "gold" as const, label: "Taler", icon: "/asset-classes/taler.webp", color: "#FFD700" },
+  { key: "wood" as const, label: "Wood", icon: "/asset-classes/wood.webp", color: "#8B5E3C" },
+  {
+    key: "potatoes" as const,
+    label: "Potatoes",
+    icon: "/asset-classes/potatoes.webp",
+    color: "#C4A35A",
+  },
+  { key: "fish" as const, label: "Fish", icon: "/asset-classes/fish.webp", color: "#5B9BD5" },
+]
+
+type AssetBreakdown = {
+  gold: number
+  wood: number
+  potatoes: number
+  fish: number
+  total: number
+}
+
 type LeaderboardEntry = {
   gameId: string
   playerName: string
   status: string
   netWorth: number
+  assetBreakdown?: AssetBreakdown
 }
 
 type Row =
@@ -97,6 +120,7 @@ export default function SessionLobbyPage() {
   const sessionData = useQuery(api.game.getSessionWithLeaderboard, { sessionId })
 
   const [copied, setCopied] = useState(false)
+  const [expandedGameId, setExpandedGameId] = useState<string | null>(null)
 
   const joinUrl = useMemo(() => {
     if (typeof window === "undefined") return ""
@@ -313,6 +337,9 @@ export default function SessionLobbyPage() {
                             Math.min(100, (entry.netWorth / maxNetWorth) * 100),
                           )
 
+                          const isExpanded = expandedGameId === entry.gameId
+                          const breakdown = entry.assetBreakdown
+
                           return (
                             <motion.div
                               key={entry.gameId}
@@ -320,7 +347,7 @@ export default function SessionLobbyPage() {
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: i * 0.05 }}
                               className={cn(
-                                "relative flex items-center justify-between overflow-hidden rounded-lg border px-3 py-2.5",
+                                "relative overflow-hidden rounded-lg border cursor-pointer transition-colors",
                                 isGold
                                   ? "border-yellow-500/30"
                                   : isSilver
@@ -331,58 +358,127 @@ export default function SessionLobbyPage() {
                                         ? "border-rose-400/20"
                                         : "border-border/70",
                               )}
+                              onClick={() => setExpandedGameId(isExpanded ? null : entry.gameId)}
                             >
-                              {/* Progress fill background */}
-                              <div
-                                className={cn(
-                                  "pointer-events-none absolute inset-y-0 left-0 rounded-r-sm transition-all duration-500",
-                                  isGold
-                                    ? "bg-yellow-400/25"
-                                    : isSilver
-                                      ? "bg-slate-400/20"
-                                      : isBronze
-                                        ? "bg-amber-600/20"
-                                        : isLast
-                                          ? "bg-rose-400/20"
-                                          : "bg-primary/15",
-                                )}
-                                style={{ width: `${fillPct}%` }}
-                              />
-                              <div className="relative z-10 flex items-center gap-3">
-                                <span
+                              {/* Main row */}
+                              <div className="relative flex items-center justify-between px-3 py-2.5">
+                                {/* Progress fill background */}
+                                <div
                                   className={cn(
-                                    "flex size-7 items-center justify-center rounded-full text-xs font-bold",
+                                    "pointer-events-none absolute inset-y-0 left-0 rounded-r-sm transition-all duration-500",
                                     isGold
-                                      ? "bg-yellow-500 text-yellow-950"
+                                      ? "bg-yellow-400/25"
                                       : isSilver
-                                        ? "bg-slate-400 text-white"
+                                        ? "bg-slate-400/20"
                                         : isBronze
-                                          ? "bg-amber-700 text-white"
+                                          ? "bg-amber-600/20"
                                           : isLast
-                                            ? "bg-rose-400 text-white"
-                                            : "bg-muted text-muted-foreground",
+                                            ? "bg-rose-400/20"
+                                            : "bg-primary/15",
                                   )}
-                                >
-                                  {rank + 1}
-                                </span>
-                                <div>
-                                  <p className="text-sm font-bold">
-                                    {entry.playerName}
-                                    {isMedian && (
-                                      <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
-                                        median
-                                      </span>
+                                  style={{ width: `${fillPct}%` }}
+                                />
+                                <div className="relative z-10 flex items-center gap-3">
+                                  <span
+                                    className={cn(
+                                      "flex size-7 items-center justify-center rounded-full text-xs font-bold",
+                                      isGold
+                                        ? "bg-yellow-500 text-yellow-950"
+                                        : isSilver
+                                          ? "bg-slate-400 text-white"
+                                          : isBronze
+                                            ? "bg-amber-700 text-white"
+                                            : isLast
+                                              ? "bg-rose-400 text-white"
+                                              : "bg-muted text-muted-foreground",
                                     )}
+                                  >
+                                    {rank + 1}
+                                  </span>
+                                  <div>
+                                    <p className="text-sm font-bold">
+                                      {entry.playerName}
+                                      {isMedian && (
+                                        <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
+                                          median
+                                        </span>
+                                      )}
+                                    </p>
+                                    <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                      <ActivityIcon className="size-2" />
+                                      {entry.status}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="relative z-10 flex items-center gap-2">
+                                  <p className="font-mono text-sm font-black text-primary">
+                                    {formatTaler(entry.netWorth)}
                                   </p>
-                                  <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                    <ActivityIcon className="size-2" />
-                                    {entry.status}
-                                  </p>
+                                  <ChevronDown
+                                    className={cn(
+                                      "size-4 text-muted-foreground transition-transform duration-200",
+                                      isExpanded && "rotate-180",
+                                    )}
+                                  />
                                 </div>
                               </div>
-                              <p className="relative z-10 font-mono text-sm font-black text-primary">
-                                {formatTaler(entry.netWorth)}
-                              </p>
+
+                              {/* Expanded asset breakdown */}
+                              <AnimatePresence>
+                                {isExpanded && breakdown && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="border-t border-border/50 bg-muted/30 px-3 py-2.5">
+                                      <div className="grid grid-cols-4 gap-2">
+                                        {ASSET_META.map((asset) => {
+                                          const value = breakdown[asset.key]
+                                          const pct =
+                                            breakdown.total > 0
+                                              ? Math.round((value / breakdown.total) * 100)
+                                              : 0
+                                          return (
+                                            <div
+                                              key={asset.key}
+                                              className="flex flex-col items-center justify-between rounded-lg bg-background/60 px-1.5 py-2"
+                                            >
+                                              <div className="flex h-6 items-center justify-center">
+                                                <Image
+                                                  src={asset.icon}
+                                                  alt={asset.label}
+                                                  width={20}
+                                                  height={20}
+                                                  className="object-contain"
+                                                />
+                                              </div>
+                                              <span className="text-[10px] font-bold text-muted-foreground">
+                                                {asset.label}
+                                              </span>
+                                              <span className="mt-auto font-mono text-xs font-black">
+                                                {pct}%
+                                              </span>
+                                              {/* Mini bar */}
+                                              <div className="mt-1 h-1 w-full rounded-full bg-muted">
+                                                <div
+                                                  className="h-full rounded-full transition-all duration-300"
+                                                  style={{
+                                                    width: `${pct}%`,
+                                                    backgroundColor: asset.color,
+                                                  }}
+                                                />
+                                              </div>
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
                             </motion.div>
                           )
                         })

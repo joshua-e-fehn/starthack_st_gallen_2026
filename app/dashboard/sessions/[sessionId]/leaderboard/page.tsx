@@ -303,7 +303,7 @@ function LeaderboardContent() {
           {gameId && (
             <Button
               className="h-12 w-full max-w-sm text-base"
-              onClick={() => router.push(`/dashboard/game?sessionId=${sessionId}&gameId=${gameId}`)}
+              onClick={() => router.push(`/game?sessionId=${sessionId}&gameId=${gameId}`)}
             >
               Continue Playing →
             </Button>

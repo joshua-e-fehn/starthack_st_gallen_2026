@@ -774,7 +774,7 @@ function GameContent() {
     })
       .then((id) => {
         setGameId(id)
-        router.replace(`/dashboard/game?sessionId=${sessionIdParam}&gameId=${id}`)
+        router.replace(`/game?sessionId=${sessionIdParam}&gameId=${id}`)
       })
       .catch((e) => {
         console.error("Failed to start game:", e)
@@ -1141,7 +1141,7 @@ function GameContent() {
                     <Badge
                       variant={current.market.regime === "peace" ? "default" : "destructive"}
                       className={cn(
-                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-lg font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full bg-[#FFD700] text-black border-none",
+                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-lg font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full",
                       )}
                     >
                       {current.market.regime === "peace" ? "🕊️ Peace" : "⚔️ War"}
@@ -1426,7 +1426,7 @@ function GameContent() {
                   className="relative h-16 sm:h-20 w-full rounded-2xl bg-green-600 text-xl sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:bg-green-700 hover:scale-[1.02]"
                   onClick={() =>
                     router.push(
-                      `/dashboard/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
+                      `/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
                     )
                   }
                 >
