@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/table"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { getOrCreateGuestId } from "@/lib/guest"
 import { cn } from "@/lib/utils"
 
 function DashboardContent() {
@@ -44,13 +45,17 @@ function DashboardContent() {
   const [isJoining, setIsJoining] = useState(false)
 
   // Queries
+  const guestId = getOrCreateGuestId()
   const sessionData = useQuery(
     api.game.getSessionWithLeaderboard,
     sessionId ? { sessionId } : "skip",
   )
-  const myGameInSession = useQuery(api.game.getMyGameInSession, sessionId ? { sessionId } : "skip")
+  const myGameInSession = useQuery(
+    api.game.getMyGameInSession,
+    sessionId ? { sessionId, guestId } : "skip",
+  )
   const activeSessions = useQuery(api.game.listSessions)
-  const myGames = useQuery(api.game.listMyGames)
+  const myGames = useQuery(api.game.listMyGames, { guestId })
   const startGame = useMutation(api.game.startGame)
 
   const handleJoinByCode = async (e: React.FormEvent) => {
@@ -98,6 +103,7 @@ function DashboardContent() {
           scenarioId: sessionData.session.scenarioId,
           sessionId: sessionData.session._id,
           playerName: name,
+          guestId,
         })
         router.push(`/dashboard/game?sessionId=${sessionData.session._id}&gameId=${gameId}`)
       } catch (error) {

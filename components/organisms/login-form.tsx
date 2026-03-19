@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,14 +19,11 @@ import { cn } from "@/lib/utils"
 export function LoginForm({
   className,
   defaultSignUp = false,
-  redirectUrl,
   ...props
-}: React.ComponentProps<"div"> & { defaultSignUp?: boolean; redirectUrl?: string }) {
+}: React.ComponentProps<"div"> & { defaultSignUp?: boolean }) {
   const router = useRouter()
-  const searchParams = new URLSearchParams(
-    typeof window !== "undefined" ? window.location.search : "",
-  )
-  const finalRedirectUrl = redirectUrl || searchParams.get("redirect") || "/dashboard"
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")
@@ -60,7 +57,7 @@ export function LoginForm({
           return
         }
       }
-      router.push(finalRedirectUrl)
+      router.push(callbackUrl)
     } catch {
       setError("Something went wrong")
     } finally {
@@ -91,7 +88,7 @@ export function LoginForm({
                   onClick={async () => {
                     await authClient.signIn.social({
                       provider: "github",
-                      callbackURL: finalRedirectUrl,
+                      callbackURL: callbackUrl,
                     })
                   }}
                 >
@@ -109,7 +106,7 @@ export function LoginForm({
                   onClick={async () => {
                     await authClient.signIn.social({
                       provider: "google",
-                      callbackURL: finalRedirectUrl,
+                      callbackURL: callbackUrl,
                     })
                   }}
                 >
@@ -127,7 +124,7 @@ export function LoginForm({
                   onClick={async () => {
                     await authClient.signIn.social({
                       provider: "apple",
-                      callbackURL: finalRedirectUrl,
+                      callbackURL: callbackUrl,
                     })
                   }}
                 >
@@ -188,7 +185,11 @@ export function LoginForm({
                 <FieldDescription className="text-center">
                   {isSignUp ? "Already have an account?" : "Don\u0027t have an account?"}{" "}
                   <Link
-                    href={isSignUp ? "/sign-in" : "/sign-up"}
+                    href={
+                      isSignUp
+                        ? `/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`
+                        : `/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}`
+                    }
                     className="underline underline-offset-4 hover:text-primary"
                   >
                     {isSignUp ? "Sign in" : "Sign up"}

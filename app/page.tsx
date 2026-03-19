@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { authClient } from "@/lib/auth-client"
+import { getOrCreateGuestId } from "@/lib/guest"
 import { cn } from "@/lib/utils"
 
 function formatTaler(value: number) {
@@ -42,11 +43,15 @@ function HomeContent() {
   const sessionId = searchParams.get("sessionId") as Id<"sessions"> | null
 
   // --- Session Queries ---
+  const guestId = getOrCreateGuestId()
   const sessionData = useQuery(
     api.game.getSessionWithLeaderboard,
     sessionId ? { sessionId } : "skip",
   )
-  const myGameInSession = useQuery(api.game.getMyGameInSession, sessionId ? { sessionId } : "skip")
+  const myGameInSession = useQuery(
+    api.game.getMyGameInSession,
+    sessionId ? { sessionId, guestId } : "skip",
+  )
   const isLoaded = !!sessionId && !!sessionData
   const isLoadingSession = !!sessionId && sessionData === undefined
 
@@ -85,6 +90,7 @@ function HomeContent() {
           scenarioId: sessionData.session.scenarioId,
           sessionId: sessionData.session._id,
           playerName: trimmedName,
+          guestId,
         })
         router.push(`/dashboard/game?sessionId=${sessionData.session._id}&gameId=${gameId}`)
       } catch (error) {
@@ -306,7 +312,7 @@ function HomeContent() {
                         if (session?.user) {
                           router.push("/dashboard/sessions/create")
                         } else {
-                          router.push("/sign-in?redirect=/dashboard/sessions/create")
+                          router.push("/sign-in?callbackUrl=/dashboard/sessions/create")
                         }
                       }}
                     >
