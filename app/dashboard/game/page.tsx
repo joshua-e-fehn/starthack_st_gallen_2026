@@ -6,6 +6,7 @@ import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recharts"
+import { GameChatbot } from "@/components/molecules/game-chatbot"
 import { StoryPlayer } from "@/components/organisms/story-player"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -1040,6 +1041,8 @@ function GameContent() {
           </div>
         </DrawerContent>
       </Drawer>
+
+      <GameChatbot />
     </main>
   )
 }
