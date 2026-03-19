@@ -36,13 +36,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -156,37 +149,37 @@ function formatTaler(n: number) {
   return `${new Intl.NumberFormat("de-CH").format(Math.round(n * 100) / 100)}`
 }
 
-// ─── Vertical Trade Bar Mapping Helpers ──────────────────────────
+// ─── Trade Mapping Helpers ──────────────────────────
 
 /**
- * Maps a pixel coordinate (Y) within the trade bar height to a trade quantity.
- * Middle (height/2) is 0. Top (0) is maxBuy. Bottom (height) is -maxSell.
+ * Maps a pixel coordinate (X) within the trade bar width to a trade quantity.
+ * Middle (width/2) is 0. Left (0) is -maxSell. Right (width) is maxBuy.
  */
-function mapYToTrade(y: number, height: number, maxBuy: number, maxSell: number): number {
-  const mid = height / 2
-  if (y <= mid) {
-    // 0 to mid maps to [maxBuy, 0]
-    const progress = 1 - y / mid
-    return Math.round(progress * maxBuy)
+function mapXToTrade(x: number, width: number, maxBuy: number, maxSell: number): number {
+  const mid = width / 2
+  if (x <= mid) {
+    // 0 to mid maps to [-maxSell, 0]
+    const progress = x / mid
+    return Math.round((progress - 1) * maxSell)
   }
-  // mid to height maps to [0, -maxSell]
-  const progress = (y - mid) / mid
-  return -Math.round(progress * maxSell)
+  // mid to width maps to [0, maxBuy]
+  const progress = (x - mid) / mid
+  return Math.round(progress * maxBuy)
 }
 
 /**
- * Maps a trade quantity back to a pixel coordinate (Y).
+ * Maps a trade quantity back to a pixel coordinate (X).
  */
-function mapTradeToY(trade: number, height: number, maxBuy: number, maxSell: number): number {
-  const mid = height / 2
+function mapTradeToX(trade: number, width: number, maxBuy: number, maxSell: number): number {
+  const mid = width / 2
   if (trade >= 0) {
     if (maxBuy === 0) return mid
     const progress = trade / maxBuy
-    return mid * (1 - progress)
+    return mid + mid * progress
   }
   if (maxSell === 0) return mid
   const progress = Math.abs(trade) / maxSell
-  return mid + mid * progress
+  return mid * (1 - progress)
 }
 
 // ─── Chart ───────────────────────────────────────────────────────
@@ -269,6 +262,363 @@ function AssetHistoryGraph({ history, asset }: { history: StateVector[]; asset: 
         </AreaChart>
       </ChartContainer>
     </div>
+  )
+}
+
+// ─── Marketplace Asset Card ──────────────────────────────────────
+
+function AssetCard({
+  meta,
+  current,
+  portfolio,
+  tradePlan,
+  history,
+  projectedPortfolio,
+  projectedTalerBalance,
+  expandedAsset,
+  setExpandedAsset,
+  setTradePlan,
+  isMobile,
+  gameOver,
+}: {
+  meta: (typeof goodsMeta)[number]
+  current: StateVector
+  portfolio: StateVector["portfolio"]
+  tradePlan: Record<TradableAsset, number>
+  history: StateVector[]
+  projectedPortfolio: StateVector["portfolio"]
+  projectedTalerBalance: number
+  expandedAsset: TradableAsset | null
+  setExpandedAsset: (a: TradableAsset | null) => void
+  setTradePlan: React.Dispatch<React.SetStateAction<Record<TradableAsset, number>>>
+  isMobile: boolean
+  gameOver: boolean
+}) {
+  const assetKey = meta.key as TradableAsset
+  const currentPrice = current.market.prices[assetKey]
+  const inf = current.market.inflation
+  const bPrice = buyPrice(currentPrice, inf)
+  const sPrice = sellPrice(currentPrice, inf)
+
+  const prevMarket = history.length > 1 ? history[history.length - 2].market : null
+  const prevPrice = prevMarket ? prevMarket.prices[assetKey] : null
+  const isUp = prevPrice ? currentPrice.basePrice >= prevPrice.basePrice : true
+
+  const isExpanded = expandedAsset === assetKey
+  const tradeQty = tradePlan[assetKey]
+
+  const maxBuyLocal = Math.max(
+    0,
+    Math.floor((projectedTalerBalance - (tradeQty > 0 ? -tradeQty * bPrice : 0)) / bPrice),
+  )
+  // Correct maxBuy: how many more can we buy given remaining cash?
+  // Actually, tradePlan already accounts for plannedTalerDelta.
+  // We need to know how much cash is available EXCLUDING this asset's current trade.
+  const cashExcludingThis =
+    projectedTalerBalance +
+    (tradeQty > 0 ? tradeQty * bPrice : tradeQty < 0 ? tradeQty * sPrice : 0)
+  const maxBuy = Math.max(0, Math.floor(cashExcludingThis / bPrice))
+  const maxSell = portfolio[assetKey]
+
+  const assetColor = lineConfig[assetKey].color
+  const tradeBarRef = useRef<HTMLDivElement | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const onPointerUpdate = (clientX: number) => {
+    if (!tradeBarRef.current) return
+    const rect = tradeBarRef.current.getBoundingClientRect()
+    const x = clamp(clientX - rect.left, 0, rect.width)
+    const val = mapXToTrade(x, rect.width, maxBuy, maxSell)
+    setTradePlan((prev) => ({ ...prev, [assetKey]: val }))
+  }
+
+  const indicatorX = mapTradeToX(tradeQty, 200, maxBuy, maxSell) // Fixed width for mapping or dynamic?
+
+  return (
+    <Card
+      className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50"}`}
+      style={{ backgroundColor: `${assetColor}20` }}
+    >
+      <CardContent className="p-0">
+        <div className="flex flex-col p-4 sm:p-5 gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-5">
+              <div className="rounded-2xl p-3 shadow-md bg-white">
+                <Image
+                  src={meta.icon}
+                  alt={meta.name}
+                  width={48}
+                  height={48}
+                  className="object-contain"
+                />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-xl font-black leading-tight tracking-tight">{meta.name}</h3>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Image
+                      src="/asset-classes/taler.webp"
+                      alt="Taler"
+                      width={14}
+                      height={14}
+                      className="object-contain"
+                    />
+                    <span className="font-mono text-sm font-black text-muted-foreground">
+                      {formatTaler(sPrice)}
+                    </span>
+                  </div>
+                  <div
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-white/50 text-[10px] font-bold"
+                    style={{ color: isUp ? "#16a34a" : "#dc2626" }}
+                  >
+                    {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                    {isUp ? "UP" : "DOWN"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-8 border-t pt-4 sm:border-t-0 sm:pt-0">
+              <div className="flex flex-col items-start sm:items-end">
+                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+                  Your Units
+                </span>
+                <span className="text-2xl font-black tabular-nums">
+                  {projectedPortfolio[assetKey]}
+                </span>
+              </div>
+
+              {!isMobile && (
+                <div className="flex items-center gap-2 bg-white/40 p-1 rounded-2xl border border-white/60 shadow-xs">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-10 rounded-xl hover:bg-white/20"
+                    disabled={gameOver || portfolio[assetKey] + tradeQty <= 0}
+                    onClick={() => setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] - 1 }))}
+                  >
+                    <Minus className="size-5" />
+                  </Button>
+                  <div className="flex flex-col items-center min-w-[4rem]">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground opacity-50">
+                      Draft
+                    </span>
+                    <span
+                      className={`font-mono text-lg font-black tabular-nums ${tradeQty > 0 ? "text-green-600" : tradeQty < 0 ? "text-rose-600" : ""}`}
+                    >
+                      {tradeQty > 0 ? "+" : ""}
+                      {tradeQty}
+                    </span>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-10 rounded-xl hover:bg-white/20"
+                    disabled={gameOver || maxBuy <= tradeQty}
+                    onClick={() => setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] + 1 }))}
+                  >
+                    <Plus className="size-5" />
+                  </Button>
+                </div>
+              )}
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`rounded-full size-10 transition-colors ${isExpanded ? "bg-white/40 text-primary" : "hover:bg-white/20"}`}
+                onClick={() => setExpandedAsset(isExpanded ? null : assetKey)}
+              >
+                {isExpanded ? <ChevronUp className="size-6" /> : <ChevronDown className="size-6" />}
+              </Button>
+            </div>
+          </div>
+
+          {/* Horizontal Slider for Mobile - Directly Integrated */}
+          {isMobile && !gameOver && (
+            <div className="space-y-3 pt-2 border-t border-black/5">
+              <div className="flex justify-between items-end px-1">
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black uppercase opacity-50">Sell Mode</span>
+                  <span className="text-xs font-bold text-rose-600">-{maxSell} Max</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                    Trade Plan
+                  </span>
+                  <span
+                    className={`text-xl font-black tabular-nums ${tradeQty > 0 ? "text-green-600" : tradeQty < 0 ? "text-rose-600" : ""}`}
+                  >
+                    {tradeQty > 0 ? "+" : ""}
+                    {tradeQty}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[9px] font-black uppercase opacity-50">Buy Mode</span>
+                  <span className="text-xs font-bold text-green-600">+{maxBuy} Max</span>
+                </div>
+              </div>
+
+              <div
+                ref={tradeBarRef}
+                className="relative h-12 rounded-2xl border-2 border-white/60 bg-white/40 shadow-inner overflow-hidden touch-none"
+                onPointerDown={(e) => {
+                  setIsDragging(true)
+                  onPointerUpdate(e.clientX)
+                }}
+                onPointerMove={(e) => {
+                  if (isDragging) onPointerUpdate(e.clientX)
+                }}
+                onPointerUp={() => setIsDragging(false)}
+                onPointerLeave={() => setIsDragging(false)}
+              >
+                <div className="absolute inset-0 flex">
+                  <div className="w-1/2 h-full bg-linear-to-r from-rose-500/10 to-transparent" />
+                  <div className="w-1/2 h-full bg-linear-to-l from-emerald-500/10 to-transparent" />
+                </div>
+                <div className="absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 bg-black/10" />
+
+                {/* Visual Handle */}
+                <motion.div
+                  className="absolute top-1/2 z-20 h-10 w-10 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white bg-white shadow-lg flex items-center justify-center"
+                  style={{ left: `${mapTradeToX(tradeQty, 100, maxBuy, maxSell)}%` }} // Simplified for responsive
+                  animate={{ scale: isDragging ? 1.1 : 1 }}
+                >
+                  <div
+                    className="absolute inset-1 rounded-full shadow-inner"
+                    style={{ backgroundColor: assetColor }}
+                  />
+                </motion.div>
+              </div>
+
+              <div className="flex justify-between items-center px-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[10px] font-black"
+                  onClick={() => setTradePlan((p) => ({ ...p, [assetKey]: 0 }))}
+                >
+                  <RotateCcw className="size-3 mr-1" /> RESET
+                </Button>
+                <span className="text-[10px] font-bold opacity-60">
+                  {tradeQty !== 0
+                    ? tradeQty > 0
+                      ? `Cost: ${formatTaler(tradeQty * bPrice)}`
+                      : `Gain: ${formatTaler(Math.abs(tradeQty) * sPrice)}`
+                    : "No change"}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.4, ease: "circOut" }}
+            >
+              <div className="border-t border-white/20 bg-white/10 p-4 sm:p-6 space-y-6">
+                <AssetHistoryGraph history={history} asset={assetKey} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-white/60 backdrop-blur-sm border border-white/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <Store className="size-3 text-muted-foreground" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Local Market Prices
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                          You Buy At
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <Image
+                            src="/asset-classes/taler.webp"
+                            alt="Taler"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                          />
+                          <span className="text-lg font-black font-mono">
+                            {formatTaler(bPrice)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-8 w-px bg-white mx-4" />
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                          You Sell At
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <Image
+                            src="/asset-classes/taler.webp"
+                            alt="Taler"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                          />
+                          <span className="text-lg font-black font-mono">
+                            {formatTaler(sPrice)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white/60 backdrop-blur-sm border border-white/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="size-3 text-muted-foreground" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Portfolio Breakdown
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                          Quantity
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <Image
+                            src={meta.icon}
+                            alt={meta.name}
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                          />
+                          <span className="text-lg font-black font-mono">
+                            {projectedPortfolio[assetKey]} Units
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-8 w-px bg-white mx-4" />
+                      <div className="flex flex-col items-end text-right">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                          Total Position Value
+                        </span>
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <Image
+                            src="/asset-classes/taler.webp"
+                            alt="Taler"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                          />
+                          <span className="text-lg font-black font-mono text-primary">
+                            {formatTaler(projectedPortfolio[assetKey] * sPrice)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -389,10 +739,6 @@ function GameContent() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [expandedAsset, setExpandedAsset] = useState<TradableAsset | null>(null)
-  const [selectedAssetForMobile, setSelectedAssetForMobile] = useState<TradableAsset | null>(null)
-  const [draftTradeValue, setDraftTradeValue] = useState(0)
-  const [isDraggingTradeBar, setIsDraggingTradeBar] = useState(false)
-  const tradeBarRef = useRef<HTMLDivElement | null>(null)
 
   const portfolio = current?.portfolio ?? { gold: 0, wood: 0, potatoes: 0, fish: 0 }
   const market = current?.market
@@ -512,87 +858,6 @@ function GameContent() {
     if (current) prevGoalReached.current = current.goalReached
   })
 
-  // Mobile Trade Modal Logic
-  function openMobileTrade(asset: TradableAsset) {
-    setSelectedAssetForMobile(asset)
-    setDraftTradeValue(tradePlan[asset])
-  }
-
-  function closeMobileTrade() {
-    setSelectedAssetForMobile(null)
-    setIsDraggingTradeBar(false)
-  }
-
-  const selectedBuyPrice = selectedAssetForMobile ? getBuyPriceFor(selectedAssetForMobile) : 0
-  const selectedSellPriceVal = selectedAssetForMobile ? getSellPriceFor(selectedAssetForMobile) : 0
-
-  const tradeCostExcludingSelected = useMemo(() => {
-    if (!selectedAssetForMobile) return 0
-    return (Object.keys(tradePlan) as TradableAsset[])
-      .filter((asset) => asset !== selectedAssetForMobile)
-      .reduce((sum, asset) => {
-        if (tradePlan[asset] > 0) return sum + tradePlan[asset] * getBuyPriceFor(asset)
-        if (tradePlan[asset] < 0) return sum - Math.abs(tradePlan[asset]) * getSellPriceFor(asset)
-        return sum
-      }, 0)
-  }, [selectedAssetForMobile, tradePlan, getBuyPriceFor, getSellPriceFor])
-
-  const maxBuy = useMemo(() => {
-    if (!selectedAssetForMobile || selectedBuyPrice <= 0) return 0
-    const freeCash = portfolio.gold - tradeCostExcludingSelected
-    return Math.max(0, Math.floor(freeCash / selectedBuyPrice))
-  }, [selectedAssetForMobile, selectedBuyPrice, portfolio.gold, tradeCostExcludingSelected])
-
-  const maxSell = useMemo(() => {
-    if (!selectedAssetForMobile) return 0
-    return portfolio[selectedAssetForMobile]
-  }, [portfolio, selectedAssetForMobile])
-
-  const currentTradeClamp = useMemo(
-    () => clamp(draftTradeValue, -maxSell, maxBuy),
-    [draftTradeValue, maxBuy, maxSell],
-  )
-
-  const indicatorY = mapTradeToY(currentTradeClamp, 220, maxBuy, maxSell)
-
-  const selectedAssetColor = selectedAssetForMobile
-    ? lineConfig[selectedAssetForMobile].color
-    : "oklch(0.62 0.14 228)"
-
-  const projectedHolding = useMemo(() => {
-    if (!selectedAssetForMobile) return 0
-    return portfolio[selectedAssetForMobile] + currentTradeClamp
-  }, [portfolio, selectedAssetForMobile, currentTradeClamp])
-
-  const buyDelta = Math.max(0, currentTradeClamp)
-  const sellDelta = Math.max(0, -currentTradeClamp)
-  const projectedAssetValue = roundMoney(
-    projectedHolding * (currentTradeClamp >= 0 ? selectedBuyPrice : selectedSellPriceVal),
-  )
-
-  useEffect(() => {
-    if (!selectedAssetForMobile) return
-    setTradePlan((prev) => {
-      if (prev[selectedAssetForMobile] === currentTradeClamp) return prev
-      return { ...prev, [selectedAssetForMobile]: currentTradeClamp }
-    })
-  }, [currentTradeClamp, selectedAssetForMobile])
-
-  function onPointerUpdate(clientY: number) {
-    if (!tradeBarRef.current) return
-    const rect = tradeBarRef.current.getBoundingClientRect()
-    const y = clamp(clientY - rect.top, 0, rect.height)
-    setDraftTradeValue(mapYToTrade(y, rect.height, maxBuy, maxSell))
-  }
-
-  const selectedMetaForMobile = useMemo(
-    () =>
-      selectedAssetForMobile
-        ? (goodsMeta.find((m) => m.key === selectedAssetForMobile) ?? null)
-        : null,
-    [selectedAssetForMobile],
-  )
-
   if (!onboardingChecked) return null
 
   if (showOnboarding) {
@@ -687,7 +952,6 @@ function GameContent() {
 
               <div className="h-16 w-px bg-border/60 hidden sm:block" />
 
-              {/* Larger Allocation Chart in Header */}
               <div className="hidden sm:flex flex-col items-center">
                 <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">
                   Spread
@@ -749,7 +1013,6 @@ function GameContent() {
                   </div>
                 </div>
 
-                {/* Progress Bar (Single Color) */}
                 <div className="space-y-2">
                   <div className="relative group">
                     <div className="h-8 w-full overflow-hidden rounded-xl border-2 border-primary/10 bg-muted/20 p-0.5 shadow-inner backdrop-blur-md">
@@ -829,7 +1092,6 @@ function GameContent() {
                 </AnimatePresence>
               </div>
             </div>
-            {/* Background pattern decoration */}
             <div className="absolute -right-10 -bottom-10 opacity-5 pointer-events-none rotate-12">
               <Coins size={200} />
             </div>
@@ -859,277 +1121,29 @@ function GameContent() {
             <div className="flex flex-col gap-4">
               {goodsMeta
                 .filter((m) => m.key !== "taler")
-                .map((meta) => {
-                  const assetKey = meta.key as TradableAsset
-                  const currentPrice = current.market.prices[assetKey]
-                  const inf = current.market.inflation
-                  const bPrice = buyPrice(currentPrice, inf)
-                  const sPrice = sellPrice(currentPrice, inf)
-
-                  const prevMarket = history.length > 1 ? history[history.length - 2].market : null
-                  const prevPrice = prevMarket ? prevMarket.prices[assetKey] : null
-                  const isUp = prevPrice ? currentPrice.basePrice >= prevPrice.basePrice : true
-
-                  const isExpanded = expandedAsset === assetKey
-                  const tradeQty = tradePlan[assetKey]
-
-                  const maxBuyLocal = Math.max(0, Math.floor(projectedTalerBalance / bPrice))
-                  const maxSellLocal = portfolio[assetKey] + tradeQty
-
-                  // Get specific color from lineConfig
-                  const assetColor = lineConfig[assetKey].color
-
-                  return (
-                    <Card
-                      key={meta.key}
-                      className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50"}`}
-                      style={{ backgroundColor: `${assetColor}20` }}
-                      onClick={() => isMobile && openMobileTrade(assetKey)}
-                    >
-                      <CardContent className="p-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 gap-4">
-                          <div className="flex items-center gap-5">
-                            <div className="rounded-2xl p-3 shadow-md bg-white">
-                              <Image
-                                src={meta.icon}
-                                alt={meta.name}
-                                width={48}
-                                height={48}
-                                className="object-contain"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <h3 className="text-xl font-black leading-tight tracking-tight">
-                                {meta.name}
-                              </h3>
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-1">
-                                  <Image
-                                    src="/asset-classes/taler.webp"
-                                    alt="Taler"
-                                    width={14}
-                                    height={14}
-                                    className="object-contain"
-                                  />
-                                  <span className="font-mono text-sm font-black text-muted-foreground">
-                                    {formatTaler(sPrice)}
-                                  </span>
-                                </div>
-                                <div
-                                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-white/50 text-[10px] font-bold"
-                                  style={{ color: isUp ? "#16a34a" : "#dc2626" }}
-                                >
-                                  {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                                  {isUp ? "UP" : "DOWN"}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-8 border-t pt-4 sm:border-t-0 sm:pt-0">
-                            <div className="flex flex-col items-start sm:items-end">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
-                                Your Units
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-2xl font-black tabular-nums">
-                                  {projectedPortfolio[assetKey]}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Desktop Inline Trade Controls */}
-                            {!isMobile && (
-                              <div className="flex items-center gap-2 bg-white/40 p-1 rounded-2xl border border-white/60 shadow-xs">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-10 rounded-xl hover:bg-white/20"
-                                  disabled={gameOver || maxSellLocal <= 0}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] - 1 }))
-                                  }}
-                                >
-                                  <Minus className="size-5" />
-                                </Button>
-                                <div className="flex flex-col items-center min-w-[4rem]">
-                                  <span className="text-[10px] font-black uppercase text-muted-foreground opacity-50">
-                                    Draft
-                                  </span>
-                                  <span
-                                    className={`font-mono text-lg font-black tabular-nums ${tradeQty > 0 ? "text-green-600" : tradeQty < 0 ? "text-rose-600" : ""}`}
-                                  >
-                                    {tradeQty > 0 ? "+" : ""}
-                                    {tradeQty}
-                                  </span>
-                                </div>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-10 rounded-xl hover:bg-white/20"
-                                  disabled={gameOver || maxBuyLocal <= 0}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] + 1 }))
-                                  }}
-                                >
-                                  <Plus className="size-5" />
-                                </Button>
-                              </div>
-                            )}
-
-                            {isMobile && (
-                              <div className="flex flex-col items-center min-w-[3rem]">
-                                <span className="text-[8px] font-black uppercase text-muted-foreground opacity-50">
-                                  Trade
-                                </span>
-                                <span
-                                  className={`font-mono text-base font-black tabular-nums ${tradeQty > 0 ? "text-green-600" : tradeQty < 0 ? "text-rose-600" : ""}`}
-                                >
-                                  {tradeQty > 0 ? "+" : tradeQty < 0 ? "" : ""}
-                                  {tradeQty}
-                                </span>
-                              </div>
-                            )}
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={`rounded-full size-10 transition-colors ${isExpanded ? "bg-white/40 text-primary" : "hover:bg-white/20"}`}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setExpandedAsset(isExpanded ? null : assetKey)
-                              }}
-                            >
-                              {isExpanded ? (
-                                <ChevronUp className="size-6" />
-                              ) : (
-                                <ChevronDown className="size-6" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.4, ease: "circOut" }}
-                            >
-                              <div className="border-t border-white/20 bg-white/10 p-4 sm:p-6 space-y-6">
-                                <AssetHistoryGraph history={history} asset={assetKey} />
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div className="bg-white/60 backdrop-blur-sm border border-white/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
-                                    <div className="flex items-center gap-2">
-                                      <Store className="size-3 text-muted-foreground" />
-                                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                        Local Market Prices
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                                          You Buy At
-                                        </span>
-                                        <div className="flex items-center gap-1.5">
-                                          <Image
-                                            src="/asset-classes/taler.webp"
-                                            alt="Taler"
-                                            width={16}
-                                            height={16}
-                                            className="object-contain"
-                                          />
-                                          <span className="text-lg font-black font-mono">
-                                            {formatTaler(bPrice)}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <div className="h-8 w-px bg-white mx-4" />
-                                      <div className="flex flex-col items-end">
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                                          You Sell At
-                                        </span>
-                                        <div className="flex items-center gap-1.5">
-                                          <Image
-                                            src="/asset-classes/taler.webp"
-                                            alt="Taler"
-                                            width={16}
-                                            height={16}
-                                            className="object-contain"
-                                          />
-                                          <span className="text-lg font-black font-mono">
-                                            {formatTaler(sPrice)}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <div className="bg-white/60 backdrop-blur-sm border border-white/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
-                                    <div className="flex items-center gap-2">
-                                      <Wallet className="size-3 text-muted-foreground" />
-                                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                        Portfolio Breakdown
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                                          Quantity
-                                        </span>
-                                        <div className="flex items-center gap-1.5">
-                                          <Image
-                                            src={meta.icon}
-                                            alt={meta.name}
-                                            width={16}
-                                            height={16}
-                                            className="object-contain"
-                                          />
-                                          <span className="text-lg font-black font-mono">
-                                            {projectedPortfolio[assetKey]} Units
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <div className="h-8 w-px bg-white mx-4" />
-                                      <div className="flex flex-col items-end text-right">
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                                          Total Position Value
-                                        </span>
-                                        <div className="flex items-center gap-1.5 justify-end">
-                                          <Image
-                                            src="/asset-classes/taler.webp"
-                                            alt="Taler"
-                                            width={16}
-                                            height={16}
-                                            className="object-contain"
-                                          />
-                                          <span className="text-lg font-black font-mono text-primary">
-                                            {formatTaler(projectedPortfolio[assetKey] * sPrice)}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                .map((meta) => (
+                  <AssetCard
+                    key={meta.key}
+                    meta={meta}
+                    current={current}
+                    portfolio={portfolio}
+                    tradePlan={tradePlan}
+                    history={history}
+                    projectedPortfolio={projectedPortfolio}
+                    projectedTalerBalance={projectedTalerBalance}
+                    expandedAsset={expandedAsset}
+                    setExpandedAsset={setExpandedAsset}
+                    setTradePlan={setTradePlan}
+                    isMobile={isMobile}
+                    gameOver={gameOver}
+                  />
+                ))}
             </div>
           </div>
 
           {/* 4. Footer Action */}
           <div className="sticky bottom-6 z-40 px-4 sm:px-0">
             <div className="group relative">
-              {/* Glow effect behind button */}
               <div className="absolute -inset-1 rounded-2xl bg-linear-to-r from-primary to-amber-500 opacity-25 blur-lg transition duration-1000 group-hover:opacity-50 group-hover:duration-200" />
 
               {gameOver ? (
@@ -1169,7 +1183,7 @@ function GameContent() {
                           <span className="text-[8px] sm:text-[10px] font-black opacity-70 mb-0.5 sm:mb-1 uppercase">
                             PROCEED TO
                           </span>
-                          <div className="flex items-center gap-1 sm:gap-1.5">
+                          <div className="flex items-center gap-1.5">
                             <Calendar className="size-3 sm:size-4 opacity-70" />
                             <span className="text-base sm:text-xl">NEXT YEAR</span>
                           </div>
@@ -1184,210 +1198,6 @@ function GameContent() {
           </div>
         </div>
       </TooltipProvider>
-
-      {/* Mobile Trade Drawer */}
-      <Drawer
-        open={selectedAssetForMobile !== null}
-        onOpenChange={(open) => !open && closeMobileTrade()}
-      >
-        <DrawerContent className="mx-auto w-full max-w-2xl rounded-t-3xl">
-          <DrawerHeader className="border-b bg-muted/10">
-            <div className="flex items-center justify-between gap-3">
-              <DrawerTitle className="text-xl font-black flex items-center gap-3">
-                {selectedMetaForMobile && (
-                  <div className="p-2 rounded-xl bg-white shadow-sm">
-                    <Image
-                      src={selectedMetaForMobile.icon}
-                      alt=""
-                      width={24}
-                      height={24}
-                      className="object-contain"
-                    />
-                  </div>
-                )}
-                Trade{" "}
-                {selectedAssetForMobile
-                  ? selectedAssetForMobile[0].toUpperCase() + selectedAssetForMobile.slice(1)
-                  : ""}
-              </DrawerTitle>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="rounded-full"
-                onClick={() => setDraftTradeValue(0)}
-                aria-label="Reset trade"
-              >
-                <RotateCcw className="size-5" />
-              </Button>
-            </div>
-            <DrawerDescription className="text-[10px] font-bold uppercase tracking-widest opacity-70">
-              Slide to trade: Top buys, Bottom sells
-            </DrawerDescription>
-          </DrawerHeader>
-
-          <div className="px-6 py-8" data-vaul-no-drag>
-            {/* Price & Balance Stats */}
-            <div className="mb-8 grid grid-cols-2 gap-4">
-              <div className="rounded-2xl border-2 border-primary/10 bg-muted/30 p-4 shadow-xs">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
-                  Buy Price
-                </div>
-                <div className="flex items-center gap-2">
-                  <Image src="/asset-classes/taler.webp" alt="" width={18} height={18} />
-                  <span className="text-xl font-black font-mono">
-                    {formatTaler(selectedBuyPrice)}
-                  </span>
-                </div>
-              </div>
-              <div className="rounded-2xl border-2 border-primary/10 bg-muted/30 p-4 shadow-xs">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
-                  Cash Balance
-                </div>
-                <div className="flex items-center gap-2">
-                  <Image src="/asset-classes/taler.webp" alt="" width={18} height={18} />
-                  <span className="text-xl font-black font-mono">
-                    {formatTaler(projectedTalerBalance)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Interactive Vertical Slider */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between px-2">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                    Buy +{buyDelta}
-                  </span>
-                  <span className="text-[10px] font-bold opacity-50">
-                    -{formatTaler(buyDelta * selectedBuyPrice)} Taler
-                  </span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">
-                    Sell -{sellDelta}
-                  </span>
-                  <span className="text-[10px] font-bold opacity-50">
-                    +{formatTaler(sellDelta * selectedSellPriceVal)} Taler
-                  </span>
-                </div>
-              </div>
-
-              <div
-                ref={tradeBarRef}
-                className="relative h-64 rounded-3xl border-4 border-muted bg-background shadow-inner overflow-hidden touch-none"
-                onPointerDown={(e) => {
-                  setIsDraggingTradeBar(true)
-                  onPointerUpdate(e.clientY)
-                }}
-                onPointerMove={(e) => {
-                  if (!isDraggingTradeBar) return
-                  onPointerUpdate(e.clientY)
-                }}
-                onPointerUp={() => setIsDraggingTradeBar(false)}
-                onPointerLeave={() => setIsDraggingTradeBar(false)}
-              >
-                {/* Visual Background Grains */}
-                <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
-
-                {/* Target Zones */}
-                <div className="absolute inset-0 flex flex-col">
-                  <div className="h-1/2 w-full bg-linear-to-b from-emerald-500/10 to-transparent" />
-                  <div className="h-1/2 w-full bg-linear-to-t from-rose-500/10 to-transparent" />
-                </div>
-
-                {/* Center Line */}
-                <div className="absolute inset-x-4 top-1/2 h-0.5 -translate-y-1/2 bg-muted-foreground/20 border-t border-dashed border-muted-foreground/40" />
-
-                {/* Fill Indicator */}
-                {currentTradeClamp !== 0 && (
-                  <div
-                    className="absolute inset-x-0 transition-colors duration-200"
-                    style={{
-                      top: currentTradeClamp > 0 ? `${indicatorY}px` : "50%",
-                      bottom: currentTradeClamp > 0 ? "50%" : `${220 - (indicatorY - 32)}px`,
-                      backgroundColor: selectedAssetColor,
-                      opacity: 0.3,
-                    }}
-                  />
-                )}
-
-                {/* Handle */}
-                <motion.div
-                  className="absolute left-1/2 z-20 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white bg-white shadow-xl flex items-center justify-center"
-                  style={{ top: `${indicatorY}px` }}
-                  animate={{ scale: isDraggingTradeBar ? 1.1 : 1 }}
-                >
-                  <div
-                    className="absolute inset-1 rounded-full flex items-center justify-center shadow-inner"
-                    style={{ backgroundColor: selectedAssetColor }}
-                  >
-                    <div className="h-1 w-6 bg-white/40 rounded-full rotate-90" />
-                  </div>
-                </motion.div>
-
-                {/* Real-time Overlay Labels */}
-                <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-6">
-                  <div className="flex justify-between items-start">
-                    <Badge
-                      variant="outline"
-                      className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black"
-                    >
-                      BUY
-                    </Badge>
-                    <div className="text-right">
-                      <div className="text-lg font-black tabular-nums">+{buyDelta}</div>
-                      <div className="text-[10px] font-bold opacity-50">
-                        {selectedAssetForMobile}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <Badge
-                      variant="outline"
-                      className="bg-rose-50 text-rose-700 border-rose-200 font-black"
-                    >
-                      SELL
-                    </Badge>
-                    <div className="text-right">
-                      <div className="text-lg font-black tabular-nums">-{sellDelta}</div>
-                      <div className="text-[10px] font-bold opacity-50">Units</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 rounded-2xl bg-primary/5 border border-primary/10">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black uppercase text-muted-foreground opacity-70">
-                    Total Holding After Trade
-                  </span>
-                  <span className="text-xl font-black tracking-tight">
-                    {projectedHolding} Units
-                  </span>
-                </div>
-                <div className="h-10 w-px bg-primary/10" />
-                <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-black uppercase text-muted-foreground opacity-70">
-                    New Value
-                  </span>
-                  <span className="text-xl font-black tracking-tight text-primary">
-                    {formatTaler(projectedAssetValue)}
-                  </span>
-                </div>
-              </div>
-
-              <Button
-                className="w-full h-16 rounded-2xl text-xl font-black shadow-xl"
-                onClick={closeMobileTrade}
-              >
-                CONFIRM SELECTION
-              </Button>
-            </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
 
       <GameChatbot />
     </main>
