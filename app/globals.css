@@ -138,3 +138,27 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  .wood-board {
+    background-image: 
+      linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)),
+      url('/wood-texture.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    
+    /* Irregular 'hand-cut' border */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    clip-path: polygon(
+      0% 2%, 5% 0%, 15% 1%, 25% 0%, 35% 2%, 45% 0%, 55% 1%, 65% 0%, 75% 2%, 85% 0%, 95% 1%, 100% 2%,
+      99% 15%, 100% 25%, 98% 35%, 100% 45%, 99% 55%, 100% 65%, 98% 75%, 100% 85%, 99% 95%, 98% 100%,
+      85% 99%, 75% 100%, 65% 98%, 55% 100%, 45% 99%, 35% 100%, 25% 98%, 15% 100%, 5% 99%, 0% 98%,
+      1% 85%, 0% 75%, 2% 65%, 0% 55%, 1% 45%, 0% 35%, 2% 25%, 0% 15%
+    );
+    box-shadow: 
+      inset 0 0 20px rgba(0, 0, 0, 0.2),
+      0 8px 16px rgba(0, 0, 0, 0.15);
+    position: relative;
+  }
+}

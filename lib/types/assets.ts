@@ -10,7 +10,7 @@
  *   High risk: Bitcoin    ↔ Fish   (high volatility, high potential return)
  *
  * Income = recurring gold from your farm
- * Market phase: Bull/Bear = good/evil king
+ * Market phase: Peace/War = prosperity/conflict
  */
 
 export const ASSET_KEYS = ["gold", "wood", "potatoes", "fish"] as const

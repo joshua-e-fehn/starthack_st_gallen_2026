@@ -218,19 +218,19 @@ export default function CreateScenarioPage() {
           <Card>
             <CardHeader>
               <CardTitle>Market Regime Parameters</CardTitle>
-              <CardDescription>Define how Bull and Bear markets behave.</CardDescription>
+              <CardDescription>Define how Peace and War times behave.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-4">
-                  <h3 className="font-bold text-green-600">Bull Market</h3>
+                  <h3 className="font-bold text-green-600">Peace Time</h3>
                   <div className="space-y-2">
                     <Label>Avg Return (e.g. 0.08 = 8%)</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={form.market.bullReturn}
-                      onChange={(e) => updateNested("market.bullReturn", Number(e.target.value))}
+                      value={form.market.peaceReturn}
+                      onChange={(e) => updateNested("market.peaceReturn", Number(e.target.value))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -238,33 +238,33 @@ export default function CreateScenarioPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={form.market.bullVolatility}
+                      value={form.market.peaceVolatility}
                       onChange={(e) =>
-                        updateNested("market.bullVolatility", Number(e.target.value))
+                        updateNested("market.peaceVolatility", Number(e.target.value))
                       }
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Prob. to flip to Bear</Label>
+                    <Label>Prob. to flip to War</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={form.market.bullToBearProbability}
+                      value={form.market.peaceToWarProbability}
                       onChange={(e) =>
-                        updateNested("market.bullToBearProbability", Number(e.target.value))
+                        updateNested("market.peaceToWarProbability", Number(e.target.value))
                       }
                     />
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <h3 className="font-bold text-red-600">Bear Market</h3>
+                  <h3 className="font-bold text-red-600">War Time</h3>
                   <div className="space-y-2">
                     <Label>Avg Return (e.g. -0.05)</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={form.market.bearReturn}
-                      onChange={(e) => updateNested("market.bearReturn", Number(e.target.value))}
+                      value={form.market.warReturn}
+                      onChange={(e) => updateNested("market.warReturn", Number(e.target.value))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -272,20 +272,18 @@ export default function CreateScenarioPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={form.market.bearVolatility}
-                      onChange={(e) =>
-                        updateNested("market.bearVolatility", Number(e.target.value))
-                      }
+                      value={form.market.warVolatility}
+                      onChange={(e) => updateNested("market.warVolatility", Number(e.target.value))}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Prob. to flip to Bull</Label>
+                    <Label>Prob. to flip to Peace</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={form.market.bearToBullProbability}
+                      value={form.market.warToPeaceProbability}
                       onChange={(e) =>
-                        updateNested("market.bearToBullProbability", Number(e.target.value))
+                        updateNested("market.warToPeaceProbability", Number(e.target.value))
                       }
                     />
                   </div>

@@ -1,4 +1,4 @@
-# MunichMinds
+# TradeTales
 
 A modern full-stack web application built with Next.js, Convex, and Better Auth. Dark-first, data-driven UI inspired by Palantir's design language.
 

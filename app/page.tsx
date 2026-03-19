@@ -16,8 +16,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
-
 import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
+import { PublicHeader } from "@/components/organisms/public-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -67,6 +67,8 @@ function LeaderboardRow({
   scalePercent: number
 }) {
   const isFirst = rank === 1
+  const isSecond = rank === 2
+  const isThird = rank === 3
   const isLast = rank === total
 
   return (
@@ -74,10 +76,14 @@ function LeaderboardRow({
       className={cn(
         "flex items-center justify-between rounded-xl border px-3 py-2.5",
         isFirst
-          ? "bg-yellow-500/5 border-yellow-500/20"
-          : isLast
-            ? "bg-muted/30 border-dashed"
-            : "bg-card",
+          ? "bg-yellow-500/8 border-yellow-500/25"
+          : isSecond
+            ? "bg-zinc-300/10 border-zinc-400/20"
+            : isThird
+              ? "bg-amber-700/5 border-amber-700/15"
+              : isLast
+                ? "bg-muted/30 border-dashed"
+                : "bg-card",
       )}
     >
       <div className="flex items-center gap-2.5">
@@ -86,9 +92,11 @@ function LeaderboardRow({
             "flex size-6 items-center justify-center rounded-full text-[10px] font-bold",
             isFirst
               ? "bg-yellow-500 text-yellow-950"
-              : isLast
-                ? "bg-muted text-muted-foreground"
-                : "bg-muted text-muted-foreground",
+              : isSecond
+                ? "bg-zinc-400 text-white"
+                : isThird
+                  ? "bg-amber-700 text-amber-100"
+                  : "bg-muted text-muted-foreground",
           )}
         >
           {rank}
@@ -238,148 +246,134 @@ function HomeContent() {
 
   if (isLoaded && sessionData) {
     return (
-      <main className="min-h-dvh flex flex-col items-center justify-center bg-background px-4 py-8">
-        <motion.div {...fadeUp()} className="w-full max-w-sm space-y-4">
-          {/* Session hero */}
-          <div className="text-center space-y-3">
-            {sessionData.session.scenarioIcon && (
-              <div className="relative mx-auto size-20 overflow-hidden rounded-2xl border-2 border-primary/20 bg-background shadow-lg">
-                <Image
-                  src={sessionData.session.scenarioIcon}
-                  alt={sessionData.session.scenarioName || "Scenario"}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
-            )}
-            <div>
-              <h1 className="text-xl font-bold text-primary">{sessionData.session.name}</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
+      <div className="min-h-dvh bg-background">
+        <PublicHeader />
+        <main className="relative flex flex-col items-center overflow-hidden px-4 pt-1 pb-6 sm:px-6">
+          <div className="w-full max-w-sm flex flex-col items-center gap-4">
+            {/* Hero */}
+            <motion.div {...fadeUp()} className="flex flex-col items-center text-center">
+              {sessionData.session.scenarioIcon && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.6, ease: [0.33, 1, 0.68, 1] as const }}
+                  className="relative w-72 h-44 sm:w-80 sm:h-48"
+                >
+                  <Image
+                    src={sessionData.session.scenarioIcon}
+                    alt={sessionData.session.scenarioName || "Scenario"}
+                    fill
+                    className="object-contain drop-shadow-xl"
+                    unoptimized
+                  />
+                </motion.div>
+              )}
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase italic text-primary -mt-1">
+                {sessionData.session.name}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                 {sessionData.session.scenarioName}
               </p>
-            </div>
-            <div className="flex items-center justify-center gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-mono font-bold">
-                {sessionData.session.joinCode}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
-                <UsersIcon className="size-3" />
-                {sessionData.session.playerCount}
-              </span>
-            </div>
-          </div>
-
-          {/* Name + start */}
-          <Card className="border-primary/10 shadow-lg">
-            <CardContent className="pt-5 space-y-3">
-              <Input
-                id="player-name-loaded"
-                value={playerName}
-                placeholder="Your player name"
-                onChange={(e) => {
-                  setPlayerName(e.target.value)
-                  if (nameError) setNameError("")
-                }}
-                className="h-11 text-center text-base"
-              />
-              {nameError && <p className="text-xs text-destructive text-center">{nameError}</p>}
-              <Button
-                className="h-12 w-full text-base shadow-md"
-                onClick={() => void onStartGame()}
-                disabled={!playerName.trim()}
-              >
-                <PlayIcon className="mr-2 size-5 fill-current" />
-                Start Game
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Quick links */}
-          <div className="flex gap-2">
-            <Link href="/learn" className="flex-1 group">
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-primary/15 bg-primary/5 px-3 py-2.5 text-sm font-medium transition-all hover:bg-primary/10 hover:shadow-sm">
-                {"\uD83E\uDDE0"} Sharpen Your Wisdom
+              <div className="flex items-center justify-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-[14px] font-mono font-bold tracking-wider text-primary">
+                  CODE: {sessionData.session.joinCode}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-[14px] text-muted-foreground">
+                  <UsersIcon className="size-4" />
+                  {sessionData.session.playerCount}
+                </span>
               </div>
-            </Link>
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="rounded-xl border px-3 py-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
+            </motion.div>
+
+            {/* Actions */}
+            <motion.div
+              variants={stagger}
+              initial="hidden"
+              animate="show"
+              className="w-full flex flex-col gap-3 mt-1"
             >
-              Exit
-            </button>
-          </div>
+              {/* Name + Start Game */}
+              <motion.div variants={childFade} className="w-full space-y-2">
+                <Input
+                  id="player-name-loaded"
+                  value={playerName}
+                  placeholder="Your player name"
+                  onChange={(e) => {
+                    setPlayerName(e.target.value)
+                    if (nameError) setNameError("")
+                  }}
+                  className="h-11 text-sm text-center border-2 focus-visible:ring-primary/20"
+                />
+                {nameError && <p className="text-xs text-destructive text-center">{nameError}</p>}
+                <Button
+                  className="h-11 w-full text-sm font-semibold shadow-lg"
+                  onClick={() => void onStartGame()}
+                  disabled={!playerName.trim()}
+                >
+                  <PlayIcon className="mr-2 size-4 fill-current" />
+                  Start Game
+                </Button>
+              </motion.div>
 
-          {/* Leaderboard */}
-          {sessionData.leaderboard.length > 0 && (
-            <div className="space-y-2">
-              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
-                <TrophyIcon className="size-3.5 text-yellow-500" />
-                Leaderboard
-                {sessionData.leaderboard.length > 5 && (
-                  <span className="ml-auto font-mono text-[10px] font-normal tracking-normal opacity-60">
-                    {sessionData.leaderboard.length} players
-                  </span>
-                )}
-              </p>
-              <div className="space-y-1.5">
-                {(() => {
-                  const lb = sessionData.leaderboard
-                  const MAX = 5
-                  const maxNetWorth = lb[0]?.netWorth || 1
+              {/* Learn */}
+              <motion.div variants={childFade}>
+                <Link href="/learn" className="block group">
+                  <Card className="border-transparent bg-linear-to-r from-primary/8 to-primary/4 hover:from-primary/14 hover:to-primary/8 shadow-md transition-all duration-200 group-hover:shadow-lg group-hover:-translate-y-0.5">
+                    <CardContent className="px-4 py-3 flex items-center gap-3">
+                      <div className="flex items-center justify-center size-10 rounded-xl bg-primary/15 shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                        <GraduationCapIcon className="size-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold flex items-center gap-1.5">
+                          Sharpen Your Wisdom First {"\uD83E\uDDE0"}
+                          <SparklesIcon className="size-3.5 text-primary" />
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Master the ancient arts of markets, risk & strategy
+                        </p>
+                      </div>
+                      <ArrowRightIcon className="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                    </CardContent>
+                  </Card>
+                </Link>
+              </motion.div>
 
-                  // Show all if ≤5 entries
-                  if (lb.length <= MAX) {
-                    return lb.map((entry, i) => (
+              {/* Leaderboard — top 3 only */}
+              {sessionData.leaderboard.length > 0 && (
+                <motion.div variants={childFade} className="space-y-2">
+                  <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+                    <TrophyIcon className="size-3.5 text-yellow-500" />
+                    Leaderboard
+                    {sessionData.leaderboard.length > 3 && (
+                      <span className="ml-auto font-mono text-[10px] font-normal tracking-normal opacity-60">
+                        {sessionData.leaderboard.length} players
+                      </span>
+                    )}
+                  </p>
+                  <div className="space-y-1.5">
+                    {sessionData.leaderboard.slice(0, 3).map((entry, i) => (
                       <LeaderboardRow
                         key={entry.gameId}
                         entry={entry}
                         rank={i + 1}
-                        total={lb.length}
-                        scalePercent={(entry.netWorth / maxNetWorth) * 100}
+                        total={sessionData.leaderboard.length}
                       />
-                    ))
-                  }
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+          </div>
 
-                  // >5: show top 3, separator, last 2
-                  const top = lb.slice(0, 3)
-                  const bottom = lb.slice(-2)
-                  const hiddenCount = lb.length - 5
-
-                  return (
-                    <>
-                      {top.map((entry, i) => (
-                        <LeaderboardRow
-                          key={entry.gameId}
-                          entry={entry}
-                          rank={i + 1}
-                          total={lb.length}
-                          scalePercent={(entry.netWorth / maxNetWorth) * 100}
-                        />
-                      ))}
-                      <div className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-muted-foreground">
-                        <span className="h-px flex-1 bg-border" />
-                        <span className="font-mono tabular-nums">+{hiddenCount} more</span>
-                        <span className="h-px flex-1 bg-border" />
-                      </div>
-                      {bottom.map((entry, i) => (
-                        <LeaderboardRow
-                          key={entry.gameId}
-                          entry={entry}
-                          rank={lb.length - 1 + i}
-                          total={lb.length}
-                          scalePercent={(entry.netWorth / maxNetWorth) * 100}
-                        />
-                      ))}
-                    </>
-                  )
-                })()}
-              </div>
-            </div>
-          )}
-        </motion.div>
-      </main>
+          {/* Footer tagline */}
+          <motion.footer
+            {...fadeUp(0.4)}
+            className="mt-6 pb-3 text-center text-[10px] text-muted-foreground/50"
+          >
+            Trade Tales — The Investing Game
+          </motion.footer>
+        </main>
+      </div>
     )
   }
 
@@ -415,7 +409,7 @@ function HomeContent() {
           >
             <Image
               src="/logo.png"
-              alt="Wealth Manager"
+              alt="Trade Tales"
               fill
               className="object-contain drop-shadow-xl"
               priority
@@ -423,7 +417,7 @@ function HomeContent() {
             />
           </motion.div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight uppercase italic text-primary -mt-1">
-            Wealth Manager
+            Trade Tales
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             Learn to invest. Play to understand.
@@ -653,9 +647,9 @@ function HomeContent() {
       {/* Footer tagline */}
       <motion.footer
         {...fadeUp(0.4)}
-        className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-muted-foreground/50"
+        className="mt-6 pb-3 text-center text-[10px] text-muted-foreground/50"
       >
-        Wealth Manager Arena — The Investing Game
+        Trade Tales — The Investing Game
       </motion.footer>
     </main>
   )

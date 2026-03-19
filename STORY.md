@@ -60,7 +60,7 @@ The project should teach players, in a subtle and gamified way, concepts such as
 - inflation
 - market timing tradeoffs
 - long-term thinking
-- bull and bear market behavior
+- peace and war market behavior
 - random external shocks and crises
 - the importance of strategy over pure luck
 
@@ -160,12 +160,12 @@ Inflation can affect:
 
 ### Market Phases
 
-The world alternates between bull and bear phases.
+The world alternates between peace and war phases.
 
 These phases are represented through the metaphor of the ruler:
 
-- Good King = bull market
-- Bad King = bear market
+- Peace Time = Prosperity
+- War Time = Conflict
 
 This affects the economy and expected asset behavior.
 

@@ -37,7 +37,7 @@ export type StateVector = {
 
   // ─── y: Market state ──────────────────────────────────────────
   /**
-   * Market prices (real), regime (bull/bear), and inflation at this timestep.
+   * Market prices (real), regime (peace/war), and inflation at this timestep.
    * Asset/market returns are REAL — multiply by inflation for nominal prices.
    */
   market: MarketState

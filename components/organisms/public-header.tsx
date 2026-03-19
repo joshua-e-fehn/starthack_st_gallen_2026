@@ -17,7 +17,7 @@ export function PublicHeader() {
           <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <GalleryVerticalEndIcon className="size-4" />
           </div>
-          MunichMinds
+          TradeTales
         </Link>
 
         <div className="flex items-center gap-1 sm:gap-3">
