@@ -42,7 +42,6 @@ import type { StateVector } from "@/lib/types/state_vector"
 // ─── Constants ───────────────────────────────────────────────────
 
 type AssetKey = TradableAsset | "taler"
-type TradePlan = Record<TradableAsset, number>
 
 type OnboardingStep = {
   targetId: string
@@ -51,26 +50,27 @@ type OnboardingStep = {
 }
 
 const onboardingStorageKey = "game-onboarding-completed"
-const onboardingSteps: OnboardingStep[] = [
+const onboardingBaseSteps: OnboardingStep[] = [
+  {
+    targetId: "year-status",
+    title: "Current Year & Market",
+    description: "See the current year and whether the market is in bull or bear mode.",
+  },
+  {
+    targetId: "goal-progress",
+    title: "Farm Goal Progress",
+    description: "This bar shows how close you are to reaching the farm purchase goal.",
+  },
   {
     targetId: "portfolio-grid",
-    title: "Portfolio Overview",
-    description: "These cards show your current units and each position's value in talers.",
-  },
-  {
-    targetId: "asset-wood",
-    title: "Pick an Asset",
-    description: "Tap a goods card to open trading controls for that asset.",
-  },
-  {
-    targetId: "price-chart",
-    title: "Watch the Trend",
-    description: "Use this chart to compare asset value movement over the years.",
+    title: "Tap Bars To Trade",
+    description:
+      "Click a goods bar/card (wood, potatoes, fish) to open the trade controls. This is how you trade goods.",
   },
   {
     targetId: "roll-year",
     title: "Commit Your Turn",
-    description: "When your plan is ready, click here to roll events and move to the next year.",
+    description: "When your trades are set, press this to roll events and move to the next year.",
   },
 ]
 
@@ -622,8 +622,25 @@ function GameContent() {
     [draftTradeValue, maxBuy, maxSell],
   )
 
-  const currentYear = history.length
+  const onboardingSteps = useMemo(() => {
+    const steps = [...onboardingBaseSteps]
+    if (history.length > 1) {
+      steps.splice(3, 0, {
+        targetId: "price-chart",
+        title: "Price History",
+        description: "This chart helps you spot trends before you buy or sell.",
+      })
+    }
+    return steps
+  }, [history.length])
+
   const activeStep = onboardingSteps[onboardingIndex]
+
+  useEffect(() => {
+    if (onboardingIndex >= onboardingSteps.length) {
+      setOnboardingIndex(Math.max(0, onboardingSteps.length - 1))
+    }
+  }, [onboardingIndex, onboardingSteps.length])
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -687,7 +704,7 @@ function GameContent() {
   }
 
   function nextOnboardingStep() {
-    const isLastStep = onboardingIndex === onboardingSteps.length - 1
+    const isLastStep = onboardingIndex >= onboardingSteps.length - 1
     if (isLastStep) {
       closeOnboarding(true)
       return
@@ -700,7 +717,7 @@ function GameContent() {
     setOnboardingIndex((previous) => Math.max(0, previous - 1))
   }
 
-  const isLastOnboardingStep = onboardingIndex === onboardingSteps.length - 1
+  const isLastOnboardingStep = onboardingIndex >= onboardingSteps.length - 1
   const stepProgress = `${onboardingIndex + 1} / ${onboardingSteps.length}`
 
   const tooltipStyle = useMemo(() => {
@@ -826,7 +843,17 @@ function GameContent() {
     } finally {
       setIsSubmitting(false)
     }
-  }, [gameId, isSubmitting, gameOver, tradePlan, submitStepMutation, sessionId, current, router, guestId])
+  }, [
+    gameId,
+    isSubmitting,
+    gameOver,
+    tradePlan,
+    submitStepMutation,
+    sessionId,
+    current,
+    router,
+    guestId,
+  ])
 
   const indicatorY = mapTradeToY(currentTradeClamp, 220, maxBuy, maxSell)
 
@@ -890,7 +917,7 @@ function GameContent() {
     <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
       <div className="space-y-4">
         {/* Year & status header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" data-onboarding-id="year-status">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold">Year {current.date}</h1>
             <Badge
@@ -899,6 +926,15 @@ function GameContent() {
             >
               {current.market.regime === "bull" ? "🐂 Bull" : "🐻 Bear"}
             </Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11px]"
+              onClick={startOnboarding}
+            >
+              Guide
+            </Button>
           </div>
           <div className="text-right">
             <p className="text-sm font-medium">
@@ -947,7 +983,10 @@ function GameContent() {
         </div>
 
         {/* Goal progress bar */}
-        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-2 w-full overflow-hidden rounded-full bg-muted"
+          data-onboarding-id="goal-progress"
+        >
           <div
             className={`h-full rounded-full transition-all ${totalValue >= current.goal ? "bg-green-500" : "bg-primary"}`}
             style={{ width: `${Math.min(100, (totalValue / current.goal) * 100)}%` }}
@@ -955,7 +994,7 @@ function GameContent() {
         </div>
 
         {/* Asset cards */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-2" data-onboarding-id="portfolio-grid">
           {goodsMeta.map((meta) => {
             const value = totalAssetValue[meta.key]
             const opacity = value / maxAssetValue
@@ -973,7 +1012,6 @@ function GameContent() {
               <button
                 type="button"
                 key={meta.key}
-                data-onboarding-id={meta.key === "wood" ? "asset-wood" : undefined}
                 onClick={() => {
                   if (meta.key !== "taler" && !gameOver) openTradeModal(meta.key as TradableAsset)
                 }}
@@ -1029,7 +1067,7 @@ function GameContent() {
 
         {/* Chart */}
         {history.length > 1 && (
-          <Card className="bg-muted/50">
+          <Card className="bg-muted/50" data-onboarding-id="price-chart">
             <CardHeader>
               <CardTitle>Year {current.date}</CardTitle>
               <CardDescription>
@@ -1062,6 +1100,7 @@ function GameContent() {
             className="h-12 w-full text-base"
             onClick={handleSubmitTrades}
             disabled={isSubmitting}
+            data-onboarding-id="roll-year"
           >
             {isSubmitting ? (
               <>
@@ -1269,6 +1308,63 @@ function GameContent() {
           </div>
         </DrawerContent>
       </Drawer>
+
+      {isOnboardingOpen && activeStep ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/55" />
+
+          {highlightRect ? (
+            <div
+              className="pointer-events-none absolute rounded-xl border-2 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all"
+              style={{
+                top: `${highlightRect.top - 8}px`,
+                left: `${highlightRect.left - 8}px`,
+                width: `${highlightRect.width + 16}px`,
+                height: `${highlightRect.height + 16}px`,
+              }}
+            />
+          ) : null}
+
+          <div
+            className="absolute z-10 w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border bg-card p-4 shadow-xl"
+            style={tooltipStyle}
+            role="dialog"
+            aria-live="polite"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+              {stepProgress}
+            </p>
+            <h2 className="mt-1 text-base font-semibold text-foreground">{activeStep.title}</h2>
+            <p className="mt-2 text-sm leading-5 text-muted-foreground">{activeStep.description}</p>
+
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={previousOnboardingStep}
+                disabled={onboardingIndex === 0}
+              >
+                Prev
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => closeOnboarding(true)}
+                >
+                  Skip
+                </Button>
+                <Button type="button" size="sm" onClick={nextOnboardingStep}>
+                  {isLastOnboardingStep ? "Done" : "Next"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <GameChatbot />
     </main>
