@@ -9,7 +9,7 @@ export const assetMarketPriceValidator = v.object({
 })
 
 export const marketStateValidator = v.object({
-  regime: v.union(v.literal("peace"), v.literal("war")),
+  regime: v.union(v.literal("peace"), v.literal("war"), v.literal("bull"), v.literal("bear")),
   inflation: v.number(),
   prices: v.object({
     wood: assetMarketPriceValidator,
