@@ -408,14 +408,14 @@ export async function gameStep(
 /**
  * Generate a full sequence of market states and events for a precomputed scenario.
  */
-export function generateTrajectories(scenario: Scenario): PrecomputedStep[] {
+export async function generateTrajectories(scenario: Scenario): Promise<PrecomputedStep[]> {
   const steps: PrecomputedStep[] = []
   let currentMarket = initializeMarket(scenario)
   const years = scenario.endYear - scenario.startYear
 
   for (let i = 0; i < years; i++) {
     // 1. Roll events
-    const { firedEvents, prices: pricesAfterEvents } = resolveEvents(
+    const { firedEvents, prices: pricesAfterEvents } = await resolveEvents(
       scenario,
       createPortfolio(0), // Portfolio doesn't matter for price/event generation
       currentMarket.prices,
