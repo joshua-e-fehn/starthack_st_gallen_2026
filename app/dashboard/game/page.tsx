@@ -1043,7 +1043,7 @@ function GameContent() {
                           <div
                             key={meta.key}
                             className={cn(
-                              "bg-white flex items-center gap-2 lg:gap-4",
+                              "bg-white/70 flex items-center gap-2 lg:gap-4",
                               isMobile ? "p-2 min-w-0" : "p-4 min-w-[140px]",
                             )}
                           >
@@ -1080,7 +1080,7 @@ function GameContent() {
                   {/* Pie Chart */}
                   <div
                     className={cn(
-                      "flex flex-col items-center bg-white rounded-[1.5rem] lg:rounded-[2rem] shadow-xs lg:shadow-sm border border-muted/50",
+                      "flex flex-col items-center bg-white/70 rounded-[1.5rem] lg:rounded-[2rem] shadow-xs lg:shadow-sm border border-muted/50",
                       isMobile ? "p-2" : "p-4",
                     )}
                   >
