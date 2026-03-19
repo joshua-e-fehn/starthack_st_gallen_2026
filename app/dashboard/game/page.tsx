@@ -496,47 +496,48 @@ function GameContent() {
       <TooltipProvider>
         <div className="space-y-8">
           {/* 1. Header: Status, Quick Stats & Allocation */}
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between bg-card p-4 rounded-2xl border shadow-sm">
-            <div className="flex items-center gap-6">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between bg-card p-6 rounded-3xl border shadow-sm border-primary/5">
+            <div className="flex flex-wrap items-center gap-8">
               <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
                   Timeline
                 </span>
-                <h1 className="text-4xl font-black tabular-nums">Year {current.date}</h1>
+                <h1 className="text-5xl font-black tabular-nums tracking-tighter">
+                  Year {current.date}
+                </h1>
               </div>
-              <div className="h-10 w-px bg-border hidden sm:block" />
+              <div className="h-12 w-px bg-border hidden sm:block" />
               <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">
-                  Market State
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
+                  Market Condition
                 </span>
                 <Badge
                   variant={current.market.regime === "bull" ? "default" : "destructive"}
-                  className="px-3 py-1 text-xs font-black uppercase tracking-wider shadow-sm"
+                  className="px-4 py-1.5 text-xs font-black uppercase tracking-widest shadow-sm ring-4 ring-primary/5"
                 >
-                  {current.market.regime === "bull" ? "🐂 Bull" : "🐻 Bear"}
+                  {current.market.regime === "bull" ? "🐂 Bull Market" : "🐻 Bear Market"}
                 </Badge>
               </div>
             </div>
 
-            {/* Header Right: Stats + Allocation Pie */}
-            <div className="flex items-center gap-6 bg-muted/40 p-2 pr-4 rounded-xl border border-primary/5">
-              <div className="flex flex-wrap items-center gap-4 pl-2">
+            <div className="flex items-center justify-between sm:justify-end gap-8 bg-muted/30 p-3 pr-6 rounded-2xl border border-primary/5">
+              <div className="flex flex-wrap items-center gap-5 pl-3">
                 {goodsMeta.map((meta) => (
                   <Tooltip key={meta.key}>
                     <TooltipTrigger asChild>
-                      <div className="flex items-center gap-2 group cursor-help">
+                      <div className="flex flex-col items-center gap-1 group cursor-help">
                         <div
-                          className={`p-1.5 rounded-lg ${meta.colorClass} shadow-xs group-hover:scale-110 transition-transform`}
+                          className={`p-2 rounded-xl ${meta.colorClass} shadow-xs group-hover:scale-110 transition-all duration-300`}
                         >
                           <Image
                             src={meta.icon}
                             alt={meta.name}
-                            width={20}
-                            height={20}
+                            width={24}
+                            height={24}
                             className="object-contain"
                           />
                         </div>
-                        <span className="font-mono text-lg font-black tabular-nums">
+                        <span className="font-mono text-sm font-black tabular-nums">
                           {meta.key === "taler"
                             ? Math.round(projectedPortfolio.gold)
                             : projectedPortfolio[meta.key as TradableAsset]}
@@ -553,21 +554,21 @@ function GameContent() {
                 ))}
               </div>
 
-              <div className="h-10 w-px bg-border/50 hidden sm:block" />
+              <div className="h-16 w-px bg-border/50 hidden sm:block" />
 
-              {/* Small Allocation Chart in Header */}
-              <div className="hidden sm:flex flex-col items-center">
-                <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                  Spread
+              {/* Larger Allocation Chart in Header */}
+              <div className="flex flex-col items-center">
+                <span className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">
+                  Portfolio Spread
                 </span>
-                <div className="h-12 w-12">
-                  <PieChart width={48} height={48}>
+                <div className="h-20 w-20 relative">
+                  <PieChart width={80} height={80}>
                     <Pie
                       data={allocationData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={10}
-                      outerRadius={24}
+                      innerRadius={18}
+                      outerRadius={40}
                       paddingAngle={0}
                       dataKey="value"
                       stroke="none"
@@ -578,6 +579,7 @@ function GameContent() {
                       ))}
                     </Pie>
                   </PieChart>
+                  {/* Small center hole text or icon could go here */}
                 </div>
               </div>
             </div>
