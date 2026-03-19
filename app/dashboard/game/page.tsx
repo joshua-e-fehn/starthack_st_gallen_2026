@@ -13,6 +13,7 @@ import {
   Loader2,
   Minus,
   Plus,
+  RotateCcw,
   Store,
   TrendingDown,
   TrendingUp,
@@ -35,9 +36,17 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { portfolioValue } from "@/lib/game/engine"
 import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
@@ -46,6 +55,7 @@ import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
 import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
 import type { StorySlide } from "@/lib/types/onboarding"
 import type { StateVector } from "@/lib/types/state_vector"
+import { clamp } from "@/lib/utils"
 
 // ─── Constants ───────────────────────────────────────────────────
 
@@ -146,6 +156,39 @@ function formatTaler(n: number) {
   return `${new Intl.NumberFormat("de-CH").format(Math.round(n * 100) / 100)}`
 }
 
+// ─── Vertical Trade Bar Mapping Helpers ──────────────────────────
+
+/**
+ * Maps a pixel coordinate (Y) within the trade bar height to a trade quantity.
+ * Middle (height/2) is 0. Top (0) is maxBuy. Bottom (height) is -maxSell.
+ */
+function mapYToTrade(y: number, height: number, maxBuy: number, maxSell: number): number {
+  const mid = height / 2
+  if (y <= mid) {
+    // 0 to mid maps to [maxBuy, 0]
+    const progress = 1 - y / mid
+    return Math.round(progress * maxBuy)
+  }
+  // mid to height maps to [0, -maxSell]
+  const progress = (y - mid) / mid
+  return -Math.round(progress * maxSell)
+}
+
+/**
+ * Maps a trade quantity back to a pixel coordinate (Y).
+ */
+function mapTradeToY(trade: number, height: number, maxBuy: number, maxSell: number): number {
+  const mid = height / 2
+  if (trade >= 0) {
+    if (maxBuy === 0) return mid
+    const progress = trade / maxBuy
+    return mid * (1 - progress)
+  }
+  if (maxSell === 0) return mid
+  const progress = Math.abs(trade) / maxSell
+  return mid + mid * progress
+}
+
 // ─── Chart ───────────────────────────────────────────────────────
 
 function AssetHistoryGraph({ history, asset }: { history: StateVector[]; asset: TradableAsset }) {
@@ -236,6 +279,7 @@ function GameContent() {
   const searchParams = useSearchParams()
   const sessionIdParam = searchParams.get("sessionId") as Id<"sessions"> | null
   const gameIdParam = searchParams.get("gameId") as Id<"games"> | null
+  const isMobile = useIsMobile()
 
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [onboardingChecked, setOnboardingChecked] = useState(false)
@@ -345,6 +389,10 @@ function GameContent() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [expandedAsset, setExpandedAsset] = useState<TradableAsset | null>(null)
+  const [selectedAssetForMobile, setSelectedAssetForMobile] = useState<TradableAsset | null>(null)
+  const [draftTradeValue, setDraftTradeValue] = useState(0)
+  const [isDraggingTradeBar, setIsDraggingTradeBar] = useState(false)
+  const tradeBarRef = useRef<HTMLDivElement | null>(null)
 
   const portfolio = current?.portfolio ?? { gold: 0, wood: 0, potatoes: 0, fish: 0 }
   const market = current?.market
@@ -464,6 +512,87 @@ function GameContent() {
     if (current) prevGoalReached.current = current.goalReached
   })
 
+  // Mobile Trade Modal Logic
+  function openMobileTrade(asset: TradableAsset) {
+    setSelectedAssetForMobile(asset)
+    setDraftTradeValue(tradePlan[asset])
+  }
+
+  function closeMobileTrade() {
+    setSelectedAssetForMobile(null)
+    setIsDraggingTradeBar(false)
+  }
+
+  const selectedBuyPrice = selectedAssetForMobile ? getBuyPriceFor(selectedAssetForMobile) : 0
+  const selectedSellPriceVal = selectedAssetForMobile ? getSellPriceFor(selectedAssetForMobile) : 0
+
+  const tradeCostExcludingSelected = useMemo(() => {
+    if (!selectedAssetForMobile) return 0
+    return (Object.keys(tradePlan) as TradableAsset[])
+      .filter((asset) => asset !== selectedAssetForMobile)
+      .reduce((sum, asset) => {
+        if (tradePlan[asset] > 0) return sum + tradePlan[asset] * getBuyPriceFor(asset)
+        if (tradePlan[asset] < 0) return sum - Math.abs(tradePlan[asset]) * getSellPriceFor(asset)
+        return sum
+      }, 0)
+  }, [selectedAssetForMobile, tradePlan, getBuyPriceFor, getSellPriceFor])
+
+  const maxBuy = useMemo(() => {
+    if (!selectedAssetForMobile || selectedBuyPrice <= 0) return 0
+    const freeCash = portfolio.gold - tradeCostExcludingSelected
+    return Math.max(0, Math.floor(freeCash / selectedBuyPrice))
+  }, [selectedAssetForMobile, selectedBuyPrice, portfolio.gold, tradeCostExcludingSelected])
+
+  const maxSell = useMemo(() => {
+    if (!selectedAssetForMobile) return 0
+    return portfolio[selectedAssetForMobile]
+  }, [portfolio, selectedAssetForMobile])
+
+  const currentTradeClamp = useMemo(
+    () => clamp(draftTradeValue, -maxSell, maxBuy),
+    [draftTradeValue, maxBuy, maxSell],
+  )
+
+  const indicatorY = mapTradeToY(currentTradeClamp, 220, maxBuy, maxSell)
+
+  const selectedAssetColor = selectedAssetForMobile
+    ? lineConfig[selectedAssetForMobile].color
+    : "oklch(0.62 0.14 228)"
+
+  const projectedHolding = useMemo(() => {
+    if (!selectedAssetForMobile) return 0
+    return portfolio[selectedAssetForMobile] + currentTradeClamp
+  }, [portfolio, selectedAssetForMobile, currentTradeClamp])
+
+  const buyDelta = Math.max(0, currentTradeClamp)
+  const sellDelta = Math.max(0, -currentTradeClamp)
+  const projectedAssetValue = roundMoney(
+    projectedHolding * (currentTradeClamp >= 0 ? selectedBuyPrice : selectedSellPriceVal),
+  )
+
+  useEffect(() => {
+    if (!selectedAssetForMobile) return
+    setTradePlan((prev) => {
+      if (prev[selectedAssetForMobile] === currentTradeClamp) return prev
+      return { ...prev, [selectedAssetForMobile]: currentTradeClamp }
+    })
+  }, [currentTradeClamp, selectedAssetForMobile])
+
+  function onPointerUpdate(clientY: number) {
+    if (!tradeBarRef.current) return
+    const rect = tradeBarRef.current.getBoundingClientRect()
+    const y = clamp(clientY - rect.top, 0, rect.height)
+    setDraftTradeValue(mapYToTrade(y, rect.height, maxBuy, maxSell))
+  }
+
+  const selectedMetaForMobile = useMemo(
+    () =>
+      selectedAssetForMobile
+        ? (goodsMeta.find((m) => m.key === selectedAssetForMobile) ?? null)
+        : null,
+    [selectedAssetForMobile],
+  )
+
   if (!onboardingChecked) return null
 
   if (showOnboarding) {
@@ -503,7 +632,7 @@ function GameContent() {
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
                   Timeline
                 </span>
-                <h1 className="text-5xl font-black tabular-nums tracking-tighter">
+                <h1 className="text-4xl sm:text-5xl font-black tabular-nums tracking-tighter">
                   Year {current.date}
                 </h1>
               </div>
@@ -754,7 +883,8 @@ function GameContent() {
                     <Card
                       key={meta.key}
                       className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50"}`}
-                      style={{ backgroundColor: `${assetColor}20` }} // More solid background tint
+                      style={{ backgroundColor: `${assetColor}20` }}
+                      onClick={() => isMobile && openMobileTrade(assetKey)}
                     >
                       <CardContent className="p-0">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 gap-4">
@@ -808,47 +938,69 @@ function GameContent() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 bg-white/40 p-1 rounded-2xl border border-white/60 shadow-xs">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-10 rounded-xl hover:bg-white/20"
-                                disabled={gameOver || maxSellLocal <= 0}
-                                onClick={() =>
-                                  setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] - 1 }))
-                                }
-                              >
-                                <Minus className="size-5" />
-                              </Button>
-                              <div className="flex flex-col items-center min-w-[4rem]">
-                                <span className="text-[10px] font-black uppercase text-muted-foreground opacity-50">
-                                  Draft
+                            {/* Desktop Inline Trade Controls */}
+                            {!isMobile && (
+                              <div className="flex items-center gap-2 bg-white/40 p-1 rounded-2xl border border-white/60 shadow-xs">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-10 rounded-xl hover:bg-white/20"
+                                  disabled={gameOver || maxSellLocal <= 0}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] - 1 }))
+                                  }}
+                                >
+                                  <Minus className="size-5" />
+                                </Button>
+                                <div className="flex flex-col items-center min-w-[4rem]">
+                                  <span className="text-[10px] font-black uppercase text-muted-foreground opacity-50">
+                                    Draft
+                                  </span>
+                                  <span
+                                    className={`font-mono text-lg font-black tabular-nums ${tradeQty > 0 ? "text-green-600" : tradeQty < 0 ? "text-rose-600" : ""}`}
+                                  >
+                                    {tradeQty > 0 ? "+" : ""}
+                                    {tradeQty}
+                                  </span>
+                                </div>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-10 rounded-xl hover:bg-white/20"
+                                  disabled={gameOver || maxBuyLocal <= 0}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] + 1 }))
+                                  }}
+                                >
+                                  <Plus className="size-5" />
+                                </Button>
+                              </div>
+                            )}
+
+                            {isMobile && (
+                              <div className="flex flex-col items-center min-w-[3rem]">
+                                <span className="text-[8px] font-black uppercase text-muted-foreground opacity-50">
+                                  Trade
                                 </span>
                                 <span
-                                  className={`font-mono text-lg font-black tabular-nums ${tradeQty > 0 ? "text-green-600" : tradeQty < 0 ? "text-rose-600" : ""}`}
+                                  className={`font-mono text-base font-black tabular-nums ${tradeQty > 0 ? "text-green-600" : tradeQty < 0 ? "text-rose-600" : ""}`}
                                 >
-                                  {tradeQty > 0 ? "+" : ""}
+                                  {tradeQty > 0 ? "+" : tradeQty < 0 ? "" : ""}
                                   {tradeQty}
                                 </span>
                               </div>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-10 rounded-xl hover:bg-white/20"
-                                disabled={gameOver || maxBuyLocal <= 0}
-                                onClick={() =>
-                                  setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] + 1 }))
-                                }
-                              >
-                                <Plus className="size-5" />
-                              </Button>
-                            </div>
+                            )}
 
                             <Button
                               variant="ghost"
                               size="icon"
                               className={`rounded-full size-10 transition-colors ${isExpanded ? "bg-white/40 text-primary" : "hover:bg-white/20"}`}
-                              onClick={() => setExpandedAsset(isExpanded ? null : assetKey)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setExpandedAsset(isExpanded ? null : assetKey)
+                              }}
                             >
                               {isExpanded ? (
                                 <ChevronUp className="size-6" />
@@ -983,44 +1135,46 @@ function GameContent() {
               {gameOver ? (
                 <Button
                   type="button"
-                  className="relative h-20 w-full rounded-2xl bg-green-600 text-2xl font-black tracking-widest shadow-2xl transition-all hover:bg-green-700 hover:scale-[1.02] active:scale-95"
+                  className="relative h-16 sm:h-20 w-full rounded-2xl bg-green-600 text-xl sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:bg-green-700 hover:scale-[1.02] active:scale-95"
                   onClick={() =>
                     router.push(
                       `/dashboard/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
                     )
                   }
                 >
-                  <Trophy className="mr-4 size-8" />
+                  <Trophy className="mr-4 size-6 sm:size-8" />
                   VIEW RESULTS
                 </Button>
               ) : (
                 <Button
                   type="button"
-                  className="relative h-20 w-full rounded-2xl text-2xl font-black tracking-widest shadow-2xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-80"
+                  className="relative h-16 sm:h-20 w-full rounded-2xl text-lg sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-80"
                   onClick={handleSubmitTrades}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <div className="flex items-center gap-4">
-                      <Loader2 className="size-8 animate-spin" />
+                      <Loader2 className="size-6 sm:size-8 animate-spin" />
                       PROCESSING...
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between w-full px-8">
-                      <div className="flex items-center gap-4">
-                        <Store className="size-8" />
+                    <div className="flex items-center justify-between w-full px-4 sm:px-8">
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <Store className="size-6 sm:size-8" />
                         <span>FINISH TRADING</span>
                       </div>
                       <div className="h-10 w-px bg-white/20" />
-                      <div className="flex items-center gap-4 leading-none">
+                      <div className="flex items-center gap-2 sm:gap-4 leading-none text-right">
                         <div className="flex flex-col items-end">
-                          <span className="text-[10px] font-black opacity-70 mb-1">PROCEED TO</span>
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="size-4 opacity-70" />
-                            <span className="text-xl">NEXT YEAR</span>
+                          <span className="text-[8px] sm:text-[10px] font-black opacity-70 mb-0.5 sm:mb-1 uppercase">
+                            PROCEED TO
+                          </span>
+                          <div className="flex items-center gap-1 sm:gap-1.5">
+                            <Calendar className="size-3 sm:size-4 opacity-70" />
+                            <span className="text-base sm:text-xl">NEXT YEAR</span>
                           </div>
                         </div>
-                        <ArrowRight className="size-8 animate-pulse" />
+                        <ArrowRight className="size-6 sm:size-8 animate-pulse" />
                       </div>
                     </div>
                   )}
@@ -1030,6 +1184,210 @@ function GameContent() {
           </div>
         </div>
       </TooltipProvider>
+
+      {/* Mobile Trade Drawer */}
+      <Drawer
+        open={selectedAssetForMobile !== null}
+        onOpenChange={(open) => !open && closeMobileTrade()}
+      >
+        <DrawerContent className="mx-auto w-full max-w-2xl rounded-t-3xl">
+          <DrawerHeader className="border-b bg-muted/10">
+            <div className="flex items-center justify-between gap-3">
+              <DrawerTitle className="text-xl font-black flex items-center gap-3">
+                {selectedMetaForMobile && (
+                  <div className="p-2 rounded-xl bg-white shadow-sm">
+                    <Image
+                      src={selectedMetaForMobile.icon}
+                      alt=""
+                      width={24}
+                      height={24}
+                      className="object-contain"
+                    />
+                  </div>
+                )}
+                Trade{" "}
+                {selectedAssetForMobile
+                  ? selectedAssetForMobile[0].toUpperCase() + selectedAssetForMobile.slice(1)
+                  : ""}
+              </DrawerTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                onClick={() => setDraftTradeValue(0)}
+                aria-label="Reset trade"
+              >
+                <RotateCcw className="size-5" />
+              </Button>
+            </div>
+            <DrawerDescription className="text-[10px] font-bold uppercase tracking-widest opacity-70">
+              Slide to trade: Top buys, Bottom sells
+            </DrawerDescription>
+          </DrawerHeader>
+
+          <div className="px-6 py-8" data-vaul-no-drag>
+            {/* Price & Balance Stats */}
+            <div className="mb-8 grid grid-cols-2 gap-4">
+              <div className="rounded-2xl border-2 border-primary/10 bg-muted/30 p-4 shadow-xs">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
+                  Buy Price
+                </div>
+                <div className="flex items-center gap-2">
+                  <Image src="/asset-classes/taler.webp" alt="" width={18} height={18} />
+                  <span className="text-xl font-black font-mono">
+                    {formatTaler(selectedBuyPrice)}
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-2xl border-2 border-primary/10 bg-muted/30 p-4 shadow-xs">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
+                  Cash Balance
+                </div>
+                <div className="flex items-center gap-2">
+                  <Image src="/asset-classes/taler.webp" alt="" width={18} height={18} />
+                  <span className="text-xl font-black font-mono">
+                    {formatTaler(projectedTalerBalance)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Interactive Vertical Slider */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between px-2">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                    Buy +{buyDelta}
+                  </span>
+                  <span className="text-[10px] font-bold opacity-50">
+                    -{formatTaler(buyDelta * selectedBuyPrice)} Taler
+                  </span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">
+                    Sell -{sellDelta}
+                  </span>
+                  <span className="text-[10px] font-bold opacity-50">
+                    +{formatTaler(sellDelta * selectedSellPriceVal)} Taler
+                  </span>
+                </div>
+              </div>
+
+              <div
+                ref={tradeBarRef}
+                className="relative h-64 rounded-3xl border-4 border-muted bg-background shadow-inner overflow-hidden touch-none"
+                onPointerDown={(e) => {
+                  setIsDraggingTradeBar(true)
+                  onPointerUpdate(e.clientY)
+                }}
+                onPointerMove={(e) => {
+                  if (!isDraggingTradeBar) return
+                  onPointerUpdate(e.clientY)
+                }}
+                onPointerUp={() => setIsDraggingTradeBar(false)}
+                onPointerLeave={() => setIsDraggingTradeBar(false)}
+              >
+                {/* Visual Background Grains */}
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+
+                {/* Target Zones */}
+                <div className="absolute inset-0 flex flex-col">
+                  <div className="h-1/2 w-full bg-linear-to-b from-emerald-500/10 to-transparent" />
+                  <div className="h-1/2 w-full bg-linear-to-t from-rose-500/10 to-transparent" />
+                </div>
+
+                {/* Center Line */}
+                <div className="absolute inset-x-4 top-1/2 h-0.5 -translate-y-1/2 bg-muted-foreground/20 border-t border-dashed border-muted-foreground/40" />
+
+                {/* Fill Indicator */}
+                {currentTradeClamp !== 0 && (
+                  <div
+                    className="absolute inset-x-0 transition-colors duration-200"
+                    style={{
+                      top: currentTradeClamp > 0 ? `${indicatorY}px` : "50%",
+                      bottom: currentTradeClamp > 0 ? "50%" : `${220 - (indicatorY - 32)}px`,
+                      backgroundColor: selectedAssetColor,
+                      opacity: 0.3,
+                    }}
+                  />
+                )}
+
+                {/* Handle */}
+                <motion.div
+                  className="absolute left-1/2 z-20 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white bg-white shadow-xl flex items-center justify-center"
+                  style={{ top: `${indicatorY}px` }}
+                  animate={{ scale: isDraggingTradeBar ? 1.1 : 1 }}
+                >
+                  <div
+                    className="absolute inset-1 rounded-full flex items-center justify-center shadow-inner"
+                    style={{ backgroundColor: selectedAssetColor }}
+                  >
+                    <div className="h-1 w-6 bg-white/40 rounded-full rotate-90" />
+                  </div>
+                </motion.div>
+
+                {/* Real-time Overlay Labels */}
+                <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-6">
+                  <div className="flex justify-between items-start">
+                    <Badge
+                      variant="outline"
+                      className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black"
+                    >
+                      BUY
+                    </Badge>
+                    <div className="text-right">
+                      <div className="text-lg font-black tabular-nums">+{buyDelta}</div>
+                      <div className="text-[10px] font-bold opacity-50">
+                        {selectedAssetForMobile}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-end">
+                    <Badge
+                      variant="outline"
+                      className="bg-rose-50 text-rose-700 border-rose-200 font-black"
+                    >
+                      SELL
+                    </Badge>
+                    <div className="text-right">
+                      <div className="text-lg font-black tabular-nums">-{sellDelta}</div>
+                      <div className="text-[10px] font-bold opacity-50">Units</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-2xl bg-primary/5 border border-primary/10">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase text-muted-foreground opacity-70">
+                    Total Holding After Trade
+                  </span>
+                  <span className="text-xl font-black tracking-tight">
+                    {projectedHolding} Units
+                  </span>
+                </div>
+                <div className="h-10 w-px bg-primary/10" />
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-black uppercase text-muted-foreground opacity-70">
+                    New Value
+                  </span>
+                  <span className="text-xl font-black tracking-tight text-primary">
+                    {formatTaler(projectedAssetValue)}
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                className="w-full h-16 rounded-2xl text-xl font-black shadow-xl"
+                onClick={closeMobileTrade}
+              >
+                CONFIRM SELECTION
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       <GameChatbot />
     </main>
