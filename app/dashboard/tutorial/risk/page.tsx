@@ -98,13 +98,14 @@ const ILLUSTRATION_DATA: Record<string, number[]> = {
   fish: [
     0, 100, -60, 170, -50, 260, -10, 350, 40, 140, 420, 70, 380, 110, 520, 140, 310, 620, 200, 590,
     170, 680, 270, 500, 740, 300, 660, 380, 760, 480, 850,
-  ],  // Baseline: no investment at all → 0% forever
+  ], // Baseline: no investment at all → 0% forever
   baseline: Array.from({ length: 31 }, () => 0),
   // Inflation: purchasing power loss at ~2%/year → approx -45% over 30y
   inflation: [
     0, -2, -4, -6, -8, -10, -12, -13, -15, -17, -18, -20, -21, -23, -24, -26, -27, -28, -30, -31,
     -33, -34, -35, -37, -38, -39, -40, -41, -42, -44, -45,
-  ],}
+  ],
+}
 
 // Shared Y-axis domain across all illustration charts so return differences are visible
 const ILLUSTRATION_Y_DOMAIN: [number, number] = (() => {

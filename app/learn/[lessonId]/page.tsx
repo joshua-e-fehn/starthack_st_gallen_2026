@@ -5,9 +5,12 @@ import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, SparklesIcon } from "lucide-r
 import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
 import { useCallback, useState } from "react"
+import { Line, LineChart, XAxis, YAxis } from "recharts"
 import { PublicHeader } from "@/components/organisms/public-header"
 import { Button } from "@/components/ui/button"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { useLessonProgress } from "@/hooks/use-lesson-progress"
+import type { SlideChart } from "@/lib/lessons/data"
 import { LESSONS } from "@/lib/lessons/data"
 import { cn } from "@/lib/utils"
 
@@ -24,6 +27,55 @@ const slideVariants = {
     x: direction > 0 ? -100 : 100,
     opacity: 0,
   }),
+}
+
+/** Renders a simple recharts LineChart from slide chart data */
+function SlideLineChart({ chart }: { chart: SlideChart }) {
+  const config = Object.fromEntries(
+    chart.lines.map((line) => [line.key, { label: line.label, color: line.color }]),
+  )
+
+  return (
+    <div className="mt-3 w-full">
+      <ChartContainer config={config} className="aspect-[5/2] max-h-32 w-full">
+        <LineChart data={chart.data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+          <XAxis dataKey={chart.xKey} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+          <YAxis
+            tick={{ fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={40}
+            domain={chart.yDomain ?? ["auto", "auto"]}
+            tickFormatter={(v: number) => `${v}${chart.ySuffix ?? ""}`}
+          />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          {chart.lines.map((line) => (
+            <Line
+              key={line.key}
+              type="monotone"
+              dataKey={line.key}
+              stroke={line.color}
+              strokeWidth={2.5}
+              strokeDasharray={line.dashed ? "6 3" : undefined}
+              dot={false}
+            />
+          ))}
+        </LineChart>
+      </ChartContainer>
+      {/* Simple inline legend */}
+      <div className="mt-1 flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
+        {chart.lines.map((line) => (
+          <span key={line.key} className="flex items-center gap-1">
+            <span
+              className="inline-block size-2 rounded-full"
+              style={{ backgroundColor: line.color }}
+            />
+            {line.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function LessonPage() {
@@ -134,23 +186,14 @@ export default function LessonPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="mt-8 flex gap-3"
+                className="mt-8"
               >
-                <Button variant="outline" asChild>
-                  <Link href="/learn">Back to Path</Link>
+                <Button asChild>
+                  <Link href="/learn">
+                    Continue Your Journey
+                    <ArrowRightIcon className="ml-1 size-4" />
+                  </Link>
                 </Button>
-                {(() => {
-                  const nextLesson = LESSONS.find((l) => l.number === lesson.number + 1)
-                  if (!nextLesson) return null
-                  return (
-                    <Button asChild>
-                      <Link href={`/learn/${nextLesson.id}`}>
-                        Next Lesson
-                        <ArrowRightIcon className="ml-1 size-4" />
-                      </Link>
-                    </Button>
-                  )
-                })()}
               </motion.div>
             )}
           </main>
@@ -184,7 +227,7 @@ export default function LessonPage() {
 
         {/* Progress dots */}
         <div className="mb-8 flex items-center justify-center gap-2">
-          {lesson.slides.map((_, i) => (
+          {lesson.slides.map((slide, i) => (
             <button
               type="button"
               key={slide.title}
@@ -202,7 +245,12 @@ export default function LessonPage() {
         </div>
 
         {/* Slide content */}
-        <div className="relative min-h-70 overflow-hidden rounded-xl border bg-card p-6 sm:min-h-60 sm:p-8">
+        <div
+          className={cn(
+            "relative overflow-hidden rounded-xl border bg-card p-6 sm:p-8",
+            slide.chart ? "min-h-0" : "min-h-70 sm:min-h-60",
+          )}
+        >
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={currentSlide}
@@ -216,6 +264,7 @@ export default function LessonPage() {
             >
               <h2 className="text-xl font-semibold sm:text-2xl">{slide.title}</h2>
               <p className="mt-4 max-w-lg leading-relaxed text-muted-foreground">{slide.content}</p>
+              {slide.chart && <SlideLineChart chart={slide.chart} />}
               {slide.tip && (
                 <div className="mt-4 flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-left">
                   <span className="mt-0.5 shrink-0 text-sm">💡</span>

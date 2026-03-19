@@ -12,11 +12,34 @@
  * 7. The Farm — Surprise reward (PostFinance voucher)
  */
 
+export type SlideChartLine = {
+  key: string
+  label: string
+  color: string
+  /** Dashed stroke for reference lines */
+  dashed?: boolean
+}
+
+export type SlideChart = {
+  /** Data points: each object has an `x` key (label) plus numeric keys for each line */
+  data: Record<string, string | number>[]
+  /** Line definitions */
+  lines: SlideChartLine[]
+  xKey: string
+  yLabel?: string
+  /** Optional suffix for Y-axis values (e.g. " gold") */
+  ySuffix?: string
+  /** Optional Y-axis domain [min, max] to control scaling */
+  yDomain?: [number, number]
+}
+
 export type LessonSlide = {
   title: string
   content: string
   /** Optional hint text shown below the main content (Gildi tip style) */
   tip?: string
+  /** Optional line chart rendered below the content */
+  chart?: SlideChart
 }
 
 export type Lesson = {
@@ -53,13 +76,47 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Gold Pile",
         content:
-          "You have been stashing gold under your mattress for years. It feels safe — nobody can take it. But look at the market: the blacksmith charges more for tools this year. Bread costs more. Even the farm price keeps climbing.",
+          "You stash gold under your mattress. It feels safe — but watch what happens to its real value over time.",
+        chart: {
+          xKey: "year",
+          yLabel: "Gold",
+          ySuffix: "",
+          yDomain: [50, 100],
+          lines: [
+            { key: "real", label: "Purchasing power of 100 gold", color: "oklch(0.55 0.2 25)" },
+          ],
+          data: [
+            { year: "Yr 0", real: 100 },
+            { year: "Yr 5", real: 86 },
+            { year: "Yr 10", real: 74 },
+            { year: "Yr 15", real: 64 },
+            { year: "Yr 20", real: 55 },
+          ],
+        },
+        tip: "Even though you still hold 100 gold coins, after 20 years they only buy what 55 gold could buy today. That is the hidden cost of doing nothing.",
       },
       {
-        title: "The Silent Thief",
+        title: "The Rising Price of the Farm",
         content:
-          "After 10 years of saving, you finally have 1 000 gold. But the farm now costs 1 300 gold! Prices rose about 3% each year — a force called inflation. Your gold stayed the same while everything around it got more expensive.",
-        tip: "Inflation typically runs 1–3% per year. Over decades, it dramatically reduces your buying power.",
+          "The farm costs 1 000 gold today. At 3% inflation, it keeps climbing every year — your flat savings can never catch up.",
+        chart: {
+          xKey: "year",
+          yLabel: "Gold",
+          ySuffix: "",
+          yDomain: [950, 1350],
+          lines: [
+            { key: "farmPrice", label: "Farm price (3% inflation)", color: "oklch(0.55 0.2 25)" },
+          ],
+          data: [
+            { year: "Yr 0", farmPrice: 1000 },
+            { year: "Yr 2", farmPrice: 1061 },
+            { year: "Yr 4", farmPrice: 1126 },
+            { year: "Yr 6", farmPrice: 1194 },
+            { year: "Yr 8", farmPrice: 1267 },
+            { year: "Yr 10", farmPrice: 1344 },
+          ],
+        },
+        tip: "After 10 years of saving 100 gold/year you have 1 000 — but the farm now costs 1 344. The gap only widens.",
       },
       {
         title: "Lesson Learned",
