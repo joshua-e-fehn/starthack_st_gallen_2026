@@ -41,6 +41,14 @@ export const gameEventValidator = v.object({
   name: v.string(),
   description: v.string(),
   targetAsset: v.optional(v.union(v.literal("wood"), v.literal("potatoes"), v.literal("fish"))),
+  baseEventId: v.optional(v.string()),
+  effects: v.optional(
+    v.object({
+      quantityMultiplier: v.optional(v.number()),
+      goldDelta: v.optional(v.number()),
+      priceMultiplier: v.optional(v.number()),
+    }),
+  ),
 })
 
 // Legacy validators for old scenario data (not used by new event system)

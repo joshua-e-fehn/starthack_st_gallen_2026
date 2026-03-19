@@ -81,11 +81,6 @@ export async function generateEvents(): Promise<ResolvedEvent[]> {
   }
 
   // Special cases for events with custom logic
-  if (selectedEvent.id === "bountiful_season") {
-    // Affects only wood/potato prices
-    effects.priceMultiplier = sampleRange({ min: 0.75, max: 0.92, base: 0.84 })
-  }
-
   if (selectedEvent.id === "severe_drought") {
     // Affects only wood/potato
     effects.priceMultiplier = sampleRange({ min: 1.15, max: 1.45, base: 1.3 })
@@ -212,5 +207,11 @@ export function toGameEvent(resolved: ResolvedEvent): GameEvent {
     name: resolved.name,
     description: resolved.description,
     targetAsset: resolved.effects.targetAsset,
+    baseEventId: resolved.baseEventId,
+    effects: {
+      quantityMultiplier: resolved.effects.quantityMultiplier,
+      goldDelta: resolved.effects.goldDelta,
+      priceMultiplier: resolved.effects.priceMultiplier,
+    },
   }
 }

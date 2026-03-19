@@ -95,7 +95,7 @@ export function applyActions(
  *  3. Return resolved events and updated state
  */
 export async function resolveEvents(
-  scenario: Scenario,
+  _scenario: Scenario,
   portfolio: Portfolio,
   prices: Record<TradableAsset, AssetMarketPrice>,
 ): Promise<{
@@ -140,15 +140,7 @@ export async function resolveEvents(
     // ── Price effects ─────────────────────────────────────────────
     if (effects.priceMultiplier !== undefined) {
       // Special cases for events with custom asset targeting
-      if (event.baseEventId === "bountiful_season") {
-        // Only affects wood and potatoes
-        for (const asset of ["wood", "potatoes"] as TradableAsset[]) {
-          updatedPrices[asset] = {
-            ...updatedPrices[asset],
-            basePrice: Math.max(0.01, updatedPrices[asset].basePrice * effects.priceMultiplier),
-          }
-        }
-      } else if (event.baseEventId === "severe_drought") {
+      if (event.baseEventId === "severe_drought") {
         // Only affects wood and potatoes
         for (const asset of ["wood", "potatoes"] as TradableAsset[]) {
           updatedPrices[asset] = {

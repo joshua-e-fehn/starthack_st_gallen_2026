@@ -84,4 +84,12 @@ export type GameEvent = {
   description: string
   /** Which asset was affected (undefined = global) */
   targetAsset?: TradableAsset | undefined
+  /** Base event ID for image/icon lookup */
+  baseEventId?: string
+  /** Actual effects that were applied (for UI display) */
+  effects?: {
+    quantityMultiplier?: number
+    goldDelta?: number
+    priceMultiplier?: number
+  }
 }

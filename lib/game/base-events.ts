@@ -24,7 +24,7 @@ export type BaseEventDefinition = {
 /**
  * All base events in the game.
  * Probabilities are tuned so that on average, an event fires every 3-4 years.
- * Total probability: ~36% per year → event every 2.7 years on average
+ * Total probability: ~34% per year → event every ~3 years on average
  */
 export const BASE_EVENTS: BaseEventDefinition[] = [
   // ─── Asset-specific: Wood (6% total) ────────────────────────────
@@ -199,16 +199,6 @@ export const BASE_EVENTS: BaseEventDefinition[] = [
     effects: {
       priceMultiplier: { min: 1.1, max: 1.35, base: 1.22 }, // +10% to +35%
       quantityMultiplier: { min: 0.75, max: 0.95, base: 0.85 }, // -25% to -5% (requisition)
-    },
-  },
-  {
-    id: "bountiful_season",
-    category: "global",
-    name: "Bountiful Season",
-    probability: 0.02,
-    effects: {
-      goldDelta: { min: 80, max: 300, base: 180 },
-      // Only affects agriculture assets - handled specially in engine
     },
   },
   {
