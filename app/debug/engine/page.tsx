@@ -550,7 +550,7 @@ function MarketPriceChart({ history }: { history: StateVector[] }) {
         key={i}
         x1={start}
         x2={end}
-        fill={regime === "bull" ? "#22c55e" : "#ef4444"}
+        fill={regime === "peace" ? "#22c55e" : "#ef4444"}
         fillOpacity={0.1}
         strokeOpacity={0}
       />,
@@ -562,8 +562,8 @@ function MarketPriceChart({ history }: { history: StateVector[] }) {
       <CardHeader>
         <CardTitle className="text-base">Market Prices Over Time</CardTitle>
         <CardDescription>
-          Nominal prices (gold) for tradable assets. Background shows market regime (Green = Bull,
-          Red = Bear).
+          Nominal prices (gold) for tradable assets. Background shows market regime (Green = Peace,
+          Red = War).
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -1009,7 +1009,7 @@ function DebugPage() {
             </h1>
             <p className="text-muted-foreground text-sm">
               Step {current.step} · {current.date} · Regime:{" "}
-              <Badge variant={current.market.regime === "bull" ? "default" : "destructive"}>
+              <Badge variant={current.market.regime === "peace" ? "default" : "destructive"}>
                 {current.market.regime.toUpperCase()}
               </Badge>{" "}
               · Goal: {fmt(current.goal)} /{" "}
@@ -1620,7 +1620,9 @@ function DebugPage() {
                     <Label className="text-muted-foreground text-xs">Regime</Label>
                     <div>
                       <Badge
-                        variant={phaseState.newMarket.regime === "bull" ? "default" : "destructive"}
+                        variant={
+                          phaseState.newMarket.regime === "peace" ? "default" : "destructive"
+                        }
                       >
                         {phaseState.newMarket.regime.toUpperCase()}
                       </Badge>
@@ -2062,11 +2064,11 @@ function DebugPage() {
                       <TableCell className="font-mono text-xs">{s.date}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={s.market.regime === "bull" ? "default" : "destructive"}
+                          variant={s.market.regime === "peace" ? "default" : "destructive"}
                           className="text-xs"
                         >
                           {s.market.regime}
-                        </Badge>
+                        </Badge>{" "}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {fmt(s.market.inflation)}
@@ -2217,21 +2219,21 @@ function DebugPage() {
             <CardContent>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                 <NumField
-                  label="Bull → Bear probability"
-                  value={scenario.market.bullToBearProbability}
+                  label="Peace → War probability"
+                  value={scenario.market.peaceToWarProbability}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
-                      d.market.bullToBearProbability = v
+                      d.market.peaceToWarProbability = v
                     })
                   }
                   step="0.01"
                 />
                 <NumField
-                  label="Bear → Bull probability"
-                  value={scenario.market.bearToBullProbability}
+                  label="War → Peace probability"
+                  value={scenario.market.warToPeaceProbability}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
-                      d.market.bearToBullProbability = v
+                      d.market.warToPeaceProbability = v
                     })
                   }
                   step="0.01"
@@ -2240,41 +2242,41 @@ function DebugPage() {
               <Separator className="my-4" />
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <NumField
-                  label="Bull μ (mean return)"
-                  value={scenario.market.bullReturn}
+                  label="Peace μ (mean return)"
+                  value={scenario.market.peaceReturn}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
-                      d.market.bullReturn = v
+                      d.market.peaceReturn = v
                     })
                   }
                   step="0.001"
                 />
                 <NumField
-                  label="Bull σ (volatility)"
-                  value={scenario.market.bullVolatility}
+                  label="Peace σ (volatility)"
+                  value={scenario.market.peaceVolatility}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
-                      d.market.bullVolatility = v
+                      d.market.peaceVolatility = v
                     })
                   }
                   step="0.001"
                 />
                 <NumField
-                  label="Bear μ (mean return)"
-                  value={scenario.market.bearReturn}
+                  label="War μ (mean return)"
+                  value={scenario.market.warReturn}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
-                      d.market.bearReturn = v
+                      d.market.warReturn = v
                     })
                   }
                   step="0.001"
                 />
                 <NumField
-                  label="Bear σ (volatility)"
-                  value={scenario.market.bearVolatility}
+                  label="War σ (volatility)"
+                  value={scenario.market.warVolatility}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
-                      d.market.bearVolatility = v
+                      d.market.warVolatility = v
                     })
                   }
                   step="0.001"

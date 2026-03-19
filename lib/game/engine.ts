@@ -32,7 +32,7 @@ export function initializeMarket(scenario: Scenario): MarketState {
     }
   }
 
-  return { regime: "bull", inflation: 1, prices }
+  return { regime: "peace", inflation: 1, prices }
 }
 
 /** Create the initial state vector (step 0) for a new game */
@@ -135,39 +135,28 @@ export async function resolveEvents(
       updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold + effects.goldDelta)
     }
 
-    // ── Price effects ─────────────────────────────────────────────
-    if (effects.priceMultiplier !== undefined) {
-      // Special cases for events with custom asset targeting
-      if (event.baseEventId === "severe_drought") {
-        // Only affects wood and potatoes
-        for (const asset of ["wood", "potatoes"] as TradableAsset[]) {
-          updatedPrices[asset] = {
-            ...updatedPrices[asset],
-            basePrice: Math.max(0.01, updatedPrices[asset].basePrice * effects.priceMultiplier),
-          }
-          // Also apply quantity effect
-          if (effects.quantityMultiplier !== undefined) {
-            updatedPortfolio[asset] = Math.floor(
-              updatedPortfolio[asset] * effects.quantityMultiplier,
-            )
-          }
-        }
-      } else if (effects.targetAsset) {
-        // Single asset
-        updatedPrices[effects.targetAsset] = {
-          ...updatedPrices[effects.targetAsset],
-          basePrice: Math.max(
-            0.01,
-            updatedPrices[effects.targetAsset].basePrice * effects.priceMultiplier,
-          ),
-        }
-      } else {
-        // All assets
-        for (const asset of TRADABLE_ASSET_KEYS) {
-          updatedPrices[asset] = {
-            ...updatedPrices[asset],
-            basePrice: Math.max(0.01, updatedPrices[asset].basePrice * effects.priceMultiplier),
-          }
+  // ── 3. AI event (15% chance) ──────────────────────────────────
+  if (Math.random() < 0.15) {
+    try {
+      const ai = getGeminiClient()
+      const prompt = `Generate a medieval market event. Return JSON: { "name": "Event Name", "description": "What happened", "effect": "price_up" | "price_down" | "gold_gain" | "gold_loss" }`
+      const response = await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
+        contents: prompt,
+        config: { temperature: 0.8, responseMimeType: "application/json", maxOutputTokens: 200 },
+      })
+      const event = JSON.parse(response.text?.trim() || "{}")
+      if (event.name && event.description) {
+        firedEvents.push({ type: "ai_generated", name: event.name, description: event.description })
+        if (event.effect === "price_up") {
+          for (const asset of TRADABLE_ASSET_KEYS) updatedPrices[asset].basePrice *= 1.1
+        } else if (event.effect === "price_down") {
+          for (const asset of TRADABLE_ASSET_KEYS)
+            updatedPrices[asset].basePrice = Math.max(0.01, updatedPrices[asset].basePrice * 0.9)
+        } else if (event.effect === "gold_gain") {
+          updatedPortfolio.gold += 10
+        } else if (event.effect === "gold_loss") {
+          updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold - 5)
         }
       }
     }
@@ -196,19 +185,19 @@ export async function resolveEvents(
  *   nominal price     = basePrice × inflation   (computed at display/trade time)
  *
  * Steps:
- * 1. Regime transition (bull ↔ bear) with configured probabilities
+ * 1. Regime transition (peace ↔ war) with configured probabilities
  * 2. Draw r_inflation — update cumulative inflation factor
- * 3. Draw r_market    — regime-dependent (bull μ/σ or bear μ/σ)
+ * 3. Draw r_market    — regime-dependent (peace μ/σ or war μ/σ)
  * 4. Per-asset: draw r_asset, compute new real basePrice via multiplicative model
  * 5. Carry forward buy/sell factors
  */
 export function stepMarket(scenario: Scenario, prev: MarketState): MarketState {
   // 1. Regime transition
   let regime = prev.regime
-  if (regime === "bull" && Math.random() < scenario.market.bullToBearProbability) {
-    regime = "bear"
-  } else if (regime === "bear" && Math.random() < scenario.market.bearToBullProbability) {
-    regime = "bull"
+  if (regime === "peace" && Math.random() < scenario.market.peaceToWarProbability) {
+    regime = "war"
+  } else if (regime === "war" && Math.random() < scenario.market.warToPeaceProbability) {
+    regime = "peace"
   }
 
   // 2. Inflation: r_inflation ~ N(μ_inflation, σ_inflation²)
@@ -217,9 +206,9 @@ export function stepMarket(scenario: Scenario, prev: MarketState): MarketState {
 
   // 3. Market regime return: r_market ~ N(μ_regime, σ_regime²)  — same for all assets
   const rMarket =
-    regime === "bull"
-      ? scenario.market.bullReturn + scenario.market.bullVolatility * randomNormal()
-      : scenario.market.bearReturn + scenario.market.bearVolatility * randomNormal()
+    regime === "peace"
+      ? scenario.market.peaceReturn + scenario.market.peaceVolatility * randomNormal()
+      : scenario.market.warReturn + scenario.market.warVolatility * randomNormal()
 
   // 4. Per-asset real price evolution (multiplicative)
   const prices = {} as Record<TradableAsset, AssetMarketPrice>
