@@ -907,6 +907,12 @@ function GameContent() {
   }, [projectedPortfolio, getSellPriceFor])
 
   const totalValue = current ? portfolioValue(projectedPortfolio, current.market) : 0
+  const goalProgressPercent = useMemo(() => {
+    if (!current?.goal || current.goal <= 0) return 0
+    const ratio = (totalValue / current.goal) * 100
+    if (!Number.isFinite(ratio)) return 0
+    return clamp(ratio, 0, 100)
+  }, [current?.goal, totalValue])
 
   const allocationData = useMemo(() => {
     return [
@@ -1154,68 +1160,24 @@ function GameContent() {
                 </div>
               </div>
 
-              {/* Bottom Labels: Portfolio Value & Target */}
-              <div
-                className={cn(
-                  "flex items-end justify-between px-2 pt-2 lg:pt-4",
-                  !isMobile && "border-t border-muted/20",
-                )}
-              >
-                <div className="flex flex-col gap-0 lg:gap-1">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="size-3 lg:size-4 text-muted-foreground/60" />
-                    <span className="text-[9px] lg:text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                      Portfolio Value
-                    </span>
-                  </div>
-                  <div className="flex items-baseline gap-1.5 lg:gap-2">
-                    <span className="text-2xl lg:text-3xl font-black tabular-nums text-[#1A1A1A]">
-                      {formatTaler(totalValue)}
-                    </span>
-                    {!isMobile && (
-                      <span className="text-xs font-black uppercase text-[#1A1A1A]/60">taler</span>
-                    )}
-                  </div>
+              {/* Streamlined Goal Progress */}
+              <div className={cn("space-y-2", !isMobile && "border-t border-muted/20 pt-4")}>
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-base lg:text-lg font-medium text-foreground/70">
+                    Goal Progress
+                  </span>
+                  <span className="font-mono text-base lg:text-xl text-foreground/70">
+                    {formatTaler(totalValue)} / {formatTaler(current.goal)} taler
+                  </span>
                 </div>
-                <div className="text-right space-y-0 lg:space-y-1">
-                  <div className="flex items-center justify-end gap-2 text-[#FFD700]">
-                    <Trophy className="size-3 lg:size-4" />
-                    <span className="text-[9px] lg:text-xs font-black uppercase tracking-[0.2em]">
-                      Target
-                    </span>
-                  </div>
-                  <div className="flex items-baseline justify-end gap-1">
-                    <span className="text-lg lg:text-2xl font-black text-[#FFD700] drop-shadow-sm">
-                      {formatTaler(current.goal)}
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Massive Full-width Progress Bar */}
-              <div className="relative group lg:-mx-2">
-                <div
-                  className={cn(
-                    "w-full overflow-hidden rounded-full border-white bg-white shadow-md lg:shadow-lg",
-                    isMobile ? "h-2 border" : "h-4 border-2",
-                  )}
-                >
-                  <div className="h-full w-full rounded-full overflow-hidden bg-muted/10 relative">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (totalValue / current.goal) * 100)}%` }}
-                      className="h-full transition-all duration-1000 ease-out bg-[#FFD700]"
-                    />
-
-                    {totalValue >= current.goal && (
-                      <motion.div
-                        initial={{ x: "-100%" }}
-                        animate={{ x: "200%" }}
-                        transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
-                        className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg]"
-                      />
-                    )}
-                  </div>
+                <div className="relative h-7 lg:h-8 overflow-hidden rounded-full bg-emerald-500/20">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${goalProgressPercent}%` }}
+                    className="h-full rounded-full bg-emerald-500"
+                    transition={{ duration: 0.9, ease: "easeOut" }}
+                  />
                 </div>
               </div>
 
