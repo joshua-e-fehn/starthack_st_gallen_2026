@@ -495,7 +495,7 @@ function GameContent() {
     <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
       <TooltipProvider>
         <div className="space-y-8">
-          {/* 1. Header: Status & Quick Stats */}
+          {/* 1. Header: Status, Quick Stats & Allocation */}
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between bg-card p-4 rounded-2xl border shadow-sm">
             <div className="flex items-center gap-6">
               <div className="flex flex-col">
@@ -518,132 +518,135 @@ function GameContent() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 bg-muted/40 p-2 px-4 rounded-xl border border-primary/5">
-              {goodsMeta.map((meta) => (
-                <Tooltip key={meta.key}>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 group cursor-help">
-                      <div
-                        className={`p-1.5 rounded-lg ${meta.colorClass} shadow-xs group-hover:scale-110 transition-transform`}
-                      >
-                        <Image
-                          src={meta.icon}
-                          alt={meta.name}
-                          width={20}
-                          height={20}
-                          className="object-contain"
-                        />
+            {/* Header Right: Stats + Allocation Pie */}
+            <div className="flex items-center gap-6 bg-muted/40 p-2 pr-4 rounded-xl border border-primary/5">
+              <div className="flex flex-wrap items-center gap-4 pl-2">
+                {goodsMeta.map((meta) => (
+                  <Tooltip key={meta.key}>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-2 group cursor-help">
+                        <div
+                          className={`p-1.5 rounded-lg ${meta.colorClass} shadow-xs group-hover:scale-110 transition-transform`}
+                        >
+                          <Image
+                            src={meta.icon}
+                            alt={meta.name}
+                            width={20}
+                            height={20}
+                            className="object-contain"
+                          />
+                        </div>
+                        <span className="font-mono text-lg font-black tabular-nums">
+                          {meta.key === "taler"
+                            ? Math.round(projectedPortfolio.gold)
+                            : projectedPortfolio[meta.key as TradableAsset]}
+                        </span>
                       </div>
-                      <span className="font-mono text-lg font-black tabular-nums">
-                        {meta.key === "taler"
-                          ? Math.round(projectedPortfolio.gold)
-                          : projectedPortfolio[meta.key as TradableAsset]}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="p-3 max-w-[200px]">
-                    <p className="font-bold text-xs mb-1">{meta.name}</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight">
-                      {meta.description}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="p-3 max-w-[200px]">
+                      <p className="font-bold text-xs mb-1">{meta.name}</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight">
+                        {meta.description}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+
+              <div className="h-10 w-px bg-border/50 hidden sm:block" />
+
+              {/* Small Allocation Chart in Header */}
+              <div className="hidden sm:flex flex-col items-center">
+                <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">
+                  Spread
+                </span>
+                <div className="h-12 w-12">
+                  <PieChart width={48} height={48}>
+                    <Pie
+                      data={allocationData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={10}
+                      outerRadius={24}
+                      paddingAngle={0}
+                      dataKey="value"
+                      stroke="none"
+                      animationDuration={1000}
+                    >
+                      {allocationData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* 2. Overview: Net Worth & Goal */}
           <div className="relative overflow-hidden rounded-3xl border border-primary/10 bg-linear-to-br from-primary/[0.03] to-transparent p-6 sm:p-8 shadow-sm">
             <div className="relative z-10 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8">
-                <div className="space-y-6 flex-1">
-                  <div className="flex items-end justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Wallet className="size-4 text-primary" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                          Portfolio Value
-                        </span>
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-5xl font-black tracking-tight">
-                          {formatTaler(totalValue)}
-                        </span>
-                        <span className="text-xl font-bold text-muted-foreground">taler</span>
-                      </div>
+              <div className="flex flex-col gap-6">
+                <div className="flex items-end justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="size-4 text-primary" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                        Portfolio Value
+                      </span>
                     </div>
-                    <div className="text-right space-y-1">
-                      <div className="flex items-center justify-end gap-2 text-primary">
-                        <Trophy className="size-4" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">
-                          Target
-                        </span>
-                      </div>
-                      <div className="flex items-baseline justify-end gap-1">
-                        <span className="text-2xl font-black text-primary/80">
-                          {formatTaler(current.goal)}
-                        </span>
-                      </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-5xl font-black tracking-tight">
+                        {formatTaler(totalValue)}
+                      </span>
+                      <span className="text-xl font-bold text-muted-foreground">taler</span>
                     </div>
                   </div>
-
-                  {/* Progress Bar (Single Color) */}
-                  <div className="space-y-3">
-                    <div className="relative group">
-                      <div className="h-14 w-full overflow-hidden rounded-2xl border-2 border-primary/10 bg-muted/20 p-1 shadow-inner backdrop-blur-md">
-                        <div className="h-full rounded-xl overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{
-                              width: `${Math.min(100, (totalValue / current.goal) * 100)}%`,
-                            }}
-                            className="h-full transition-all duration-700 ease-out bg-primary"
-                          />
-                        </div>
-
-                        {totalValue >= current.goal && (
-                          <motion.div
-                            initial={{ x: "-100%" }}
-                            animate={{ x: "200%" }}
-                            transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
-                            className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg]"
-                          />
-                        )}
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="px-4 py-1 rounded-full bg-black/20 backdrop-blur-sm">
-                          <span className="text-xs font-black uppercase tracking-[0.2em] text-white">
-                            {((totalValue / current.goal) * 100).toFixed(0)}% TO INDEPENDENCE
-                          </span>
-                        </div>
-                      </div>
+                  <div className="text-right space-y-1">
+                    <div className="flex items-center justify-end gap-2 text-primary">
+                      <Trophy className="size-4" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+                        Target
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-end gap-1">
+                      <span className="text-2xl font-black text-primary/80">
+                        {formatTaler(current.goal)}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Asset Allocation Cake Chart */}
-                <div className="flex flex-col items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                    Allocation
-                  </span>
-                  <div className="h-32 w-32">
-                    <PieChart width={128} height={128}>
-                      <Pie
-                        data={allocationData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={30}
-                        outerRadius={60}
-                        paddingAngle={4}
-                        dataKey="value"
-                        stroke="none"
-                        animationDuration={1000}
-                      >
-                        {allocationData.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
+                {/* Progress Bar (Single Color) */}
+                <div className="space-y-3">
+                  <div className="relative group">
+                    <div className="h-14 w-full overflow-hidden rounded-2xl border-2 border-primary/10 bg-muted/20 p-1 shadow-inner backdrop-blur-md">
+                      <div className="h-full rounded-xl overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{
+                            width: `${Math.min(100, (totalValue / current.goal) * 100)}%`,
+                          }}
+                          className="h-full transition-all duration-700 ease-out bg-primary"
+                        />
+                      </div>
+
+                      {totalValue >= current.goal && (
+                        <motion.div
+                          initial={{ x: "-100%" }}
+                          animate={{ x: "200%" }}
+                          transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
+                          className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg]"
+                        />
+                      )}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="px-4 py-1 rounded-full bg-black/20 backdrop-blur-sm">
+                        <span className="text-xs font-black uppercase tracking-[0.2em] text-white">
+                          {((totalValue / current.goal) * 100).toFixed(0)}% TO INDEPENDENCE
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -748,7 +751,7 @@ function GameContent() {
                     <Card
                       key={meta.key}
                       className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50"}`}
-                      style={{ backgroundColor: `${assetColor}15` }} // Subtle background tint
+                      style={{ backgroundColor: `${assetColor}20` }} // More solid background tint
                     >
                       <CardContent className="p-0">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 gap-4">
@@ -762,7 +765,7 @@ function GameContent() {
                                 alt={meta.name}
                                 width={48}
                                 height={48}
-                                className="object-contain brightness-0 invert"
+                                className="object-contain"
                               />
                             </div>
                             <div className="space-y-1">
