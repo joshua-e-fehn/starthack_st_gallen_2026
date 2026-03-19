@@ -1023,7 +1023,7 @@ function GameContent() {
       const name = localStorage.getItem("debug_playerName") ?? ""
       if (isFiveYearCheckpoint || isFinalYear) {
         router.push(
-          `/dashboard/sessions/${sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
+          `/game/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
         )
       }
     }

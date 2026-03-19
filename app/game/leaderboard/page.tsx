@@ -3,7 +3,7 @@
 import confetti from "canvas-confetti"
 import { useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
-import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useRef, useState } from "react"
 import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { Badge } from "@/components/ui/badge"
@@ -12,10 +12,9 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 
 function LeaderboardContent() {
-  const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const sessionId = params.sessionId as Id<"sessions">
+  const sessionId = searchParams.get("sessionId") as Id<"sessions">
   const step = Number(searchParams.get("step") ?? "0")
   const gameId = searchParams.get("gameId") ?? ""
   const playerName = searchParams.get("name") ?? ""
