@@ -1024,13 +1024,23 @@ function DebugPage() {
               variant="outline"
               size="sm"
               className={gameOver ? "animate-bounce border-primary" : ""}
-              onClick={() => router.push(`/debug/sessions/${convexGame.sessionId}`)}
+              onClick={() => router.push(`/?sessionId=${convexGame.sessionId}`)}
             >
-              ← Back to Session Leaderboard
+              ← Leave Game & Back to Dashboard
             </Button>
           )}
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className={gameOver ? "animate-bounce border-primary" : ""}
+            onClick={() =>
+              router.push(convexGame?.sessionId ? `/?sessionId=${convexGame.sessionId}` : "/")
+            }
+          >
+            {gameOver ? "Exit to Dashboard" : "Leave Game"}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleReset}>
             Reset
           </Button>

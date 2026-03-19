@@ -1,6 +1,6 @@
 "use client"
 
-import { useConvex, useQuery } from "convex/react"
+import { useConvex, useMutation, useQuery } from "convex/react"
 import {
   Activity,
   ArrowRight,
@@ -48,8 +48,10 @@ function DashboardContent() {
     api.game.getSessionWithLeaderboard,
     sessionId ? { sessionId } : "skip",
   )
+  const myGameInSession = useQuery(api.game.getMyGameInSession, sessionId ? { sessionId } : "skip")
   const activeSessions = useQuery(api.game.listSessions)
   const myGames = useQuery(api.game.listMyGames)
+  const startGame = useMutation(api.game.startGame)
 
   const handleJoinByCode = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,7 +77,7 @@ function DashboardContent() {
     }
   }
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     // Check if player name exists, if not use a default or prompt
     let name = localStorage.getItem("debug_playerName")
     if (!name) {
@@ -83,7 +85,26 @@ function DashboardContent() {
       if (!name) return
       localStorage.setItem("debug_playerName", name)
     }
-    router.push(`/debug/sessions/${sessionId}`)
+
+    if (sessionId && sessionData) {
+      // If we already have a game in this session, just go there
+      if (myGameInSession) {
+        router.push(`/debug/engine?gameId=${myGameInSession._id}`)
+        return
+      }
+
+      try {
+        const gameId = await startGame({
+          scenarioId: sessionData.session.scenarioId,
+          sessionId: sessionData.session._id,
+          playerName: name,
+        })
+        router.push(`/debug/engine?gameId=${gameId}`)
+      } catch (error) {
+        console.error("Error starting game:", error)
+        alert(error instanceof Error ? error.message : "Failed to start game")
+      }
+    }
   }
 
   const isLoaded = !!sessionId && !!sessionData
@@ -424,8 +445,8 @@ function DashboardContent() {
                       </div>
                     ))
                   )}
-                  <Button variant="outline" className="w-full h-8 text-xs" asChild>
-                    <Link href="/dashboard/scenarios">Browse Scenarios</Link>
+                  <Button variant="default" className="w-full h-10 shadow-sm" asChild>
+                    <Link href="/dashboard/scenarios">Manage Scenarios</Link>
                   </Button>
                 </CardContent>
               </Card>

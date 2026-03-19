@@ -176,6 +176,8 @@ export const getSessionWithLeaderboard = query({
     const session = await ctx.db.get(args.sessionId)
     if (!session) return null
 
+    const scenario = await ctx.db.get(session.scenarioId)
+
     const games = await ctx.db
       .query("games")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
@@ -205,7 +207,12 @@ export const getSessionWithLeaderboard = query({
     )
 
     return {
-      session,
+      session: {
+        ...session,
+        scenarioName: scenario?.name,
+        scenarioIcon: scenario?.icon,
+        playerCount: games.length,
+      },
       leaderboard: leaderboard
         .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
         .sort((a, b) => b.netWorth - a.netWorth),
@@ -243,6 +250,21 @@ export const listSessionGames = query({
       .query("games")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .collect()
+  },
+})
+
+/** Get the authenticated user's game in a specific session */
+export const getMyGameInSession = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    return await ctx.db
+      .query("games")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .filter((q) => q.eq(q.field("sessionId"), args.sessionId))
+      .first()
   },
 })
 
