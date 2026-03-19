@@ -9,10 +9,10 @@ import type { MarketState } from "./market"
  * Maps to the whiteboard formulation:
  *   def step(x, y, z) → (x', y', z')
  *
- *   x = portfolio   {Gold, Holz, Fisch, Gemüse}       (player holdings)
- *   y = market       {Marktphase, asset prices}        (market state)
+ *   x = portfolio   {Gold, Wood, Fish, Potatoes}       (player holdings)
+ *   y = market       {Market phase, asset prices}       (market state)
  *   z = eventHistory {events that have occurred}        (event log)
- *   α = scenario     {Startkapital, Einkommen, ...}    (static config, not stored per step)
+ *   α = scenario     {Start capital, Income, ...}       (static config, not stored per step)
  *
  * **Step flow per timestep:**
  *   1. Start state (x, y, z)
@@ -28,8 +28,8 @@ import type { MarketState } from "./market"
 export type StateVector = {
   /** Step number (0 = initial state, 1 = after first step, …) */
   step: number
-  /** ISO date string for this timestep */
-  date: string
+  /** Year number for this timestep (e.g. 1400, 1401, …) */
+  date: number
 
   // ─── x: Player holdings ────────────────────────────────────────
   /** Player's current holdings (gold balance + asset quantities) */
@@ -43,10 +43,16 @@ export type StateVector = {
   market: MarketState
 
   // ─── z: Event history ─────────────────────────────────────────
-  /** Random events that fired this step (Pest, Diebe, Ernteausfall, etc.) */
+  /** Random events that fired this step (Plague, Thieves, Crop Failure, etc.) */
   events: GameEvent[]
 
   // ─── Player input ────────────────────────────────────────────
   /** Actions the player took this step (empty for step 0) */
   actions: PlayerAction[]
+
+  // ─── Goal tracking ─────────────────────────────────────────
+  /** Inflation-adjusted goal amount for this timestep */
+  goal: number
+  /** Whether the player has reached the goal at any point */
+  goalReached: boolean
 }

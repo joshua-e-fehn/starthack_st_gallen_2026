@@ -126,6 +126,8 @@ export const startGame = mutation({
       market: initialState.market,
       events: initialState.events,
       actions: initialState.actions,
+      goal: initialState.goal,
+      goalReached: initialState.goalReached,
     })
 
     return gameId
@@ -169,6 +171,8 @@ export const submitStep = mutation({
       market: latestStep.market,
       events: latestStep.events,
       actions: latestStep.actions,
+      goal: latestStep.goal,
+      goalReached: latestStep.goalReached,
     }
 
     // Cast validated actions to the PlayerAction type
@@ -189,6 +193,8 @@ export const submitStep = mutation({
       market: newState.market,
       events: newState.events,
       actions: newState.actions,
+      goal: newState.goal,
+      goalReached: newState.goalReached,
     })
 
     // Update game record

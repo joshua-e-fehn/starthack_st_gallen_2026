@@ -41,8 +41,8 @@ const globalEventTypeValidator = v.union(
 )
 
 const assetEventTypeValidator = v.union(
-  v.literal("forest_wildfire"),
-  v.literal("crop_failure"),
+  v.literal("fire"),
+  v.literal("mice_infestation"),
   v.literal("cooling_failure"),
 )
 
@@ -51,8 +51,8 @@ const eventTypeValidator = v.union(
   v.literal("thieves"),
   v.literal("market_crash"),
   v.literal("good_harvest"),
-  v.literal("forest_wildfire"),
-  v.literal("crop_failure"),
+  v.literal("fire"),
+  v.literal("mice_infestation"),
   v.literal("cooling_failure"),
 )
 
@@ -105,8 +105,8 @@ export const scenarioFieldsValidator = {
   description: v.string(),
   startCapital: v.number(),
   recurringRevenue: v.number(),
-  startDate: v.string(),
-  endDate: v.string(),
+  startYear: v.number(),
+  endYear: v.number(),
   buyFactor: v.number(),
   sellFactor: v.number(),
   inflationReturn: v.number(),
@@ -118,4 +118,5 @@ export const scenarioFieldsValidator = {
     fish: assetPricingValidator,
   }),
   globalEvents: v.array(globalEventDefinitionValidator),
+  goalAmount: v.number(),
 }

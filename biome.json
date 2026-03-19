@@ -53,6 +53,19 @@
           "suspicious": {
             "noArrayIndexKey": "off",
             "noDocumentCookie": "off"
+          },
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/dashboard/debug/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noArrayIndexKey": "off"
           }
         }
       }
