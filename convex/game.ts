@@ -339,7 +339,7 @@ export const submitStep = mutation({
     const actions = args.actions as PlayerAction[]
 
     // Run engine step
-    const newState = gameStep(scenario, prevState, actions)
+    const newState = await gameStep(scenario, prevState, actions)
 
     // Check if game is over
     const gameOver = isGameOver(scenario, newState)
