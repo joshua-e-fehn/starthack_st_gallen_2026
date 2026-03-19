@@ -76,7 +76,6 @@ export async function* generateGeminiResponseStream({
       systemInstruction: systemPrompt ?? getSystemPrompt(),
       temperature,
       responseMimeType: "text/plain",
-      maxOutputTokens: 160,
     },
   })
 
