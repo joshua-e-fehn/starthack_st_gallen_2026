@@ -126,7 +126,7 @@ export function ScenarioForm({
 
   const isCustomIcon = !SCENARIO_ICONS.includes(formData.icon)
 
-  const handleGenerateTrajectories = () => {
+  const handleGenerateTrajectories = async () => {
     // Create a temporary scenario object to pass to generateTrajectories
     const tempScenario: Scenario = {
       id: "temp",
@@ -174,7 +174,7 @@ export function ScenarioForm({
       goalAmount: formData.goalAmount,
     }
 
-    const trajectories = generateTrajectories(tempScenario)
+    const trajectories = await generateTrajectories(tempScenario)
     setFormData((prev) => ({ ...prev, precomputedTrajectories: trajectories }))
   }
 
