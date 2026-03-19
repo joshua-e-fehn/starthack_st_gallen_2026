@@ -4,6 +4,8 @@ import type * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+let sharedAudioCtx: AudioContext | null = null
+
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
@@ -46,6 +48,7 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  onClick,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
@@ -53,12 +56,35 @@ function Button({
   }) {
   const Comp = asChild ? Slot.Root : "button"
 
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    try {
+      if (!sharedAudioCtx) {
+        sharedAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      }
+      if (sharedAudioCtx.state === "suspended") sharedAudioCtx.resume()
+
+      const osc = sharedAudioCtx.createOscillator()
+      const gainNode = sharedAudioCtx.createGain()
+      osc.connect(gainNode)
+      gainNode.connect(sharedAudioCtx.destination)
+      osc.type = "sine"
+      osc.frequency.setValueAtTime(600, sharedAudioCtx.currentTime)
+      osc.frequency.exponentialRampToValueAtTime(800, sharedAudioCtx.currentTime + 0.05)
+      gainNode.gain.setValueAtTime(0.3, sharedAudioCtx.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + 0.05)
+      osc.start()
+      osc.stop(sharedAudioCtx.currentTime + 0.05)
+    } catch (err) {}
+    onClick?.(e)
+  }
+
   return (
     <Comp
       data-slot="button"
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
+      onClick={handleClick as any}
       {...props}
     />
   )

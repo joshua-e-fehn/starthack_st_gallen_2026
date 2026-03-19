@@ -1,6 +1,7 @@
 "use client"
 
 import { Volume2Icon, VolumeXIcon } from "lucide-react"
+import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 
@@ -40,9 +41,35 @@ export function BackgroundMusic() {
     }
   }
 
+  const pathname = usePathname()
+  const isGameRoute = pathname?.includes("/dashboard/game")
+
+  const prevRouteRef = useRef(isGameRoute)
+
+  useEffect(() => {
+    if (prevRouteRef.current !== isGameRoute) {
+      prevRouteRef.current = isGameRoute
+
+      // When the route changes, React updates the <audio src> automatically.
+      // We explicitly call .load() to ensure the browser fetches the new track directly.
+      if (audioRef.current) {
+        audioRef.current.load()
+        if (isPlaying && !isMuted) {
+          audioRef.current.play().catch(() => setIsPlaying(false))
+        }
+      }
+    }
+  }, [isGameRoute, isPlaying, isMuted])
+
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <audio ref={audioRef} src="/audio/background-music.mp3" loop muted={isMuted} />
+      <audio
+        ref={audioRef}
+        src={isGameRoute ? "/audio/game-music.mp3" : "/audio/background-music.mp3"}
+        loop
+        muted={isMuted}
+        autoPlay={!isMuted}
+      />
       <Button
         variant="outline"
         size="icon"

@@ -72,7 +72,7 @@ export default function SessionLobbyPage() {
           transition={{ duration: 0.3 }}
         >
           <Button variant="ghost" size="sm" className="mb-2 -ml-2" asChild>
-            <a href="/dashboard">
+            <a href="/">
               <ArrowLeftIcon className="mr-1 size-4" />
               Back
             </a>
