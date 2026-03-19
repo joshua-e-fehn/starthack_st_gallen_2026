@@ -409,3 +409,23 @@ All frontend design decisions are governed by **`DESIGN.md`** in the project roo
 - **Anti-patterns** — "Do NOT" list (no arbitrary colors, no childish mascot, no gold-on-gold, etc.)
 
 > **Rule:** Any time frontend UI is created or modified, `DESIGN.md` must be consulted and followed.
+
+## Product Story
+
+Product vision, user journey, simulation rules, and educational framing are governed by **`STORY.md`** in the project root. This file defines:
+
+- **Core vision** — medieval finance simulator where the player aims to buy their farm
+- **User journey** — yearly turn loop, progression, decision points, and end goal
+- **Educational goals** — investing, inflation, diversification, volatility, and long-term thinking
+- **Simulation mapping** — wood, potatoes, and fish as metaphors for asset classes
+- **Economic systems** — inflation, market phases, and random events
+- **Product constraints** — clarity over realism, strategy over complexity, asynchronous multiplayer
+
+> **Rule:** Any time gameplay, content, progression, onboarding flow, or economic logic is created or modified, `STORY.md` must be consulted and followed.
+
+## Documentation Rules
+
+- For UI, visual language, motion, branding, responsive behavior, and tone in the interface, consult `DESIGN.md`
+- For gameplay flow, user journey, learning goals, narrative framing, and balancing direction, consult `STORY.md`
+- Preserve the medieval metaphor across product, copy, and features unless explicitly asked to change it
+- Keep the experience understandable for finance beginners and favor clarity over realism

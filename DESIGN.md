@@ -254,7 +254,7 @@ Scan QR / 1–2 minute setup. Gildi guides the player through game mechanics wit
 
 ### 7. Responsive & Mobile-First
 
-Design for 375px first, then scale up. Touch targets minimum 44px. Sidebar collapses on mobile. The game must work flawlessly on phones during workshops and events. Use `sm:` / `md:` / `lg:` breakpoints intentionally.
+Design for 375px first, then scale up intentionally for larger screens. The primary product experience should still work especially well on phones during workshops and events, but the interface is not mobile-only. Touch targets minimum 44px. Flows should work comfortably in short sessions, while desktop layouts should also feel clear and well-composed. Use `sm:` / `md:` / `lg:` breakpoints intentionally.
 
 ### 8. Accessible by Default
 
@@ -413,6 +413,17 @@ Never show a blank area. Provide:
 - Alpine blue provides calm professionalism
 - Gamified elements (sparkles, reactions, achievements) make finance feel fun
 - Not "startup playful" or "childish" — approachable but serious about education
+
+---
+
+## Story-Driven UX Constraints
+
+These rules come from `STORY.md` and must shape the interface, content, and interaction design.
+
+- The medieval metaphor is a core product device, not decorative flavor. UI copy, icon choices, event framing, and empty states should preserve it consistently.
+- Finance concepts should be introduced through gameplay first and jargon second. Prefer labels and explanations that teach gently before exposing real-world terminology.
+- The product should feel understandable, story-driven, and slightly playful, but never intimidating or overly technical.
+- Interactions should be short, clear, and touch-friendly so the game works in small mobile time windows.
 
 ---
 
