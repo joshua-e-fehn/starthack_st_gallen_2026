@@ -141,53 +141,45 @@
 
 @layer utilities {
   .wood-board {
-    background-color: #3d2b1f;
+    background-color: #4a3728;
     background-image: 
-      /* Rough wood grain effect using multiple gradients */
-      repeating-linear-gradient(
-        rgba(255, 255, 255, 0.03) 0%,
-        rgba(255, 255, 255, 0.03) 1%,
-        transparent 1%,
-        transparent 2%
+      /* Bark-like texture / grain */
+      repeating-radial-gradient(
+        circle at 20% 50%,
+        #5d4037 0%,
+        #4a3728 5%,
+        #3e2723 10%
       ),
+      /* Overlaid grain lines */
       repeating-linear-gradient(
-        90deg,
-        rgba(0, 0, 0, 0.1) 0%,
-        rgba(0, 0, 0, 0.1) 1%,
-        transparent 1%,
-        transparent 2%
+        15deg,
+        rgba(0, 0, 0, 0.05) 0px,
+        rgba(0, 0, 0, 0.05) 1px,
+        transparent 1px,
+        transparent 4px
       ),
-      /* Plank lines */
-      repeating-linear-gradient(
+      /* Deepening shadows */
+      linear-gradient(
         to bottom,
-        transparent 0px,
-        transparent 48px,
-        rgba(0, 0, 0, 0.4) 48px,
-        rgba(0, 0, 0, 0.4) 50px,
-        rgba(255, 255, 255, 0.05) 50px,
-        rgba(255, 255, 255, 0.05) 51px
-      ),
-      /* General wood color depth */
-      radial-gradient(
-        circle at 50% 50%,
-        rgba(255, 255, 255, 0.05) 0%,
-        rgba(0, 0, 0, 0.2) 100%
+        rgba(0, 0, 0, 0.2) 0%,
+        transparent 20%,
+        transparent 80%,
+        rgba(0, 0, 0, 0.3) 100%
       );
-    border: 8px solid #2a1b12;
-    border-radius: 2rem;
+    background-blend-mode: multiply;
+    background-size: 200% 200%, 100% 100%, 100% 100%;
+    
+    /* Irregular 'hand-cut' border */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    clip-path: polygon(
+      0% 2%, 5% 0%, 15% 1%, 25% 0%, 35% 2%, 45% 0%, 55% 1%, 65% 0%, 75% 2%, 85% 0%, 95% 1%, 100% 2%,
+      99% 15%, 100% 25%, 98% 35%, 100% 45%, 99% 55%, 100% 65%, 98% 75%, 100% 85%, 99% 95%, 98% 100%,
+      85% 99%, 75% 100%, 65% 98%, 55% 100%, 45% 99%, 35% 100%, 25% 98%, 15% 100%, 5% 99%, 0% 98%,
+      1% 85%, 0% 75%, 2% 65%, 0% 55%, 1% 45%, 0% 35%, 2% 25%, 0% 15%
+    );
     box-shadow: 
-      inset 0 0 60px rgba(0, 0, 0, 0.6),
-      0 12px 24px rgba(0, 0, 0, 0.4);
+      inset 0 0 30px rgba(0, 0, 0, 0.5),
+      0 10px 20px rgba(0, 0, 0, 0.3);
     position: relative;
-  }
-  
-  .wood-board::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png');
-    opacity: 0.4;
-    pointer-events: none;
-    border-radius: inherit;
   }
 }

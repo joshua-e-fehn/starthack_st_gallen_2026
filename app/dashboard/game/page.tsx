@@ -1077,7 +1077,7 @@ function GameContent() {
                     )}
                   </div>
 
-                  {/* Donut Chart */}
+                  {/* Pie Chart */}
                   <div
                     className={cn(
                       "flex flex-col items-center bg-white rounded-[1.5rem] lg:rounded-[2rem] shadow-xs lg:shadow-sm border border-muted/50",
@@ -1090,7 +1090,7 @@ function GameContent() {
                           data={allocationData}
                           cx="50%"
                           cy="50%"
-                          innerRadius={isMobile ? 22 : 45}
+                          innerRadius={0}
                           outerRadius={isMobile ? 40 : 80}
                           paddingAngle={0}
                           dataKey="value"
