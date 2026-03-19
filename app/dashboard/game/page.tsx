@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, Minus, Plus, RotateCcw } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recharts"
+import { GameChatbot } from "@/components/molecules/game-chatbot"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -865,6 +866,8 @@ export default function Game() {
           </div>
         </DrawerContent>
       </Drawer>
+
+      <GameChatbot />
     </main>
   )
 }
