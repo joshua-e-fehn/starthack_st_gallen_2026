@@ -35,6 +35,7 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { portfolioValue } from "@/lib/game/engine"
 import { type MonteCarloDataPoint, runMonteCarloSimulations } from "@/lib/game/monte-carlo"
+import { getOrCreateGuestId } from "@/lib/guest"
 import { nominalPrice, sellPrice } from "@/lib/types/market"
 import type { Scenario } from "@/lib/types/scenario"
 import type { StateVector } from "@/lib/types/state_vector"
@@ -823,8 +824,9 @@ function ResultsContent() {
   const gameId = searchParams.get("gameId") as Id<"games"> | null
   const sessionId = searchParams.get("sessionId") as Id<"sessions"> | null
 
-  const convexGame = useQuery(api.game.getGame, gameId ? { gameId } : "skip")
-  const convexHistory = useQuery(api.game.getGameTimeSeries, gameId ? { gameId } : "skip")
+  const guestId = getOrCreateGuestId()
+  const convexGame = useQuery(api.game.getGame, gameId ? { gameId, guestId } : "skip")
+  const convexHistory = useQuery(api.game.getGameTimeSeries, gameId ? { gameId, guestId } : "skip")
   const convexScenario = useQuery(
     api.game.getScenario,
     convexGame?.scenarioId ? { scenarioId: convexGame.scenarioId } : "skip",
@@ -840,7 +842,7 @@ function ResultsContent() {
     return convexHistory as any
   }, [convexHistory])
 
-  // biome-ignore lint/suspicious/noExplicitAny: Convex doc → Scenario shape match
+  // biome-ignore lint/suspicious/noExplicitAny: cast Convex doc union to Scenario
   const scenario: Scenario | null = useMemo(() => {
     if (!convexScenario) return null
     const { _id, _creationTime, ...rest } = convexScenario

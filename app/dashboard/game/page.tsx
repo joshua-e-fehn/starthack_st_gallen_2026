@@ -31,6 +31,7 @@ import {
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { portfolioValue } from "@/lib/game/engine"
+import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
@@ -41,7 +42,6 @@ import type { StateVector } from "@/lib/types/state_vector"
 // ─── Constants ───────────────────────────────────────────────────
 
 type AssetKey = TradableAsset | "taler"
-type TradePlan = Record<TradableAsset, number>
 
 type OnboardingStep = {
   targetId: string
@@ -50,26 +50,27 @@ type OnboardingStep = {
 }
 
 const onboardingStorageKey = "game-onboarding-completed"
-const onboardingSteps: OnboardingStep[] = [
+const onboardingBaseSteps: OnboardingStep[] = [
+  {
+    targetId: "year-status",
+    title: "Current Year & Market",
+    description: "See the current year and whether the market is in bull or bear mode.",
+  },
+  {
+    targetId: "goal-progress",
+    title: "Farm Goal Progress",
+    description: "This bar shows how close you are to reaching the farm purchase goal.",
+  },
   {
     targetId: "portfolio-grid",
-    title: "Portfolio Overview",
-    description: "These cards show your current units and each position's value in talers.",
-  },
-  {
-    targetId: "asset-wood",
-    title: "Pick an Asset",
-    description: "Tap a goods card to open trading controls for that asset.",
-  },
-  {
-    targetId: "price-chart",
-    title: "Watch the Trend",
-    description: "Use this chart to compare asset value movement over the years.",
+    title: "Tap Bars To Trade",
+    description:
+      "Click a goods bar/card (wood, potatoes, fish) to open the trade controls. This is how you trade goods.",
   },
   {
     targetId: "roll-year",
     title: "Commit Your Turn",
-    description: "When your plan is ready, click here to roll events and move to the next year.",
+    description: "When your trades are set, press this to roll events and move to the next year.",
   },
 ]
 
@@ -455,6 +456,7 @@ function GameContent() {
   }, [])
 
   // ─── Convex data ────────────────────────────────────────────
+  const guestId = getOrCreateGuestId()
   const startGameMutation = useMutation(api.game.startGame)
   const submitStepMutation = useMutation(api.game.submitStep)
 
@@ -466,12 +468,17 @@ function GameContent() {
     sessionIdParam ? { sessionId: sessionIdParam } : "skip",
   )
 
-  const convexGame = useQuery(api.game.getGame, gameId ? { gameId } : "skip")
+  const convexGame = useQuery(api.game.getGame, gameId ? { gameId, guestId } : "skip")
   const convexScenario = useQuery(
     api.game.getScenario,
     convexGame?.scenarioId ? { scenarioId: convexGame.scenarioId } : "skip",
   )
-  const convexHistory = useQuery(api.game.getGameTimeSeries, gameId ? { gameId } : "skip")
+  const convexHistory = useQuery(api.game.getGameTimeSeries, gameId ? { gameId, guestId } : "skip")
+
+  const myGameInSession = useQuery(
+    api.game.getMyGameInSession,
+    sessionIdParam ? { sessionId: sessionIdParam, guestId } : "skip",
+  )
 
   const sessionId = sessionIdParam ?? convexGame?.sessionId ?? null
 
@@ -483,9 +490,8 @@ function GameContent() {
     const playerName = localStorage.getItem("debug_playerName") ?? "Player"
 
     // Check if user already has a game in this session (re-join)
-    const existingActive = sessionData.leaderboard.find((e) => e.status === "active")
-    if (existingActive) {
-      setGameId(existingActive.gameId)
+    if (myGameInSession) {
+      setGameId(myGameInSession._id)
       return
     }
 
@@ -494,6 +500,7 @@ function GameContent() {
       scenarioId: sessionData.session.scenarioId,
       sessionId: sessionIdParam,
       playerName,
+      guestId,
     })
       .then((id) => {
         setGameId(id)
@@ -512,7 +519,9 @@ function GameContent() {
     onboardingChecked,
     sessionIdParam,
     sessionData,
+    myGameInSession,
     startGameMutation,
+    guestId,
     router,
   ])
 
@@ -547,10 +556,12 @@ function GameContent() {
   const [draftTradeValue, setDraftTradeValue] = useState(0)
   const [isDraggingTradeBar, setIsDraggingTradeBar] = useState(false)
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
+  const [isOnboardingTooltipVisible, setIsOnboardingTooltipVisible] = useState(false)
   const [onboardingIndex, setOnboardingIndex] = useState(0)
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
+  const onboardingAssistantVideoRef = useRef<HTMLVideoElement | null>(null)
 
   // ─── Derived values ─────────────────────────────────────────
   const portfolio = current?.portfolio ?? { gold: 0, wood: 0, potatoes: 0, fish: 0 }
@@ -613,8 +624,25 @@ function GameContent() {
     [draftTradeValue, maxBuy, maxSell],
   )
 
-  const currentYear = history.length
+  const onboardingSteps = useMemo(() => {
+    const steps = [...onboardingBaseSteps]
+    if (history.length > 1) {
+      steps.splice(3, 0, {
+        targetId: "price-chart",
+        title: "Price History",
+        description: "This chart helps you spot trends before you buy or sell.",
+      })
+    }
+    return steps
+  }, [history.length])
+
   const activeStep = onboardingSteps[onboardingIndex]
+
+  useEffect(() => {
+    if (onboardingIndex >= onboardingSteps.length) {
+      setOnboardingIndex(Math.max(0, onboardingSteps.length - 1))
+    }
+  }, [onboardingIndex, onboardingSteps.length])
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -666,6 +694,7 @@ function GameContent() {
 
   function closeOnboarding(markComplete: boolean) {
     setIsOnboardingOpen(false)
+    setIsOnboardingTooltipVisible(false)
 
     if (markComplete && typeof window !== "undefined") {
       window.localStorage.setItem(onboardingStorageKey, "true")
@@ -678,7 +707,7 @@ function GameContent() {
   }
 
   function nextOnboardingStep() {
-    const isLastStep = onboardingIndex === onboardingSteps.length - 1
+    const isLastStep = onboardingIndex >= onboardingSteps.length - 1
     if (isLastStep) {
       closeOnboarding(true)
       return
@@ -691,7 +720,7 @@ function GameContent() {
     setOnboardingIndex((previous) => Math.max(0, previous - 1))
   }
 
-  const isLastOnboardingStep = onboardingIndex === onboardingSteps.length - 1
+  const isLastOnboardingStep = onboardingIndex >= onboardingSteps.length - 1
   const stepProgress = `${onboardingIndex + 1} / ${onboardingSteps.length}`
 
   const tooltipStyle = useMemo(() => {
@@ -725,6 +754,59 @@ function GameContent() {
       left: `${constrainedLeft}px`,
     }
   }, [highlightRect])
+
+  const freezeOnboardingAssistantAtLastFrame = useCallback(() => {
+    const video = onboardingAssistantVideoRef.current
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return
+
+    const freezeAt = Math.max(video.duration - 0.033, 0)
+    video.currentTime = freezeAt
+    video.pause()
+  }, [])
+
+  useEffect(() => {
+    if (!isOnboardingOpen) return
+
+    const video = onboardingAssistantVideoRef.current
+    if (!video) {
+      setIsOnboardingTooltipVisible(true)
+      return
+    }
+
+    setIsOnboardingTooltipVisible(false)
+
+    video.currentTime = 0
+
+    const revealTooltip = () => {
+      freezeOnboardingAssistantAtLastFrame()
+      setIsOnboardingTooltipVisible(true)
+    }
+
+    const fallbackTimeout = window.setTimeout(() => {
+      revealTooltip()
+    }, 1800)
+
+    const playPromise = video.play()
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {
+        // On autoplay failure, show tooltip immediately and keep onboarding usable.
+        window.clearTimeout(fallbackTimeout)
+        setIsOnboardingTooltipVisible(true)
+      })
+    }
+
+    const onEnded = () => {
+      window.clearTimeout(fallbackTimeout)
+      revealTooltip()
+    }
+
+    video.addEventListener("ended", onEnded)
+
+    return () => {
+      window.clearTimeout(fallbackTimeout)
+      video.removeEventListener("ended", onEnded)
+    }
+  }, [isOnboardingOpen, freezeOnboardingAssistantAtLastFrame])
 
   const projectedHolding = useMemo(() => {
     if (!selectedAsset) return 0
@@ -810,14 +892,24 @@ function GameContent() {
     }
 
     try {
-      await submitStepMutation({ gameId, actions })
+      await submitStepMutation({ gameId, actions, guestId })
       setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
     } catch (e) {
       console.error("Submit step failed:", e)
     } finally {
       setIsSubmitting(false)
     }
-  }, [gameId, isSubmitting, gameOver, tradePlan, submitStepMutation, sessionId, current, router])
+  }, [
+    gameId,
+    isSubmitting,
+    gameOver,
+    tradePlan,
+    submitStepMutation,
+    sessionId,
+    current,
+    router,
+    guestId,
+  ])
 
   const indicatorY = mapTradeToY(currentTradeClamp, 220, maxBuy, maxSell)
 
@@ -881,7 +973,7 @@ function GameContent() {
     <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
       <div className="space-y-4">
         {/* Year & status header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" data-onboarding-id="year-status">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold">Year {current.date}</h1>
             <Badge
@@ -890,6 +982,15 @@ function GameContent() {
             >
               {current.market.regime === "bull" ? "🐂 Bull" : "🐻 Bear"}
             </Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11px]"
+              onClick={startOnboarding}
+            >
+              Guide
+            </Button>
           </div>
           <div className="text-right">
             <p className="text-sm font-medium">
@@ -938,7 +1039,10 @@ function GameContent() {
         </div>
 
         {/* Goal progress bar */}
-        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-2 w-full overflow-hidden rounded-full bg-muted"
+          data-onboarding-id="goal-progress"
+        >
           <div
             className={`h-full rounded-full transition-all ${totalValue >= current.goal ? "bg-green-500" : "bg-primary"}`}
             style={{ width: `${Math.min(100, (totalValue / current.goal) * 100)}%` }}
@@ -946,7 +1050,7 @@ function GameContent() {
         </div>
 
         {/* Asset cards */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-2" data-onboarding-id="portfolio-grid">
           {goodsMeta.map((meta) => {
             const value = totalAssetValue[meta.key]
             const opacity = value / maxAssetValue
@@ -964,7 +1068,6 @@ function GameContent() {
               <button
                 type="button"
                 key={meta.key}
-                data-onboarding-id={meta.key === "wood" ? "asset-wood" : undefined}
                 onClick={() => {
                   if (meta.key !== "taler" && !gameOver) openTradeModal(meta.key as TradableAsset)
                 }}
@@ -1020,7 +1123,7 @@ function GameContent() {
 
         {/* Chart */}
         {history.length > 1 && (
-          <Card className="bg-muted/50">
+          <Card className="bg-muted/50" data-onboarding-id="price-chart">
             <CardHeader>
               <CardTitle>Year {current.date}</CardTitle>
               <CardDescription>
@@ -1053,6 +1156,7 @@ function GameContent() {
             className="h-12 w-full text-base"
             onClick={handleSubmitTrades}
             disabled={isSubmitting}
+            data-onboarding-id="roll-year"
           >
             {isSubmitting ? (
               <>
@@ -1260,6 +1364,97 @@ function GameContent() {
           </div>
         </DrawerContent>
       </Drawer>
+
+      {isOnboardingOpen && activeStep ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/55" />
+
+          {highlightRect ? (
+            <div
+              className="pointer-events-none absolute rounded-xl border-2 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all"
+              style={{
+                top: `${highlightRect.top - 8}px`,
+                left: `${highlightRect.left - 8}px`,
+                width: `${highlightRect.width + 16}px`,
+                height: `${highlightRect.height + 16}px`,
+              }}
+            />
+          ) : null}
+
+          <AnimatePresence mode="wait">
+            {isOnboardingTooltipVisible ? (
+              <motion.div
+                key="onboarding-tooltip"
+                className="absolute z-10 w-[min(28rem,calc(100vw-1.5rem))] rounded-xl border bg-card shadow-xl"
+                style={tooltipStyle}
+                initial={{ opacity: 0, scale: 0.7, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 6 }}
+                transition={{ type: "spring", stiffness: 260, damping: 22 }}
+                role="dialog"
+                aria-live="polite"
+              >
+                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:gap-4">
+                  <div
+                    className="h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-primary/40 bg-card/95"
+                    aria-hidden="true"
+                  >
+                    <video
+                      ref={onboardingAssistantVideoRef}
+                      src="/start%20white.webm"
+                      className="h-full w-full object-cover"
+                      autoPlay
+                      muted
+                      playsInline
+                      preload="auto"
+                    />
+                  </div>
+
+                  <div className="flex flex-1 flex-col justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                        {stepProgress}
+                      </p>
+                      <h2 className="mt-1 text-base font-semibold text-foreground">
+                        {activeStep.title}
+                      </h2>
+                      <p className="mt-2 text-sm leading-5 text-muted-foreground">
+                        {activeStep.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={previousOnboardingStep}
+                        disabled={onboardingIndex === 0}
+                      >
+                        Prev
+                      </Button>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => closeOnboarding(true)}
+                        >
+                          Skip
+                        </Button>
+                        <Button type="button" size="sm" onClick={nextOnboardingStep}>
+                          {isLastOnboardingStep ? "Done" : "Next"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
+      ) : null}
 
       <GameChatbot />
     </main>
