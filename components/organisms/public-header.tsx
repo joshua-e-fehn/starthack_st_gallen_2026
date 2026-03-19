@@ -1,6 +1,6 @@
 "use client"
 
-import { GalleryVerticalEndIcon } from "lucide-react"
+import { BookOpenIcon, GalleryVerticalEndIcon } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,12 @@ export function PublicHeader() {
         </Link>
 
         <div className="flex items-center gap-3">
+          <Button variant="ghost" asChild>
+            <Link href="/learn">
+              <BookOpenIcon className="mr-1 size-4" />
+              Learn
+            </Link>
+          </Button>
           {!isPending && session ? (
             <Button asChild>
               <Link href="/dashboard">Dashboard</Link>
