@@ -40,6 +40,7 @@ function HomeContent() {
   const convex = useConvex()
   const { data: session } = authClient.useSession()
   const sessionId = searchParams.get("sessionId") as Id<"sessions"> | null
+  const activeSessions = useQuery(api.game.listSessions)
 
   // --- Session Queries ---
   const sessionData = useQuery(
@@ -49,6 +50,9 @@ function HomeContent() {
   const myGameInSession = useQuery(api.game.getMyGameInSession, sessionId ? { sessionId } : "skip")
   const isLoaded = !!sessionId && !!sessionData
   const isLoadingSession = !!sessionId && sessionData === undefined
+  const hasHostedActiveSessions =
+    !!session?.user?.id &&
+    !!activeSessions?.some((activeSession) => activeSession.hostId === session.user.id)
 
   // --- Existing Logic ---
   const [playerName, setPlayerName] = useState("")
@@ -62,6 +66,13 @@ function HomeContent() {
     const savedName = localStorage.getItem("debug_playerName")
     if (savedName) setPlayerName(savedName)
   }, [])
+
+  useEffect(() => {
+    // If a logged-in host already has active sessions, take them directly to dashboard.
+    if (session?.user && !sessionId && hasHostedActiveSessions) {
+      router.replace("/dashboard")
+    }
+  }, [session?.user, sessionId, hasHostedActiveSessions, router])
 
   const startGame = useMutation(api.game.startGame)
 
@@ -119,7 +130,7 @@ function HomeContent() {
   }
 
   return (
-    <main className="relative min-h-[100dvh] flex flex-col justify-center overflow-hidden px-4 py-6 sm:px-6 sm:py-8 bg-background">
+    <main className="relative min-h-dvh flex flex-col justify-center overflow-hidden px-4 py-6 sm:px-6 sm:py-8 bg-background">
       <div className="relative z-10 mx-auto flex w-full max-w-xl flex-col gap-6">
         {/* Hero Section */}
         <motion.section
@@ -304,14 +315,14 @@ function HomeContent() {
                       className="h-12 w-full text-sm group hover:border-primary/50 hover:bg-primary/5"
                       onClick={() => {
                         if (session?.user) {
-                          router.push("/dashboard/sessions/create")
+                          router.push("/dashboard")
                         } else {
-                          router.push("/sign-in?redirect=/dashboard/sessions/create")
+                          router.push("/sign-in?redirect=/dashboard")
                         }
                       }}
                     >
                       <PlusCircleIcon className="mr-2 size-4 text-primary group-hover:scale-110 transition-transform" />
-                      Host New Multiplayer Session
+                      {session?.user ? "Dashboard" : "Host New Multiplayer Session"}
                     </Button>
                   </div>
                 </CardContent>
