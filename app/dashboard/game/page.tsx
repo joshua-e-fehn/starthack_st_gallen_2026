@@ -340,14 +340,18 @@ function AssetCard({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase truncate">{meta.name}</span>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 text-[9px] font-bold text-muted-foreground">
-                    <Image src="/asset-classes/taler.webp" alt="" width={8} height={8} />
-                    <span>{formatTaler(sPrice)}</span>
+                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground">
+                    <span className="uppercase opacity-50">Price:</span>
+                    <div className="flex items-center gap-0.5">
+                      <Image src="/asset-classes/taler.webp" alt="" width={8} height={8} />
+                      <span>{formatTaler(sPrice)}</span>
+                    </div>
+                    <div style={{ color: isUp ? "#16a34a" : "#dc2626" }}>
+                      {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                    </div>
                     <span className="mx-0.5 opacity-30">|</span>
-                    <span>{projectedPortfolio[assetKey]} Units</span>
-                  </div>
-                  <div style={{ color: isUp ? "#16a34a" : "#dc2626" }}>
-                    {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                    <span className="uppercase opacity-50">Units:</span>
+                    <span>{projectedPortfolio[assetKey]}</span>
                   </div>
                 </div>
               </div>
@@ -506,6 +510,7 @@ function AssetCard({
               <div className="space-y-1">
                 <h3 className="text-xl font-black leading-tight tracking-tight">{meta.name}</h3>
                 <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase opacity-40">Price:</span>
                   <div className="flex items-center gap-1">
                     <Image
                       src="/asset-classes/taler.webp"
@@ -1037,44 +1042,83 @@ function GameContent() {
                       goodsMeta.find((m) => m.key === "fish"),
                       goodsMeta.find((m) => m.key === "taler"),
                       goodsMeta.find((m) => m.key === "wood"),
-                    ].map(
-                      (meta) =>
-                        meta && (
+                    ].map((meta) => {
+                      if (!meta) return null
+                      const assetKey = meta.key as TradableAsset
+                      const isTaler = meta.key === "taler"
+
+                      let isUp = true
+                      let sPrice = 0
+                      if (!isTaler) {
+                        const currentPrice = current.market.prices[assetKey]
+                        const prevMarket =
+                          history.length > 1 ? history[history.length - 2].market : null
+                        const prevPrice = prevMarket ? prevMarket.prices[assetKey] : null
+                        isUp = prevPrice ? currentPrice.basePrice >= prevPrice.basePrice : true
+                        sPrice = sellPrice(currentPrice, current.market.inflation)
+                      }
+
+                      return (
+                        <div
+                          key={meta.key}
+                          className={cn(
+                            "bg-white/70 flex items-center gap-2 lg:gap-4",
+                            isMobile ? "p-2 min-w-0" : "p-4 min-w-[160px]",
+                          )}
+                        >
                           <div
-                            key={meta.key}
                             className={cn(
-                              "bg-white/70 flex items-center gap-2 lg:gap-4",
-                              isMobile ? "p-2 min-w-0" : "p-4 min-w-[140px]",
+                              "rounded-lg lg:rounded-2xl shadow-xs",
+                              isMobile ? "p-1 flex-shrink-0" : "p-2",
                             )}
+                            style={{ backgroundColor: lineConfig[meta.key].color }}
                           >
-                            <div
-                              className={cn(
-                                "rounded-lg lg:rounded-2xl shadow-xs",
-                                isMobile ? "p-1 flex-shrink-0" : "p-2",
-                              )}
-                              style={{ backgroundColor: lineConfig[meta.key].color }}
-                            >
-                              <Image
-                                src={meta.icon}
-                                alt={meta.name}
-                                width={isMobile ? 16 : 32}
-                                height={isMobile ? 16 : 32}
-                                className="object-contain"
-                              />
-                            </div>
-                            <span
-                              className={cn(
-                                "font-mono font-black tabular-nums",
-                                isMobile ? "text-sm" : "text-2xl",
-                              )}
-                            >
-                              {meta.key === "taler"
-                                ? Math.round(projectedPortfolio.gold)
-                                : projectedPortfolio[meta.key as TradableAsset]}
-                            </span>
+                            <Image
+                              src={meta.icon}
+                              alt={meta.name}
+                              width={isMobile ? 16 : 32}
+                              height={isMobile ? 16 : 32}
+                              className="object-contain"
+                            />
                           </div>
-                        ),
-                    )}
+                          <div className="flex flex-col leading-tight">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[8px] lg:text-[10px] font-black uppercase opacity-40">
+                                Units:
+                              </span>
+                              <span
+                                className={cn(
+                                  "font-mono font-black tabular-nums",
+                                  isMobile ? "text-sm" : "text-xl",
+                                )}
+                              >
+                                {isTaler
+                                  ? Math.round(projectedPortfolio.gold)
+                                  : projectedPortfolio[assetKey]}
+                              </span>
+                            </div>
+                            {!isTaler && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[8px] lg:text-[10px] font-black uppercase opacity-40">
+                                  Price:
+                                </span>
+                                <span
+                                  className={cn(
+                                    "font-mono font-bold tabular-nums opacity-70",
+                                    isMobile ? "text-[10px]" : "text-sm",
+                                  )}
+                                >
+                                  {formatTaler(sPrice)}
+                                </span>
+                                <div style={{ color: isUp ? "#16a34a" : "#dc2626" }}>
+                                  {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
 
                   {/* Pie Chart */}
