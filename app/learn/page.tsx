@@ -65,26 +65,31 @@ export default function LearnPage() {
           transition={{ duration: 0.4 }}
           className="mb-8 text-center"
         >
+          <motion.span
+            initial={{ scale: 0, rotate: -20 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 0.15, type: "spring", stiffness: 200 }}
+            className="mb-1 inline-block text-4xl"
+          >
+            🏰
+          </motion.span>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
             Your Journey to the Farm
           </h1>
           <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-            Complete all 7 lessons to earn enough wisdom to buy your farm.
+            Complete all 7 lessons to claim your reward!
           </p>
           <div className="mx-auto mt-4 max-w-xs">
-            <div className="mb-1 flex items-center justify-between text-xs font-medium text-muted-foreground">
-              <span>
-                {completedCount}/{LESSONS.length}
-              </span>
-              <span>{Math.round((completedCount / LESSONS.length) * 100)}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className="relative h-4 overflow-hidden rounded-full bg-muted">
               <motion.div
-                className="h-full rounded-full bg-primary"
+                className="h-full rounded-full bg-gradient-to-r from-primary via-primary/90 to-primary"
                 initial={{ width: 0 }}
                 animate={{ width: `${(completedCount / LESSONS.length) * 100}%` }}
                 transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
               />
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tracking-wide text-foreground/70">
+                {completedCount} / {LESSONS.length}
+              </span>
             </div>
           </div>
         </motion.div>
