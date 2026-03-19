@@ -455,7 +455,8 @@ export default function Game() {
                 </div>
                 <div className="mt-1">
                   <p className="text-sm text-center font-medium">
-                    {value.toLocaleString("de-CH")} Talers
+                    {value.toLocaleString("de-CH")}
+                    <br /> Talers
                   </p>
                 </div>
               </button>
