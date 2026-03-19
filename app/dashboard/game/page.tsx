@@ -1,18 +1,26 @@
 "use client"
 
+import { ArrowDown, ArrowUp, Minus, Plus, RotateCcw } from "lucide-react"
 import Image from "next/image"
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recharts"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  type ChartConfig,
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 
 type TradableAsset = "wood" | "potatoes" | "fish"
 type AssetKey = TradableAsset | "taler"
@@ -66,7 +74,16 @@ const lineConfig = {
   wood: { color: "oklch(0.42 0.07 43)", label: "Wood" },
   potatoes: { color: "oklch(0.56 0.21 33)", label: "Potatoes" },
   fish: { color: "oklch(0.78 0.08 236)", label: "Fish" },
+  totalValue: { color: "oklch(0.72 0.18 150)", label: "Total Value" },
 }
+
+const priceChartConfig = {
+  talerBalance: { label: "Taler", color: lineConfig.taler.color },
+  woodValue: { label: "Wood Value", color: lineConfig.wood.color },
+  potatoesValue: { label: "Potatoes Value", color: lineConfig.potatoes.color },
+  fishValue: { label: "Fish Value", color: lineConfig.fish.color },
+  totalValue: { label: "Total Value", color: lineConfig.totalValue.color },
+} satisfies ChartConfig
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
@@ -112,72 +129,233 @@ function mapTradeToY(value: number, height: number, maxBuy: number, maxSell: num
   return center + ratio * center
 }
 
-function MiniPriceGraph({ data }: { data: PriceSnapshot[] }) {
-  const width = 900
-  const height = 280
-  const pad = 24
-  const keys: AssetKey[] = ["taler", "wood", "potatoes", "fish"]
-
-  const allValues = data.flatMap((point) => keys.map((key) => point[key]))
-  const minValue = Math.min(...allValues)
-  const maxValue = Math.max(...allValues)
-  const span = maxValue - minValue || 1
-
-  const xForIndex = (index: number) => {
-    if (data.length === 1) {
-      return width / 2
-    }
-    return pad + (index / (data.length - 1)) * (width - pad * 2)
+function MiniPriceGraph({
+  data,
+  taler,
+  holdings,
+}: {
+  data: PriceSnapshot[]
+  taler: number
+  holdings: Holdings
+}) {
+  const keys = ["talerBalance", "woodValue", "potatoesValue", "fishValue", "totalValue"] as const
+  const seriesColors: Record<(typeof keys)[number], string> = {
+    talerBalance: lineConfig.taler.color,
+    woodValue: lineConfig.wood.color,
+    potatoesValue: lineConfig.potatoes.color,
+    fishValue: lineConfig.fish.color,
+    totalValue: lineConfig.totalValue.color,
   }
+  const [selectedIndex, setSelectedIndex] = useState(Math.max(0, data.length - 1))
 
-  const yForValue = (value: number) => {
-    const ratio = (value - minValue) / span
-    return height - pad - ratio * (height - pad * 2)
-  }
+  useEffect(() => {
+    setSelectedIndex(Math.max(0, data.length - 1))
+  }, [data.length])
+
+  const chartData = useMemo(() => {
+    return data.map((point) => ({
+      ...point,
+      talerBalance: roundMoney(taler),
+      woodValue: roundMoney(holdings.wood * point.wood),
+      potatoesValue: roundMoney(holdings.potatoes * point.potatoes),
+      fishValue: roundMoney(holdings.fish * point.fish),
+      totalValue: roundMoney(
+        taler +
+          holdings.wood * point.wood +
+          holdings.potatoes * point.potatoes +
+          holdings.fish * point.fish,
+      ),
+    }))
+  }, [data, holdings, taler])
+
+  const safeSelectedIndex = clamp(selectedIndex, 0, Math.max(0, chartData.length - 1))
+  const selectedPoint = chartData[safeSelectedIndex]
 
   return (
     <div className="rounded-xl border bg-muted/40 p-3">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full">
-        <line
-          x1={pad}
-          y1={height - pad}
-          x2={width - pad}
-          y2={height - pad}
-          stroke="currentColor"
-          opacity="0.22"
-        />
-        <line x1={pad} y1={pad} x2={pad} y2={height - pad} stroke="currentColor" opacity="0.22" />
+      <ChartContainer config={priceChartConfig} className="h-56 w-full">
+        <AreaChart
+          data={chartData}
+          onClick={(state) => {
+            const activeIndex = state?.activeTooltipIndex
+            if (typeof activeIndex === "number") {
+              setSelectedIndex(activeIndex)
+            }
+          }}
+          margin={{ top: 12, right: 16, left: -6, bottom: 0 }}
+        >
+          <defs>
+            {keys.map((key) => (
+              <linearGradient key={`fill-${key}`} id={`fill-${key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={seriesColors[key]} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={seriesColors[key]} stopOpacity={0.03} />
+              </linearGradient>
+            ))}
+          </defs>
 
-        {keys.map((key) => {
-          const points = data
-            .map((point, index) => `${xForIndex(index)},${yForValue(point[key])}`)
-            .join(" ")
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="step"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            minTickGap={24}
+            tickFormatter={(value) => `Y${value}`}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            width={68}
+            tickFormatter={(value) => value.toLocaleString("de-CH")}
+          />
+          <ChartTooltip
+            cursor={{ strokeDasharray: "5 5" }}
+            content={
+              <ChartTooltipContent
+                indicator="dot"
+                labelFormatter={(_, payload) => {
+                  const step = payload?.[0]?.payload?.step
+                  return `Year ${typeof step === "number" ? step : "-"}`
+                }}
+                formatter={(value, name) => (
+                  <div className="flex w-full items-center justify-between gap-3">
+                    <span className="text-muted-foreground">{name}</span>
+                    <span className="font-mono tabular-nums">
+                      {Number(value).toLocaleString("de-CH")} taler
+                    </span>
+                  </div>
+                )}
+              />
+            }
+          />
 
-          return (
-            <polyline
-              key={key}
-              fill="none"
-              stroke={lineConfig[key].color}
-              strokeWidth={3}
-              strokeLinecap="round"
-              points={points}
+          {selectedPoint ? (
+            <ReferenceLine
+              x={selectedPoint.step}
+              xAxisId={0}
+              stroke="currentColor"
+              strokeOpacity={0.22}
+              strokeDasharray="5 5"
             />
-          )
-        })}
-      </svg>
+          ) : null}
 
-      <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-        {keys.map((key) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <span
-              className="size-2.5 rounded-full"
-              style={{ backgroundColor: lineConfig[key].color }}
-              aria-hidden
-            />
-            <span>{lineConfig[key].label}</span>
-          </div>
-        ))}
-      </div>
+          <Area
+            type="monotone"
+            dataKey="talerBalance"
+            name="Taler"
+            stroke={lineConfig.taler.color}
+            strokeWidth={2.5}
+            fill="url(#fill-talerBalance)"
+            activeDot={{ r: 6 }}
+            dot={{ r: 2.5, strokeWidth: 1.2, fill: lineConfig.taler.color }}
+          />
+          <Area
+            type="monotone"
+            dataKey="woodValue"
+            name="Wood Value"
+            stroke={lineConfig.wood.color}
+            strokeWidth={2.5}
+            fill="url(#fill-woodValue)"
+            activeDot={{ r: 6 }}
+            dot={{ r: 2.5, strokeWidth: 1.2, fill: lineConfig.wood.color }}
+          />
+          <Area
+            type="monotone"
+            dataKey="potatoesValue"
+            name="Potatoes Value"
+            stroke={lineConfig.potatoes.color}
+            strokeWidth={2.5}
+            fill="url(#fill-potatoesValue)"
+            activeDot={{ r: 6 }}
+            dot={{ r: 2.5, strokeWidth: 1.2, fill: lineConfig.potatoes.color }}
+          />
+          <Area
+            type="monotone"
+            dataKey="fishValue"
+            name="Fish Value"
+            stroke={lineConfig.fish.color}
+            strokeWidth={2.5}
+            fill="url(#fill-fishValue)"
+            activeDot={{ r: 6 }}
+            dot={{ r: 2.5, strokeWidth: 1.2, fill: lineConfig.fish.color }}
+          />
+          <Area
+            type="monotone"
+            dataKey="totalValue"
+            name="Total Value"
+            stroke={lineConfig.totalValue.color}
+            strokeWidth={3}
+            fill="url(#fill-totalValue)"
+            activeDot={{ r: 7 }}
+            dot={{ r: 3, strokeWidth: 1.2, fill: lineConfig.totalValue.color }}
+          />
+
+          <ChartLegend content={<ChartLegendContent />} />
+        </AreaChart>
+      </ChartContainer>
+    </div>
+  )
+}
+
+function DrawerAssetHistoryGraph({ data, asset }: { data: PriceSnapshot[]; asset: TradableAsset }) {
+  const assetChartConfig = {
+    [asset]: {
+      label: lineConfig[asset].label,
+      color: lineConfig[asset].color,
+    },
+  } satisfies ChartConfig
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-2">
+      <p className="mb-2 text-xs font-medium text-muted-foreground">Price History</p>
+      <ChartContainer config={assetChartConfig} className="h-36 w-full">
+        <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`drawer-fill-${asset}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={lineConfig[asset].color} stopOpacity={0.42} />
+              <stop offset="95%" stopColor={lineConfig[asset].color} stopOpacity={0.06} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="step"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            minTickGap={18}
+            tickFormatter={(value) => `Y${value}`}
+          />
+          <YAxis tickLine={false} axisLine={false} tickMargin={8} width={42} />
+          <ChartTooltip
+            cursor={{ strokeDasharray: "4 4" }}
+            content={
+              <ChartTooltipContent
+                indicator="dot"
+                labelFormatter={(_, payload) => {
+                  const step = payload?.[0]?.payload?.step
+                  return `Year ${typeof step === "number" ? step : "-"}`
+                }}
+                formatter={(value) => (
+                  <span className="font-mono tabular-nums">
+                    {Number(value).toLocaleString("de-CH")} taler
+                  </span>
+                )}
+              />
+            }
+          />
+          <Area
+            type="monotone"
+            dataKey={asset}
+            name={lineConfig[asset].label}
+            stroke={lineConfig[asset].color}
+            strokeWidth={2.5}
+            fill={`url(#drawer-fill-${asset})`}
+            activeDot={{ r: 5 }}
+            dot={{ r: 2.5, strokeWidth: 1, fill: lineConfig[asset].color }}
+          />
+        </AreaChart>
+      </ChartContainer>
     </div>
   )
 }
@@ -205,7 +383,6 @@ export default function Game() {
     { step: 3, taler: 1, wood: 11.5, potatoes: 9.4, fish: 14.6 },
     { step: 4, taler: 1, wood: 12.8, potatoes: 10.2, fish: 13.8 },
   ])
-  const [eventLog, setEventLog] = useState<string[]>([])
 
   const [selectedAsset, setSelectedAsset] = useState<TradableAsset | null>(null)
   const [draftTradeValue, setDraftTradeValue] = useState(0)
@@ -260,22 +437,39 @@ export default function Game() {
     return clamp(draftTradeValue, -maxSell, maxBuy)
   }, [draftTradeValue, maxBuy, maxSell])
 
-  const projectedTaler = useMemo(() => {
-    if (!selectedAsset) {
-      return taler
-    }
-
-    const previous = tradePlan[selectedAsset]
-    const deltaCost = (currentTradeClamp - previous) * selectedPrice
-    return roundMoney(taler - deltaCost)
-  }, [selectedAsset, taler, tradePlan, selectedPrice, currentTradeClamp])
-
   const projectedHolding = useMemo(() => {
     if (!selectedAsset) {
       return 0
     }
     return holdings[selectedAsset] + currentTradeClamp
   }, [holdings, selectedAsset, currentTradeClamp])
+
+  const selectedMeta = useMemo(() => {
+    if (!selectedAsset) {
+      return null
+    }
+    return goodsMeta.find((meta) => meta.key === selectedAsset) ?? null
+  }, [selectedAsset])
+
+  const buyDelta = Math.max(0, currentTradeClamp)
+  const sellDelta = Math.max(0, -currentTradeClamp)
+  const projectedAssetValue = roundMoney(projectedHolding * selectedPrice)
+  const projectedTalerBalance = useMemo(() => {
+    const selectedTradeCost = currentTradeClamp * selectedPrice
+    return roundMoney(taler - tradeCostExcludingSelected - selectedTradeCost)
+  }, [currentTradeClamp, selectedPrice, taler, tradeCostExcludingSelected])
+  const projectedTalerDelta = roundMoney(projectedTalerBalance - taler)
+  const plannedTalerDelta = useMemo(() => {
+    const plannedTradeCost = (Object.keys(tradePlan) as TradableAsset[]).reduce((sum, asset) => {
+      return sum + tradePlan[asset] * priceForAsset(prices, asset)
+    }, 0)
+
+    return roundMoney(-plannedTradeCost)
+  }, [prices, tradePlan])
+  const selectedAssetColor = selectedAsset
+    ? lineConfig[selectedAsset].color
+    : "oklch(0.62 0.14 228)"
+  const currentYear = priceHistory.length
 
   function openTradeModal(asset: TradableAsset) {
     setSelectedAsset(asset)
@@ -297,17 +491,22 @@ export default function Game() {
     setDraftTradeValue(mapYToTrade(y, rect.height, maxBuy, maxSell))
   }
 
-  function applyDraftTrade() {
+  useEffect(() => {
     if (!selectedAsset) {
       return
     }
 
-    setTradePlan((previous) => ({
-      ...previous,
-      [selectedAsset]: clamp(draftTradeValue, -maxSell, maxBuy),
-    }))
-    closeTradeModal()
-  }
+    setTradePlan((previous) => {
+      if (previous[selectedAsset] === currentTradeClamp) {
+        return previous
+      }
+
+      return {
+        ...previous,
+        [selectedAsset]: currentTradeClamp,
+      }
+    })
+  }, [currentTradeClamp, selectedAsset])
 
   function rollNextTimeframe() {
     let nextTaler = taler
@@ -338,20 +537,10 @@ export default function Game() {
       fish: roundMoney(Math.max(1, prices.fish * (0.7 + Math.random() * 0.5))),
     }
 
-    const events = [
-      "Good harvest reduced potato volatility this turn.",
-      "River tolls increased fish transport costs.",
-      "Royal lumber demand pushed wood prices up.",
-      "Traveling merchant brought rare fish supply.",
-    ]
-
-    const randomEvent = events[Math.floor(Math.random() * events.length)]
-
     setTaler(roundMoney(nextTaler))
     setHoldings(nextHoldings)
     setPrices(rolledPrices)
     setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
-    setEventLog((previous) => [`Year ${priceHistory.length + 1}: ${randomEvent}`, ...previous])
     setPriceHistory((previous) => [
       ...previous,
       {
@@ -369,20 +558,18 @@ export default function Game() {
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
       <div className="space-y-4">
-        <div className="text-lg font-semibold">&lt; Post Finance</div>
-
         <div className="grid grid-cols-4 gap-2">
           {goodsMeta.map((meta) => {
             const value = totalAssetValue[meta.key]
             const opacity = value / maxAssetValue
-            const plannedTrade =
+            const tradeDelta = meta.key === "taler" ? plannedTalerDelta : tradePlan[meta.key]
+            const hasTradeDelta = tradeDelta !== 0
+            const isTradeDeltaPositive = tradeDelta > 0
+            const tradeDeltaLabel =
               meta.key === "taler"
-                ? null
-                : tradePlan[meta.key] === 0
-                  ? null
-                  : tradePlan[meta.key] > 0
-                    ? `+${tradePlan[meta.key]}`
-                    : String(tradePlan[meta.key])
+                ? `${isTradeDeltaPositive ? "+" : ""}${roundMoney(tradeDelta).toLocaleString("de-CH")}`
+                : `${isTradeDeltaPositive ? "+" : ""}${tradeDelta}`
+            const tradeDeltaColor = lineConfig[meta.key].color
 
             return (
               <button
@@ -408,6 +595,17 @@ export default function Game() {
                     style={{ height: `${Math.max(20, opacity * 100)}%` }}
                   />
 
+                  {hasTradeDelta ? (
+                    <div className="absolute top-2 right-2 z-20 flex items-center gap-1 rounded-md bg-background/85 px-2 py-1 text-xs font-semibold shadow-sm">
+                      {isTradeDeltaPositive ? (
+                        <ArrowUp className="size-3.5" style={{ color: tradeDeltaColor }} />
+                      ) : (
+                        <ArrowDown className="size-3.5" style={{ color: tradeDeltaColor }} />
+                      )}
+                      <span style={{ color: tradeDeltaColor }}>{tradeDeltaLabel}</span>
+                    </div>
+                  ) : null}
+
                   {/* Content layer - icon and text on top */}
                   <div className="absolute inset-0 flex w-full items-end justify-center">
                     <div className="flex flex-col items-center w-full py-3 pb-3">
@@ -424,15 +622,11 @@ export default function Game() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-1 space-y-0.5">
+                <div className="mt-1">
                   <p className="text-sm text-center font-medium">
-                    {value.toLocaleString("de-CH")} Talers
+                    {value.toLocaleString("de-CH")}
+                    <br /> Talers
                   </p>
-                  {plannedTrade ? (
-                    <p className="text-xs font-medium text-primary">
-                      Planned trade: {plannedTrade}
-                    </p>
-                  ) : null}
                 </div>
               </button>
             )
@@ -441,70 +635,129 @@ export default function Game() {
 
         <Card className="bg-muted/50">
           <CardHeader>
-            <CardTitle>Next Timeframe</CardTitle>
+            <CardTitle>Year {currentYear}</CardTitle>
             <CardDescription>
-              Combined price development of taler, wood, potatoes, and fish.
+              Asset values over time in talers (cash, each asset class, and total value).
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <MiniPriceGraph data={priceHistory} />
+            <MiniPriceGraph data={priceHistory} taler={taler} holdings={holdings} />
           </CardContent>
         </Card>
 
         <Button type="button" className="h-12 w-full text-base" onClick={rollNextTimeframe}>
           Done trading &amp; roll events
         </Button>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Event Log</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {eventLog.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No events rolled yet.</p>
-            ) : (
-              <ul className="space-y-1 text-sm">
-                {eventLog.slice(0, 5).map((entry) => (
-                  <li key={entry}>{entry}</li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
-      <Sheet open={selectedAsset !== null} onOpenChange={(open) => !open && closeTradeModal()}>
-        <SheetContent side="bottom" className="mx-auto w-full max-w-2xl rounded-t-2xl">
-          <SheetHeader>
-            <SheetTitle>
-              {selectedAsset
-                ? `Trade ${selectedAsset[0].toUpperCase()}${selectedAsset.slice(1)}`
-                : "Trade"}
-            </SheetTitle>
-            <SheetDescription>
+      <Drawer open={selectedAsset !== null} onOpenChange={(open) => !open && closeTradeModal()}>
+        <DrawerContent className="mx-auto w-full max-w-2xl rounded-t-2xl">
+          <DrawerHeader>
+            <div className="flex items-center justify-between gap-3">
+              <DrawerTitle>
+                {selectedAsset
+                  ? `Trade ${selectedAsset[0].toUpperCase()}${selectedAsset.slice(1)}`
+                  : "Trade"}
+              </DrawerTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setDraftTradeValue(0)
+                }}
+                aria-label="Reset trade to no change"
+              >
+                <RotateCcw className="size-4" />
+              </Button>
+            </div>
+            <DrawerDescription>
               Interactive trade bar: middle is no change, up buys, down sells.
-            </SheetDescription>
-          </SheetHeader>
+            </DrawerDescription>
+          </DrawerHeader>
 
-          <div className="px-4 pb-4">
+          <div className="max-h-[70vh] overflow-y-auto px-4 pb-4" data-vaul-no-drag>
             <div className="mb-3 grid grid-cols-2 gap-2 text-sm">
               <div className="rounded-lg border bg-muted/40 p-2">
                 <div className="text-xs text-muted-foreground">Price</div>
-                <div className="font-medium">{selectedPrice.toLocaleString("de-CH")} taler</div>
+                <div className="flex items-center gap-1.5 font-medium">
+                  {selectedMeta ? (
+                    <Image
+                      src={selectedMeta.icon}
+                      alt={selectedMeta.name}
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
+                  ) : null}
+                  <span>{selectedPrice.toLocaleString("de-CH")} taler</span>
+                </div>
               </div>
               <div className="rounded-lg border bg-muted/40 p-2">
-                <div className="text-xs text-muted-foreground">Limits</div>
-                <div className="font-medium">
-                  Sell up to {maxSell}, buy up to {maxBuy}
+                <div className="text-xs text-muted-foreground">Taler Balance</div>
+                <div className="flex items-center gap-1.5 font-medium">
+                  <Image
+                    src="/asset-classes/taler.webp"
+                    alt="Taler"
+                    width={16}
+                    height={16}
+                    className="object-contain"
+                  />
+                  <span>{projectedTalerBalance.toLocaleString("de-CH")} taler</span>
+                  {projectedTalerDelta !== 0 ? (
+                    <span
+                      className={projectedTalerDelta > 0 ? "text-emerald-700" : "text-rose-700"}
+                    >
+                      ({projectedTalerDelta > 0 ? "+" : ""}
+                      {projectedTalerDelta.toLocaleString("de-CH")})
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
 
-            <div className="mb-3 flex items-center gap-4">
-              <div className="text-xs text-muted-foreground">Buy</div>
+            {selectedAsset ? (
+              <div className="mb-4">
+                <DrawerAssetHistoryGraph data={priceHistory} asset={selectedAsset} />
+              </div>
+            ) : null}
+
+            <div className="mb-4 space-y-3">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg border bg-emerald-500/10 px-3 py-2 text-sm transition-colors hover:bg-emerald-500/15"
+                onClick={() => {
+                  setDraftTradeValue((v) => clamp(v + 1, -maxSell, maxBuy))
+                }}
+                aria-label="Increase acquired goods by one"
+              >
+                <div className="flex items-center gap-2 font-semibold text-emerald-700">
+                  <Plus className="size-4" />
+                  <span>Acquired</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-foreground">
+                    {roundMoney(buyDelta * selectedPrice).toLocaleString("de-CH")} taler
+                  </span>
+                  <span className="flex items-center gap-1.5 rounded-md bg-background/80 px-2 py-1 font-medium">
+                    {selectedMeta ? (
+                      <Image
+                        src={selectedMeta.icon}
+                        alt={selectedMeta.name}
+                        width={16}
+                        height={16}
+                        className="object-contain"
+                      />
+                    ) : null}
+                    +{buyDelta}
+                  </span>
+                </div>
+              </button>
+
               <div
                 ref={tradeBarRef}
-                className="relative h-55 flex-1 rounded-xl border bg-background"
+                className="relative h-55 rounded-xl border bg-background"
+                data-vaul-no-drag
                 onPointerDown={(event) => {
                   setIsDraggingTradeBar(true)
                   onPointerUpdate(event.clientY)
@@ -522,87 +775,96 @@ export default function Game() {
                   setIsDraggingTradeBar(false)
                 }}
               >
-                <div className="absolute inset-x-2 top-1/2 h-px -translate-y-1/2 bg-muted-foreground/40" />
+                <div className="absolute inset-0 overflow-hidden rounded-xl">
+                  <div className="h-1/2 w-full bg-linear-to-b from-emerald-500/20 via-emerald-500/10 to-background/60" />
+                  <div className="h-1/2 w-full bg-linear-to-t from-rose-500/20 via-rose-500/10 to-background/60" />
+                </div>
 
-                {currentTradeClamp !== 0 ? (
-                  <div
-                    className="absolute inset-x-3 rounded-md bg-primary/25"
-                    style={{
-                      top: currentTradeClamp > 0 ? `${indicatorY}px` : "50%",
-                      bottom: currentTradeClamp > 0 ? "50%" : `${220 - indicatorY}px`,
-                    }}
-                  />
-                ) : null}
+                <div className="absolute inset-x-2 top-1/2 h-px -translate-y-1/2 bg-muted-foreground/30" />
+
+                <div className="absolute top-2 bottom-2 left-1/2 z-10 w-32 -translate-x-1/2 overflow-hidden rounded-full border border-white/60 bg-background/60 shadow-inner backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-linear-to-b from-white/35 via-white/20 to-black/10" />
+
+                  {currentTradeClamp !== 0 ? (
+                    <div
+                      className="absolute inset-x-0"
+                      style={{
+                        top: currentTradeClamp > 0 ? `${indicatorY}px` : "50%",
+                        bottom: currentTradeClamp > 0 ? "50%" : `${220 - indicatorY}px`,
+                        backgroundColor: selectedAssetColor,
+                        opacity: 0.4,
+                      }}
+                    />
+                  ) : null}
+                </div>
 
                 <div
-                  className="absolute left-2 right-2 h-2 -translate-y-1/2 rounded-full bg-primary"
+                  className="absolute left-1/2 z-20 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 bg-white/85 shadow-[0_4px_14px_rgba(0,0,0,0.18)]"
                   style={{ top: `${indicatorY}px` }}
-                />
-              </div>
-              <div className="text-xs text-muted-foreground">Sell</div>
-            </div>
+                >
+                  <div
+                    className="absolute inset-1 rounded-full"
+                    style={{ backgroundColor: selectedAssetColor, opacity: 0.9 }}
+                  />
+                </div>
 
-            <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
-              <div className="rounded-lg border bg-muted/40 p-2">
-                <div className="text-xs text-muted-foreground">Trade Delta</div>
-                <div className="font-medium">
-                  {currentTradeClamp > 0 ? `+${currentTradeClamp}` : currentTradeClamp}
+                <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
+                  Buy +{buyDelta}
+                </div>
+                <div className="pointer-events-none absolute right-3 top-3 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
+                  {projectedAssetValue.toLocaleString("de-CH")} taler
+                </div>
+                <div className="pointer-events-none absolute left-3 bottom-3 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
+                  Sell -{sellDelta}
+                </div>
+                <div className="pointer-events-none absolute right-3 bottom-3 flex items-center gap-1 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
+                  {selectedMeta ? (
+                    <Image
+                      src={selectedMeta.icon}
+                      alt={selectedMeta.name}
+                      width={14}
+                      height={14}
+                      className="object-contain"
+                    />
+                  ) : null}
+                  {projectedHolding} units
                 </div>
               </div>
-              <div className="rounded-lg border bg-muted/40 p-2">
-                <div className="text-xs text-muted-foreground">Projected State</div>
-                <div className="font-medium">
-                  {projectedTaler.toLocaleString("de-CH")} taler, {projectedHolding} units
-                </div>
-              </div>
-            </div>
 
-            <div className="flex gap-2">
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                className="flex-1"
+                className="flex w-full items-center justify-between rounded-lg border bg-rose-500/10 px-3 py-2 text-sm transition-colors hover:bg-rose-500/15"
                 onClick={() => {
                   setDraftTradeValue((v) => clamp(v - 1, -maxSell, maxBuy))
                 }}
+                aria-label="Increase sold goods by one"
               >
-                Sell 1
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  setDraftTradeValue(0)
-                }}
-              >
-                No Change
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  setDraftTradeValue((v) => clamp(v + 1, -maxSell, maxBuy))
-                }}
-              >
-                Buy 1
-              </Button>
+                <div className="flex items-center gap-2 font-semibold text-rose-700">
+                  <Minus className="size-4" />
+                  <span>Sold</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-foreground">
+                    {roundMoney(sellDelta * selectedPrice).toLocaleString("de-CH")} taler
+                  </span>
+                  <span className="flex items-center gap-1.5 rounded-md bg-background/80 px-2 py-1 font-medium">
+                    {selectedMeta ? (
+                      <Image
+                        src={selectedMeta.icon}
+                        alt={selectedMeta.name}
+                        width={16}
+                        height={16}
+                        className="object-contain"
+                      />
+                    ) : null}
+                    -{sellDelta}
+                  </span>
+                </div>
+              </button>
             </div>
           </div>
-
-          <SheetFooter>
-            <SheetClose asChild>
-              <Button type="button" variant="outline" onClick={closeTradeModal}>
-                Cancel
-              </Button>
-            </SheetClose>
-            <Button type="button" onClick={applyDraftTrade}>
-              Apply Trade
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </main>
   )
 }
