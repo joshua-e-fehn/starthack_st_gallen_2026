@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { PublicHeader } from "@/components/organisms/public-header"
 import { Button } from "@/components/ui/button"
+import { useGameSession } from "@/hooks/use-game-session"
 import { useLessonProgress } from "@/hooks/use-lesson-progress"
 import { cn } from "@/lib/utils"
 
@@ -40,6 +41,7 @@ const STRATEGIES = [
 export default function LearnCompletePage() {
   const router = useRouter()
   const { allCompleted, progress } = useLessonProgress()
+  const { hasJoinedEvent, gameSession } = useGameSession()
   const [strategy, setStrategy] = useState<string | null>(null)
 
   useEffect(() => {
@@ -158,12 +160,27 @@ export default function LearnCompletePage() {
               Review Lessons
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/">
-              Enter the Arena
+          {hasJoinedEvent && gameSession ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                router.push(
+                  `/dashboard/game?sessionId=${gameSession.sessionId}&gameId=${gameSession.gameId}`,
+                )
+              }
+            >
+              {"\u2694\uFE0F"} Enter the Arena
               <ArrowRightIcon className="ml-1 size-3" />
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/">
+                <ArrowLeftIcon className="mr-1 size-3" />
+                Homepage
+              </Link>
+            </Button>
+          )}
         </motion.div>
       </main>
     </div>

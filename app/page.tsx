@@ -2,7 +2,6 @@
 import { useConvex, useMutation, useQuery } from "convex/react"
 import { motion } from "framer-motion"
 import {
-  ActivityIcon,
   ArrowRightIcon,
   GraduationCapIcon,
   LayoutGridIcon,
@@ -17,13 +16,14 @@ import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
-import { Badge } from "@/components/ui/badge"
+
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { useGameSession } from "@/hooks/use-game-session"
 import { authClient } from "@/lib/auth-client"
 import { getOrCreateGuestId } from "@/lib/guest"
 import { cn } from "@/lib/utils"
@@ -45,6 +45,53 @@ const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } }
 const childFade = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease } },
+}
+
+/* ─── Leaderboard row ───────────────────────────────────────── */
+function LeaderboardRow({
+  entry,
+  rank,
+  total,
+}: {
+  entry: { gameId: string; playerName: string; status: string; netWorth: number }
+  rank: number
+  total: number
+}) {
+  const isFirst = rank === 1
+  const isLast = rank === total
+
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between rounded-xl border px-3 py-2.5",
+        isFirst
+          ? "bg-yellow-500/5 border-yellow-500/20"
+          : isLast
+            ? "bg-muted/30 border-dashed"
+            : "bg-card",
+      )}
+    >
+      <div className="flex items-center gap-2.5">
+        <span
+          className={cn(
+            "flex size-6 items-center justify-center rounded-full text-[10px] font-bold",
+            isFirst
+              ? "bg-yellow-500 text-yellow-950"
+              : isLast
+                ? "bg-muted text-muted-foreground"
+                : "bg-muted text-muted-foreground",
+          )}
+        >
+          {rank}
+        </span>
+        <div>
+          <p className="text-sm font-semibold leading-tight">{entry.playerName}</p>
+          <p className="text-[10px] text-muted-foreground">{entry.status}</p>
+        </div>
+      </div>
+      <p className="font-mono text-sm font-black text-primary">{formatTaler(entry.netWorth)}</p>
+    </div>
+  )
 }
 
 function HomeContent() {
@@ -79,6 +126,7 @@ function HomeContent() {
   const [selectedScenarioId, setSelectedScenarioId] = useState("")
   const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const { joinEvent, hasJoinedEvent, gameSession } = useGameSession()
 
   useEffect(() => {
     const savedName = localStorage.getItem("debug_playerName")
@@ -86,6 +134,18 @@ function HomeContent() {
   }, [])
 
   const startGame = useMutation(api.game.startGame)
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally omit joinEvent and playerName to avoid re-triggering on every render
+  useEffect(() => {
+    if (!isLoaded || !sessionData || !sessionId) return
+    // Only store once we have session data
+    joinEvent({
+      sessionId: sessionId as string,
+      gameId: myGameInSession?._id ?? "",
+      playerName: playerName || localStorage.getItem("debug_playerName") || "",
+      joinCode: sessionData.session.joinCode,
+    })
+  }, [isLoaded, sessionData, sessionId, myGameInSession])
 
   async function onStartGame() {
     const trimmedName = playerName.trim()
@@ -97,6 +157,12 @@ function HomeContent() {
 
     if (isLoaded && sessionData) {
       if (myGameInSession) {
+        joinEvent({
+          sessionId: sessionId as string,
+          gameId: myGameInSession._id,
+          playerName: trimmedName,
+          joinCode: sessionData.session.joinCode,
+        })
         router.push(`/dashboard/game?sessionId=${sessionId}&gameId=${myGameInSession._id}`)
         return
       }
@@ -106,6 +172,12 @@ function HomeContent() {
           sessionId: sessionData.session._id,
           playerName: trimmedName,
           guestId,
+        })
+        joinEvent({
+          sessionId: sessionData.session._id,
+          gameId,
+          playerName: trimmedName,
+          joinCode: sessionData.session.joinCode,
         })
         router.push(`/dashboard/game?sessionId=${sessionData.session._id}&gameId=${gameId}`)
       } catch (error) {
@@ -152,123 +224,140 @@ function HomeContent() {
   if (isLoaded && sessionData) {
     return (
       <main className="min-h-dvh flex flex-col items-center justify-center bg-background px-4 py-8">
-        <motion.div {...fadeUp()} className="w-full max-w-md space-y-6">
-          <Card className="border-primary/20 bg-card/80 backdrop-blur-xl shadow-2xl overflow-hidden">
-            <div className="bg-primary/10 px-6 py-4 border-b border-primary/10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {sessionData.session.scenarioIcon && (
-                    <div className="relative size-10 overflow-hidden rounded-lg border border-primary/20 bg-background shadow-sm">
-                      <Image
-                        src={sessionData.session.scenarioIcon}
-                        alt={sessionData.session.scenarioName || "Scenario"}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="font-bold text-primary leading-tight">
-                      {sessionData.session.name}
-                    </h3>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-tight">
-                      {sessionData.session.scenarioName}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Code:{" "}
-                      <span className="font-mono font-bold text-foreground">
-                        {sessionData.session.joinCode}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="bg-background/50 border-primary/20 text-primary font-bold"
-                >
-                  <UsersIcon className="mr-1.5 size-3" />
-                  {sessionData.session.playerCount}
-                </Badge>
-              </div>
-            </div>
-            <CardContent className="pt-6 space-y-4">
-              <div className="space-y-2">
-                <label
-                  htmlFor="player-name-loaded"
-                  className="block text-[10px] uppercase font-bold text-muted-foreground tracking-widest ml-1"
-                >
-                  Your Player Name
-                </label>
-                <Input
-                  id="player-name-loaded"
-                  value={playerName}
-                  placeholder="e.g. Master Trader"
-                  onChange={(e) => {
-                    setPlayerName(e.target.value)
-                    if (nameError) setNameError("")
-                  }}
-                  className="h-11"
+        <motion.div {...fadeUp()} className="w-full max-w-sm space-y-4">
+          {/* Session hero */}
+          <div className="text-center space-y-3">
+            {sessionData.session.scenarioIcon && (
+              <div className="relative mx-auto size-20 overflow-hidden rounded-2xl border-2 border-primary/20 bg-background shadow-lg">
+                <Image
+                  src={sessionData.session.scenarioIcon}
+                  alt={sessionData.session.scenarioName || "Scenario"}
+                  fill
+                  className="object-cover"
+                  unoptimized
                 />
-                {nameError && <p className="text-xs text-destructive">{nameError}</p>}
               </div>
+            )}
+            <div>
+              <h1 className="text-xl font-bold text-primary">{sessionData.session.name}</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {sessionData.session.scenarioName}
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-mono font-bold">
+                {sessionData.session.joinCode}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
+                <UsersIcon className="size-3" />
+                {sessionData.session.playerCount}
+              </span>
+            </div>
+          </div>
+
+          {/* Name + start */}
+          <Card className="border-primary/10 shadow-lg">
+            <CardContent className="pt-5 space-y-3">
+              <Input
+                id="player-name-loaded"
+                value={playerName}
+                placeholder="Your player name"
+                onChange={(e) => {
+                  setPlayerName(e.target.value)
+                  if (nameError) setNameError("")
+                }}
+                className="h-11 text-center text-base"
+              />
+              {nameError && <p className="text-xs text-destructive text-center">{nameError}</p>}
               <Button
-                className="h-12 w-full text-base shadow-lg shadow-primary/20"
+                className="h-12 w-full text-base shadow-md"
                 onClick={() => void onStartGame()}
                 disabled={!playerName.trim()}
               >
                 <PlayIcon className="mr-2 size-5 fill-current" />
                 Start Game
               </Button>
-              <Button variant="ghost" className="w-full text-xs" onClick={() => router.push("/")}>
-                Exit Session
-              </Button>
             </CardContent>
           </Card>
 
+          {/* Quick links */}
+          <div className="flex gap-2">
+            <Link href="/learn" className="flex-1 group">
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-primary/15 bg-primary/5 px-3 py-2.5 text-sm font-medium transition-all hover:bg-primary/10 hover:shadow-sm">
+                {"\uD83E\uDDE0"} Sharpen Your Wisdom
+              </div>
+            </Link>
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="rounded-xl border px-3 py-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
+            >
+              Exit
+            </button>
+          </div>
+
           {/* Leaderboard */}
           {sessionData.leaderboard.length > 0 && (
-            <Card className="border-primary/20 bg-card/80 backdrop-blur-xl shadow-xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <TrophyIcon className="size-4 text-yellow-500" />
-                  Leaderboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1.5">
-                {sessionData.leaderboard.map((entry, i) => (
-                  <div
-                    key={entry.gameId}
-                    className={cn(
-                      "flex items-center justify-between rounded-lg border px-3 py-2",
-                      i === 0 ? "bg-yellow-500/5 border-yellow-500/20" : "bg-background/80",
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={cn(
-                          "flex size-6 items-center justify-center rounded-full text-[10px] font-bold",
-                          i === 0
-                            ? "bg-yellow-500 text-yellow-950"
-                            : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {i + 1}
-                      </span>
-                      <div>
-                        <p className="text-sm font-bold">{entry.playerName}</p>
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <ActivityIcon className="size-2" /> {entry.status}
-                        </p>
+            <div className="space-y-2">
+              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+                <TrophyIcon className="size-3.5 text-yellow-500" />
+                Leaderboard
+                {sessionData.leaderboard.length > 5 && (
+                  <span className="ml-auto font-mono text-[10px] font-normal tracking-normal opacity-60">
+                    {sessionData.leaderboard.length} players
+                  </span>
+                )}
+              </p>
+              <div className="space-y-1.5">
+                {(() => {
+                  const lb = sessionData.leaderboard
+                  const MAX = 5
+
+                  // Show all if ≤5 entries
+                  if (lb.length <= MAX) {
+                    return lb.map((entry, i) => (
+                      <LeaderboardRow
+                        key={entry.gameId}
+                        entry={entry}
+                        rank={i + 1}
+                        total={lb.length}
+                      />
+                    ))
+                  }
+
+                  // >5: show top 3, separator, last 2
+                  const top = lb.slice(0, 3)
+                  const bottom = lb.slice(-2)
+                  const hiddenCount = lb.length - 5
+
+                  return (
+                    <>
+                      {top.map((entry, i) => (
+                        <LeaderboardRow
+                          key={entry.gameId}
+                          entry={entry}
+                          rank={i + 1}
+                          total={lb.length}
+                        />
+                      ))}
+                      <div className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-muted-foreground">
+                        <span className="h-px flex-1 bg-border" />
+                        <span className="font-mono tabular-nums">+{hiddenCount} more</span>
+                        <span className="h-px flex-1 bg-border" />
                       </div>
-                    </div>
-                    <p className="font-mono text-sm font-black text-primary">
-                      {formatTaler(entry.netWorth)}
-                    </p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                      {bottom.map((entry, i) => (
+                        <LeaderboardRow
+                          key={entry.gameId}
+                          entry={entry}
+                          rank={lb.length - 1 + i}
+                          total={lb.length}
+                        />
+                      ))}
+                    </>
+                  )
+                })()}
+              </div>
+            </div>
           )}
         </motion.div>
       </main>
@@ -329,39 +418,54 @@ function HomeContent() {
           animate="show"
           className="w-full flex flex-col gap-3 mt-1"
         >
-          {/* Join Game */}
+          {/* Join Game / Enter Arena */}
           <motion.div variants={childFade}>
-            <Card className="border-primary/20 bg-card/80 backdrop-blur shadow-lg overflow-hidden">
-              <CardContent className="px-4 py-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center size-7 rounded-full bg-primary/10 shrink-0">
-                    <UsersIcon className="size-3.5 text-primary" />
+            {hasJoinedEvent && gameSession ? (
+              <Button
+                className="h-12 w-full text-base font-semibold shadow-lg"
+                onClick={() =>
+                  router.push(
+                    `/dashboard/game?sessionId=${gameSession.sessionId}&gameId=${gameSession.gameId}`,
+                  )
+                }
+              >
+                <span className="mr-2">{"\u2694\uFE0F"}</span>
+                Enter the Arena
+                <ArrowRightIcon className="ml-2 size-4" />
+              </Button>
+            ) : (
+              <Card className="border-primary/20 bg-card/80 backdrop-blur shadow-lg overflow-hidden">
+                <CardContent className="px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center size-7 rounded-full bg-primary/10 shrink-0">
+                      <UsersIcon className="size-3.5 text-primary" />
+                    </div>
+                    <p className="text-sm font-semibold leading-tight">Join a Game</p>
                   </div>
-                  <p className="text-sm font-semibold leading-tight">Join a Game</p>
-                </div>
-                <form onSubmit={handleJoinByCode} className="flex gap-2">
-                  <Input
-                    placeholder="CODE"
-                    className="h-10 text-sm font-mono text-center tracking-[0.3em] uppercase border-2 focus-visible:ring-primary/20"
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    maxLength={4}
-                  />
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="px-5 h-10 shrink-0"
-                    disabled={isJoining || joinCode.length < 4}
-                  >
-                    {isJoining ? (
-                      <Loader2Icon className="size-4 animate-spin" />
-                    ) : (
-                      <ArrowRightIcon className="size-5" />
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                  <form onSubmit={handleJoinByCode} className="flex gap-2">
+                    <Input
+                      placeholder="CODE"
+                      className="h-10 text-sm font-mono text-center tracking-[0.3em] uppercase border-2 focus-visible:ring-primary/20"
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                      maxLength={4}
+                    />
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="px-5 h-10 shrink-0"
+                      disabled={isJoining || joinCode.length < 4}
+                    >
+                      {isJoining ? (
+                        <Loader2Icon className="size-4 animate-spin" />
+                      ) : (
+                        <ArrowRightIcon className="size-5" />
+                      )}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
           </motion.div>
 
           {/* Host an Event — compact single-line when collapsed */}
@@ -512,11 +616,11 @@ function HomeContent() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold flex items-center gap-1.5">
-                      Learn Investing
+                      Sharpen Your Wisdom {"\uD83E\uDDE0"}
                       <SparklesIcon className="size-3.5 text-primary" />
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      Interactive lessons on markets, risk & strategy
+                      Master the ancient arts of markets, risk & strategy
                     </p>
                   </div>
                   <ArrowRightIcon className="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />

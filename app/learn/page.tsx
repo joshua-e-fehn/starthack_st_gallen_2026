@@ -4,7 +4,6 @@ import { motion } from "framer-motion"
 import { CheckIcon, LockIcon, SparklesIcon } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef } from "react"
 import { PublicHeader } from "@/components/organisms/public-header"
 import { useLessonProgress } from "@/hooks/use-lesson-progress"
@@ -26,15 +25,8 @@ const PATH_OFFSETS = [0, 55, 70, 30, -30, -70, -55]
 const NODE_SIZE = 72
 
 export default function LearnPage() {
-  const router = useRouter()
-  const { isCompleted, isUnlocked, allCompleted, progress } = useLessonProgress()
+  const { isCompleted, isUnlocked, progress } = useLessonProgress()
   const currentRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (allCompleted) {
-      router.push("/learn/complete")
-    }
-  }, [allCompleted, router])
 
   const completedCount = progress.completedLessons.length
 
