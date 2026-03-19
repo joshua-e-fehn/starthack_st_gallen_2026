@@ -26,7 +26,7 @@ export default function EditScenarioPage() {
         scenarioId,
         ...formattedData,
       })
-      router.push("/dashboard/scenarios")
+      router.push("/dashboard?focus=scenarios")
     } catch (error) {
       console.error("Error updating scenario:", error)
       alert("Failed to update scenario.")
@@ -52,7 +52,7 @@ export default function EditScenarioPage() {
         </p>
         <button
           type="button"
-          onClick={() => router.push("/dashboard/scenarios")}
+          onClick={() => router.push("/dashboard?focus=scenarios")}
           className="mt-4 text-primary hover:underline"
         >
           Back to Scenarios
