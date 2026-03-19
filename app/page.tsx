@@ -323,7 +323,7 @@ function HomeContent() {
                         if (session?.user) {
                           router.push("/dashboard")
                         } else {
-                          router.push("/sign-in?callbackUrl=/dashboard/sessions/create")
+                          router.push("/sign-in?callbackUrl=/dashboard")
                         }
                       }}
                     >
