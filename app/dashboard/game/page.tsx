@@ -773,6 +773,26 @@ function GameContent() {
             >
               {current.market.regime === "bull" ? "🐂 Bull" : "🐻 Bear"}
             </Badge>
+
+            {/* Compact Asset Summary */}
+            <div className="flex items-center gap-2 border-l border-primary/10 pl-2">
+              {goodsMeta.map((meta) => (
+                <div key={meta.key} className="flex items-center gap-1">
+                  <Image
+                    src={meta.icon}
+                    alt={meta.name}
+                    width={14}
+                    height={14}
+                    className="object-contain"
+                  />
+                  <span className="font-mono text-[10px] font-bold">
+                    {meta.key === "taler"
+                      ? Math.round(projectedPortfolio.gold)
+                      : projectedPortfolio[meta.key as TradableAsset]}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="text-right">
             <p className="text-sm font-medium">
