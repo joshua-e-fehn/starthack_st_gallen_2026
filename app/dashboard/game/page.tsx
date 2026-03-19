@@ -265,10 +265,10 @@ function AssetCard({
   tradePlan,
   history,
   projectedPortfolio,
-  projectedTalerBalance,
   expandedAsset,
   setExpandedAsset,
-  setTradePlan,
+  setTradeQuantity,
+  maxBuyForAsset,
   isMobile,
   gameOver,
 }: {
@@ -278,10 +278,10 @@ function AssetCard({
   tradePlan: Record<TradableAsset, number>
   history: StateVector[]
   projectedPortfolio: StateVector["portfolio"]
-  projectedTalerBalance: number
   expandedAsset: TradableAsset | null
   setExpandedAsset: (a: TradableAsset | null) => void
-  setTradePlan: React.Dispatch<React.SetStateAction<Record<TradableAsset, number>>>
+  setTradeQuantity: (asset: TradableAsset, quantity: number) => void
+  maxBuyForAsset: (asset: TradableAsset) => number
   isMobile: boolean
   gameOver: boolean
 }) {
@@ -298,11 +298,10 @@ function AssetCard({
   const isExpanded = expandedAsset === assetKey
   const tradeQty = tradePlan[assetKey]
 
-  const cashExcludingThis =
-    projectedTalerBalance +
-    (tradeQty > 0 ? tradeQty * bPrice : tradeQty < 0 ? tradeQty * sPrice : 0)
-  const maxBuy = Math.max(0, Math.floor(cashExcludingThis / bPrice))
+  const maxBuy = maxBuyForAsset(assetKey)
   const maxSell = portfolio[assetKey]
+  const baseMaxBuyForScale = bPrice > 0 ? Math.floor(portfolio.gold / bPrice) : 0
+  const visualMaxBuy = Math.max(baseMaxBuyForScale, Math.max(0, tradeQty), 1)
 
   const assetColor = lineConfig[assetKey].color
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
@@ -312,8 +311,8 @@ function AssetCard({
     if (!tradeBarRef.current) return
     const rect = tradeBarRef.current.getBoundingClientRect()
     const x = clamp(clientX - rect.left, 0, rect.width)
-    const val = mapXToTrade(x, rect.width, maxBuy, maxSell)
-    setTradePlan((prev) => ({ ...prev, [assetKey]: val }))
+    const val = mapXToTrade(x, rect.width, visualMaxBuy, maxSell)
+    setTradeQuantity(assetKey, val)
   }
 
   if (isMobile) {
@@ -377,7 +376,7 @@ function AssetCard({
                     {/* Handle */}
                     <motion.div
                       className="absolute top-1/2 z-20 h-10 w-10 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white bg-white shadow-md flex items-center justify-center"
-                      style={{ left: `${mapTradeToX(tradeQty, 100, maxBuy, maxSell)}%` }}
+                      style={{ left: `${mapTradeToX(tradeQty, 100, visualMaxBuy, maxSell)}%` }}
                       animate={{ scale: isDragging ? 1.15 : 1 }}
                     >
                       <div
@@ -550,7 +549,7 @@ function AssetCard({
                     disabled={gameOver || portfolio[assetKey] + tradeQty <= 0}
                     onClick={(e) => {
                       e.stopPropagation()
-                      setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] - 1 }))
+                      setTradeQuantity(assetKey, tradeQty - 1)
                     }}
                   >
                     <Minus className="size-5" />
@@ -573,7 +572,7 @@ function AssetCard({
                     disabled={gameOver || maxBuy <= tradeQty}
                     onClick={(e) => {
                       e.stopPropagation()
-                      setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] + 1 }))
+                      setTradeQuantity(assetKey, tradeQty + 1)
                     }}
                   >
                     <Plus className="size-5" />
@@ -847,7 +846,47 @@ function GameContent() {
     )
   }, [tradePlan, getBuyPriceFor, getSellPriceFor])
 
-  const projectedTalerBalance = roundMoney(portfolio.gold + plannedTalerDelta)
+  const computeMaxBuyForAsset = useCallback(
+    (asset: TradableAsset, plan: Record<TradableAsset, number>) => {
+      const price = getBuyPriceFor(asset)
+      if (price <= 0) return 0
+
+      let availableGold = portfolio.gold
+
+      for (const otherAsset of TRADABLE_ASSET_KEYS) {
+        if (otherAsset === asset) continue
+
+        const qty = plan[otherAsset]
+        if (qty > 0) {
+          availableGold -= qty * getBuyPriceFor(otherAsset)
+        } else if (qty < 0) {
+          availableGold += Math.abs(qty) * getSellPriceFor(otherAsset)
+        }
+      }
+
+      return Math.max(0, Math.floor(availableGold / price))
+    },
+    [portfolio.gold, getBuyPriceFor, getSellPriceFor],
+  )
+
+  const setTradeQuantity = useCallback(
+    (asset: TradableAsset, quantity: number) => {
+      setTradePlan((prev) => {
+        const maxBuy = computeMaxBuyForAsset(asset, prev)
+        const maxSell = portfolio[asset]
+        const clampedQty = clamp(quantity, -maxSell, maxBuy)
+
+        if (clampedQty === prev[asset]) return prev
+        return { ...prev, [asset]: clampedQty }
+      })
+    },
+    [computeMaxBuyForAsset, portfolio],
+  )
+
+  const maxBuyForAsset = useCallback(
+    (asset: TradableAsset) => computeMaxBuyForAsset(asset, tradePlan),
+    [computeMaxBuyForAsset, tradePlan],
+  )
 
   const projectedPortfolio = useMemo(() => {
     return {
@@ -892,10 +931,15 @@ function GameContent() {
 
     if (sessionId && current) {
       const nextStep = current.step + 1
+      const nextYear = current.date + 1
+      const isFiveYearCheckpoint = nextStep % 5 === 0
+      const isFinalYear = scenario ? nextYear >= scenario.endYear : false
       const name = localStorage.getItem("debug_playerName") ?? ""
-      router.push(
-        `/dashboard/sessions/${sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
-      )
+      if (isFiveYearCheckpoint || isFinalYear) {
+        router.push(
+          `/dashboard/sessions/${sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
+        )
+      }
     }
 
     try {
@@ -914,6 +958,7 @@ function GameContent() {
     submitStepMutation,
     sessionId,
     current,
+    scenario,
     router,
     guestId,
   ])
@@ -1249,10 +1294,10 @@ function GameContent() {
                     tradePlan={tradePlan}
                     history={history}
                     projectedPortfolio={projectedPortfolio}
-                    projectedTalerBalance={projectedTalerBalance}
                     expandedAsset={expandedAsset}
                     setExpandedAsset={setExpandedAsset}
-                    setTradePlan={setTradePlan}
+                    setTradeQuantity={setTradeQuantity}
+                    maxBuyForAsset={maxBuyForAsset}
                     isMobile={isMobile}
                     gameOver={gameOver}
                   />
@@ -1297,7 +1342,7 @@ function GameContent() {
                       <div className="flex items-center gap-2 sm:gap-4 leading-none text-right">
                         <div className="flex flex-col items-end">
                           <span className="text-[8px] sm:text-[10px] opacity-70 mb-0.5">NEXT</span>
-                          <span className="text-xs sm:text-xl">YEAR</span>
+                          <span className="text-xs sm:text-xl">YEAR {current.date + 1}</span>
                         </div>
                         <ArrowRight className="size-5 sm:size-8 animate-pulse" />
                       </div>
