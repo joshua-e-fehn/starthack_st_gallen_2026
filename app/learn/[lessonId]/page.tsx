@@ -40,7 +40,13 @@ function SlideLineChart({ chart }: { chart: SlideChart }) {
     <div className="mt-3 w-full">
       <ChartContainer config={config} className="aspect-[5/2] max-h-32 w-full">
         <LineChart data={chart.data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-          <XAxis dataKey={chart.xKey} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+          <XAxis
+            dataKey={chart.xKey}
+            tick={{ fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            interval={chart.xInterval ?? "preserveStartEnd"}
+          />
           <YAxis
             tick={{ fontSize: 10 }}
             tickLine={false}
@@ -250,6 +256,7 @@ export default function LessonPage() {
           className={cn(
             "relative overflow-hidden rounded-xl border bg-card p-6 sm:p-8",
             slide.chart ? "min-h-0" : "min-h-70 sm:min-h-60",
+            isLastSlide && "border-primary/40 shadow-[0_0_20px_rgba(255,215,0,0.15)]",
           )}
         >
           <AnimatePresence mode="wait" custom={direction}>
@@ -263,19 +270,73 @@ export default function LessonPage() {
               transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
               className="flex flex-col items-center text-center"
             >
-              <h2 className="text-xl font-semibold sm:text-2xl">{slide.title}</h2>
+              {isLastSlide ? (
+                <>
+                  <motion.div
+                    className="flex size-14 items-center justify-center rounded-full bg-success/10"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.1 }}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="size-8 text-success"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <motion.path
+                        d="M5 13l4 4L19 7"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 0.4, delay: 0.35, ease: "easeOut" }}
+                      />
+                    </svg>
+                  </motion.div>
+                  <motion.h2
+                    className="mt-3 text-xl font-semibold sm:text-2xl"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    {slide.title}
+                  </motion.h2>
+                </>
+              ) : (
+                <h2 className="text-xl font-semibold sm:text-2xl">{slide.title}</h2>
+              )}
               {slide.image && (
-                <div className="mt-3 overflow-hidden rounded-lg">
+                <div
+                  className={cn("mt-2 overflow-hidden rounded-lg", slide.chart ? "mt-1" : "mt-3")}
+                >
                   <Image
                     src={slide.image}
                     alt={slide.title}
                     width={320}
                     height={180}
-                    className="h-auto max-h-36 w-auto rounded-lg object-cover"
+                    className={cn(
+                      "h-auto w-auto rounded-lg object-cover",
+                      slide.chart ? "max-h-16" : "max-h-36",
+                    )}
                   />
                 </div>
               )}
-              <p className="mt-4 max-w-lg leading-relaxed text-muted-foreground">{slide.content}</p>
+              {isLastSlide ? (
+                <motion.p
+                  className="mt-4 max-w-lg leading-relaxed text-muted-foreground"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.65 }}
+                >
+                  {slide.content}
+                </motion.p>
+              ) : (
+                <p className="mt-4 max-w-lg leading-relaxed text-muted-foreground">
+                  {slide.content}
+                </p>
+              )}
               {slide.chart && <SlideLineChart chart={slide.chart} />}
               {slide.tip && (
                 <div className="mt-4 flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-left">

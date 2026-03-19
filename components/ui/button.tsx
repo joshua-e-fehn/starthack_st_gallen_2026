@@ -56,27 +56,31 @@ function Button({
   }) {
   const Comp = asChild ? Slot.Root : "button"
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    try {
-      if (!sharedAudioCtx) {
-        sharedAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-      }
-      if (sharedAudioCtx.state === "suspended") sharedAudioCtx.resume()
+  // Only wrap onClick with sound when there's an actual handler and we're not
+  // passing through to a server-rendered Slot child.
+  const effectiveOnClick = onClick
+    ? (e: React.MouseEvent<HTMLButtonElement>) => {
+        try {
+          if (!sharedAudioCtx) {
+            sharedAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+          }
+          if (sharedAudioCtx.state === "suspended") sharedAudioCtx.resume()
 
-      const osc = sharedAudioCtx.createOscillator()
-      const gainNode = sharedAudioCtx.createGain()
-      osc.connect(gainNode)
-      gainNode.connect(sharedAudioCtx.destination)
-      osc.type = "sine"
-      osc.frequency.setValueAtTime(600, sharedAudioCtx.currentTime)
-      osc.frequency.exponentialRampToValueAtTime(800, sharedAudioCtx.currentTime + 0.05)
-      gainNode.gain.setValueAtTime(0.3, sharedAudioCtx.currentTime)
-      gainNode.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + 0.05)
-      osc.start()
-      osc.stop(sharedAudioCtx.currentTime + 0.05)
-    } catch (err) {}
-    onClick?.(e)
-  }
+          const osc = sharedAudioCtx.createOscillator()
+          const gainNode = sharedAudioCtx.createGain()
+          osc.connect(gainNode)
+          gainNode.connect(sharedAudioCtx.destination)
+          osc.type = "sine"
+          osc.frequency.setValueAtTime(600, sharedAudioCtx.currentTime)
+          osc.frequency.exponentialRampToValueAtTime(800, sharedAudioCtx.currentTime + 0.05)
+          gainNode.gain.setValueAtTime(0.3, sharedAudioCtx.currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + 0.05)
+          osc.start()
+          osc.stop(sharedAudioCtx.currentTime + 0.05)
+        } catch (_err) {}
+        onClick(e)
+      }
+    : undefined
 
   return (
     <Comp
@@ -84,7 +88,7 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
-      onClick={handleClick as any}
+      onClick={effectiveOnClick as any}
       {...props}
     />
   )

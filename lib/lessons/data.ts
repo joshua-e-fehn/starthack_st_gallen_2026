@@ -31,6 +31,8 @@ export type SlideChart = {
   ySuffix?: string
   /** Optional Y-axis domain [min, max] to control scaling */
   yDomain?: [number, number]
+  /** Optional X-axis tick interval (show every Nth label; default: show all) */
+  xInterval?: number
 }
 
 export type LessonSlide = {
@@ -89,6 +91,118 @@ function buildCompoundChartData(
 
 const COMPOUND_DATA = buildCompoundChartData(20, 10, 40, 5)
 
+// ── Illustration data for lesson 3 (hand-crafted for pedagogical clarity) ────
+// These are NOT simulation results — they are deliberately designed to clearly
+// show the characteristic behavior of each risk profile over 30 years.
+// Values represent cumulative % return from start.
+const ILLUSTRATION: Record<string, number[]> = {
+  wood: [
+    0, 2, 4, 3, 5, 8, 10, 9, 12, 15, 17, 16, 19, 22, 25, 24, 27, 30, 34, 37, 40, 44, 47, 51, 55, 58,
+    62, 66, 70, 75, 80,
+  ],
+  potatoes: [
+    0, 15, -5, 30, 8, 55, 20, 75, 35, 60, 95, 50, 110, 70, 130, 80, 150, 100, 170, 120, 200, 145,
+    225, 165, 250, 185, 280, 210, 310, 250, 340,
+  ],
+  fish: [
+    0, 100, -60, 170, -50, 260, -10, 350, 40, 140, 420, 70, 380, 110, 520, 140, 310, 620, 200, 590,
+    170, 680, 270, 500, 740, 300, 660, 380, 760, 480, 850,
+  ],
+  inflation: [
+    0, -2, -4, -6, -8, -10, -12, -13, -15, -17, -18, -20, -21, -23, -24, -26, -27, -28, -30, -31,
+    -33, -34, -35, -37, -38, -39, -40, -41, -42, -44, -45,
+  ],
+}
+
+/** Build chart data for a single asset (31 yearly data points) */
+function buildSingleAssetChart(assetKey: string): Record<string, string | number>[] {
+  return ILLUSTRATION[assetKey].map((v, i) => ({
+    year: `Y${i}`,
+    asset: v,
+  }))
+}
+
+/** Build combined chart data with all three assets */
+function buildCombinedChart(): Record<string, string | number>[] {
+  return Array.from({ length: 31 }, (_, i) => ({
+    year: `Y${i}`,
+    wood: ILLUSTRATION.wood[i],
+    potatoes: ILLUSTRATION.potatoes[i],
+    fish: ILLUSTRATION.fish[i],
+  }))
+}
+
+/** Calm lake vs stormy sea fishing catch (10 days) for volatility lesson */
+const VOLATILITY_COMPARISON: Record<string, string | number>[] = [
+  { day: "Day 1", lake: 10, sea: 18 },
+  { day: "Day 2", lake: 11, sea: 4 },
+  { day: "Day 3", lake: 9, sea: 22 },
+  { day: "Day 4", lake: 12, sea: 2 },
+  { day: "Day 5", lake: 10, sea: 25 },
+  { day: "Day 6", lake: 11, sea: 6 },
+  { day: "Day 7", lake: 9, sea: 20 },
+  { day: "Day 8", lake: 12, sea: 3 },
+  { day: "Day 9", lake: 10, sea: 24 },
+  { day: "Day 10", lake: 11, sea: 5 },
+]
+
+/** Volatility drag example: 100 coins through +50%/-50% cycles vs holding flat */
+const VOLATILITY_DRAG_DATA: Record<string, string | number>[] = [
+  { year: "Start", hold: 100, volatile: 100 },
+  { year: "Yr 1", hold: 100, volatile: 50 },
+  { year: "Yr 2", hold: 100, volatile: 75 },
+  { year: "Yr 3", hold: 100, volatile: 37 },
+  { year: "Yr 4", hold: 100, volatile: 56 },
+]
+
+/** "Sell vs Hold" chart: panic seller locks in loss, patient holder recovers */
+const SELL_VS_HOLD_DATA: Record<string, string | number>[] = [
+  { year: "Yr 0", hold: 100, sell: 100 },
+  { year: "Yr 1", hold: 110, sell: 110 },
+  { year: "Yr 2", hold: 80, sell: 80 },
+  { year: "Yr 3", hold: 70, sell: 70 },
+  { year: "Yr 4", hold: 85, sell: 70 },
+  { year: "Yr 5", hold: 105, sell: 70 },
+  { year: "Yr 6", hold: 120, sell: 70 },
+  { year: "Yr 7", hold: 140, sell: 70 },
+]
+
+/** Frequent trader vs buy-and-hold after fees (Lesson 5) */
+const TRADER_VS_HOLDER_DATA: Record<string, string | number>[] = [
+  { year: "Yr 0", trader: 100, holder: 100 },
+  { year: "Yr 1", trader: 97, holder: 107 },
+  { year: "Yr 2", trader: 101, holder: 98 },
+  { year: "Yr 3", trader: 95, holder: 112 },
+  { year: "Yr 4", trader: 99, holder: 105 },
+  { year: "Yr 5", trader: 93, holder: 125 },
+  { year: "Yr 6", trader: 90, holder: 118 },
+  { year: "Yr 7", trader: 88, holder: 140 },
+  { year: "Yr 8", trader: 85, holder: 155 },
+  { year: "Yr 10", trader: 80, holder: 180 },
+]
+
+/** Dollar-cost averaging vs lump sum in a bumpy market (Lesson 5) */
+const DCA_DATA: Record<string, string | number>[] = [
+  { month: "Jan", price: 10, avgCost: 10 },
+  { month: "Mar", price: 8, avgCost: 9.0 },
+  { month: "May", price: 6, avgCost: 8.0 },
+  { month: "Jul", price: 7, avgCost: 7.7 },
+  { month: "Sep", price: 9, avgCost: 7.8 },
+  { month: "Nov", price: 11, avgCost: 8.2 },
+  { month: "Jan", price: 12, avgCost: 8.6 },
+]
+
+/** Fish-only vs blended (equal-weight wood+potatoes+fish) portfolio over 30 years */
+function buildDiversificationChart(): Record<string, string | number>[] {
+  return Array.from({ length: 31 }, (_, i) => ({
+    year: `Y${i}`,
+    fishOnly: ILLUSTRATION.fish[i],
+    blended: Math.round(
+      (ILLUSTRATION.wood[i] + ILLUSTRATION.potatoes[i] + ILLUSTRATION.fish[i]) / 3,
+    ),
+  }))
+}
+
 export const LESSONS: Lesson[] = [
   // ────────────────────────────────────────────────────────────────
   // LESSON 1 — Goals and the cost of inflation
@@ -96,32 +210,32 @@ export const LESSONS: Lesson[] = [
   {
     id: "goals-and-inflation",
     number: 1,
-    title: "Gold Under the Mattress",
+    title: "Coins Under the Mattress",
     description: "Set your goal — and discover why saving alone is not enough.",
     icon: "🪙",
     slides: [
       {
         title: "Welcome, Traveler!",
         content:
-          "You are a humble worker in the medieval kingdom. Each year you earn gold from your labor. Your dream? To one day buy the farm you work on and become truly independent.",
+          "You are a humble worker in the medieval kingdom. Each year you earn coins from your labor. Your dream? To one day buy the farm you work on and become truly independent.",
         tip: "Having a clear financial goal gives your decisions direction.",
       },
       {
         title: "The Price of a Dream",
         content:
-          "The farm costs 1 000 gold today. You earn 100 gold per year. If you just save, it will take 10 years — simple, right? But there is a catch nobody told you about.",
+          "The farm costs 1 000 coins today. You earn 100 coins per year. If you just save, it will take 10 years — simple, right? But there is a catch nobody told you about.",
       },
       {
-        title: "The Gold Pile",
+        title: "The Coin Pile",
         content:
-          "You stash gold under your mattress. It feels safe — but watch what happens to its real value over time.",
+          "You stash coins under your mattress. It feels safe — but watch what happens to their real value over time.",
         chart: {
           xKey: "year",
-          yLabel: "Gold",
+          yLabel: "Coins",
           ySuffix: "",
           yDomain: [50, 100],
           lines: [
-            { key: "real", label: "Purchasing power of 100 gold", color: "oklch(0.55 0.2 25)" },
+            { key: "real", label: "Purchasing power of 100 coins", color: "oklch(0.55 0.2 25)" },
           ],
           data: [
             { year: "Yr 0", real: 100 },
@@ -131,15 +245,15 @@ export const LESSONS: Lesson[] = [
             { year: "Yr 20", real: 55 },
           ],
         },
-        tip: "Even though you still hold 100 gold coins, after 20 years they only buy what 55 gold could buy today. That is the hidden cost of doing nothing.",
+        tip: "Even though you still hold 100 coins, after 20 years they only buy what 55 coins could buy today. That is the hidden cost of doing nothing.",
       },
       {
         title: "The Rising Price of the Farm",
         content:
-          "The farm costs 1 000 gold today. At 3% inflation, it keeps climbing every year — your flat savings can never catch up.",
+          "The farm costs 1 000 coins today. At 3% inflation, it keeps climbing every year — your flat savings can never catch up.",
         chart: {
           xKey: "year",
-          yLabel: "Gold",
+          yLabel: "Coins",
           ySuffix: "",
           yDomain: [950, 1350],
           lines: [
@@ -154,12 +268,12 @@ export const LESSONS: Lesson[] = [
             { year: "Yr 10", farmPrice: 1344 },
           ],
         },
-        tip: "After 10 years of saving 100 gold/year you have 1 000 — but the farm now costs 1 344. The gap only widens.",
+        tip: "After 10 years of saving 100 coins/year you have 1 000 — but the farm now costs 1 344. The gap only widens.",
       },
       {
         title: "Lesson Learned",
         content:
-          "A goal without a plan loses value over time. Holding only cash (or gold) might feel safe, but inflation means your purchasing power shrinks every single year. To reach your dream, you need to put your gold to work — and that is what investing is all about.",
+          "A goal without a plan loses value over time. Holding only cash (or coins) might feel safe, but inflation means your purchasing power shrinks every single year. To reach your dream, you need to put your coins to work — and that is what investing is all about.",
       },
     ],
   },
@@ -247,26 +361,66 @@ export const LESSONS: Lesson[] = [
       },
       {
         title: "Wood — The Steady Oak",
+        image: "/asset-classes/wood.webp",
         content:
-          "Wood grows slowly but reliably. Prices move up 3–5% per year with very little surprise. It is the safe, boring choice — but boring is beautiful when markets shake. In the real world, wood is like ETFs or bond funds.",
+          "Slow, reliable growth with few surprises. In the real world, wood is like ETFs or bond funds.",
+        chart: {
+          xKey: "year",
+          ySuffix: "%",
+          yDomain: [0, 100],
+          xInterval: 10,
+          lines: [{ key: "asset", label: "Wood (cumulative return)", color: "#6B4226" }],
+          data: buildSingleAssetChart("wood"),
+        },
         tip: "Low risk, low reward. Wood rarely loses value but never makes you rich overnight.",
       },
       {
-        title: "Potatoes — The Dependable Harvest",
+        title: "Potatoes — Steady Growth",
+        image: "/asset-classes/potatoes.webp",
         content:
-          "Potatoes offer better returns — about 6–10% in good years. But harvests vary: some years are great, others are poor. Think of potatoes as stocks and equities. More growth potential, but expect bumps along the way.",
+          "Better returns, but harvests vary. Think of potatoes as stocks and equities — more growth, more bumps.",
+        chart: {
+          xKey: "year",
+          ySuffix: "%",
+          yDomain: [-30, 400],
+          xInterval: 10,
+          lines: [{ key: "asset", label: "Potatoes (cumulative return)", color: "#B8860B" }],
+          data: buildSingleAssetChart("potatoes"),
+        },
         tip: "Medium risk, medium reward. Potatoes outperform wood over long periods, but with more ups and downs.",
       },
       {
-        title: "Fish — The High-Seas Gamble",
+        title: "Fish — The Wild Card",
+        image: "/asset-classes/fish.webp",
         content:
-          "Fish can explode in value — 50% gains in a single year! But storms can also wipe out your entire catch. Fish represents crypto and speculative investments. Thrilling, but not for the faint of heart.",
-        tip: "High risk, high reward. Fish can double your gold or halve it in a single season.",
+          "Huge gains one year, devastating crashes the next. Fish represents crypto and speculative assets.",
+        chart: {
+          xKey: "year",
+          ySuffix: "%",
+          yDomain: [-100, 950],
+          xInterval: 10,
+          lines: [{ key: "asset", label: "Fish (cumulative return)", color: "#1E90FF" }],
+          data: buildSingleAssetChart("fish"),
+        },
+        tip: "High risk, high reward. Fish can double your coins or halve them in a single season.",
       },
       {
-        title: "Comparing the Three",
+        title: "All Three — Compared",
         content:
-          "Over 10 years: wood might turn 100 gold into 140. Potatoes could make it 200 — or drop it to 80 first. Fish might soar to 500... or crash to 30. Every asset class has a different risk-return profile. The right mix depends on your goals and your stomach.",
+          "Same starting investment, three very different journeys. Notice how the spread increases with risk.",
+        chart: {
+          xKey: "year",
+          ySuffix: "%",
+          yDomain: [-150, 950],
+          xInterval: 10,
+          lines: [
+            { key: "wood", label: "Wood", color: "#6B4226" },
+            { key: "potatoes", label: "Potatoes", color: "#B8860B" },
+            { key: "fish", label: "Fish", color: "#1E90FF" },
+          ],
+          data: buildCombinedChart(),
+        },
+        tip: "Higher potential returns come with wilder swings. That trade-off is the fundamental law of investing.",
       },
       {
         title: "Lesson Learned",
@@ -289,23 +443,62 @@ export const LESSONS: Lesson[] = [
       {
         title: "What Is Volatility?",
         content:
-          "Imagine two fishermen. One sails a calm lake — his catch is almost the same every day. The other sails the open sea — some days he hauls in a mountain of fish, other days he comes back empty. That unpredictability is volatility.",
+          "One fisherman sails a calm lake — his daily catch barely changes. The other braves the open sea — some days a huge haul, other days almost nothing. That unpredictability is volatility.",
+        chart: {
+          xKey: "day",
+          ySuffix: "",
+          yDomain: [0, 28],
+          lines: [
+            { key: "lake", label: "Lake (calm)", color: "#6B4226" },
+            { key: "sea", label: "Sea (stormy)", color: "#1E90FF" },
+          ],
+          data: VOLATILITY_COMPARISON,
+        },
       },
       {
         title: "The Emotional Trap",
         content:
-          "When fish prices crash 40% in a single season, villagers panic. They sell everything at rock-bottom prices, terrified of losing more. But the traders who stay calm often see prices recover — and even surpass the old highs.",
+          "When prices crash, villagers panic and sell at rock-bottom. But traders who stay calm see prices recover — and surpass the old highs.",
+        chart: {
+          xKey: "year",
+          ySuffix: "%",
+          yDomain: [-100, 950],
+          xInterval: 10,
+          lines: [{ key: "asset", label: "Fish price (cumulative)", color: "#1E90FF" }],
+          data: buildSingleAssetChart("fish"),
+        },
         tip: "Volatility is temporary. Panic selling turns paper losses into real ones.",
       },
       {
-        title: "Volatility Is Not the Same as Risk",
+        title: "Volatility ≠ Risk",
         content:
-          "A price dropping 30% is scary — but it only becomes a real loss if you sell. If you can wait, volatile assets often deliver higher long-term returns precisely because most people cannot handle the ride. Time tames volatility.",
+          "A price dropping 30% is scary — but it only becomes a real loss if you sell. The patient holder recovers; the panic seller is stuck.",
+        chart: {
+          xKey: "year",
+          ySuffix: "",
+          yDomain: [60, 150],
+          lines: [
+            { key: "hold", label: "Held through crash", color: "#16a34a" },
+            { key: "sell", label: "Sold during crash", color: "#dc2626", dashed: true },
+          ],
+          data: SELL_VS_HOLD_DATA,
+        },
+        tip: "Every major stock market crash in history has eventually recovered. Time is your strongest ally.",
       },
       {
         title: "The Hidden Cost of Swings",
         content:
-          "Here is a tricky truth: if your fish loses 50% one year and gains 50% the next, you are NOT back to even. 100 gold → 50 gold → 75 gold. Volatility itself destroys value — a concept called 'volatility drag.'",
+          "If fish loses 50% then gains 50%, you are NOT back to even. 100 → 50 → 75. Volatility itself destroys value — a concept called 'volatility drag.'",
+        chart: {
+          xKey: "year",
+          ySuffix: "",
+          yDomain: [20, 110],
+          lines: [
+            { key: "hold", label: "Holding steady (100 coins)", color: "#6B4226", dashed: true },
+            { key: "volatile", label: "±50% swings each year", color: "#dc2626" },
+          ],
+          data: VOLATILITY_DRAG_DATA,
+        },
         tip: "A 50% loss requires a 100% gain just to break even. That is why managing volatility matters.",
       },
       {
@@ -317,7 +510,7 @@ export const LESSONS: Lesson[] = [
   },
 
   // ────────────────────────────────────────────────────────────────
-  // LESSON 5 — Long-term thinking & keeping nerves
+  // LESSON 5 — Long-term thinking & practical strategies
   // ────────────────────────────────────────────────────────────────
   {
     id: "long-term-thinking",
@@ -329,34 +522,63 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Impatient Trader",
         content:
-          "Some traders buy and sell every day, chasing small profits. They pay fees to the merchant on every trade and spend all their time watching prices. After a year of frantic trading, they often end up with less than they started.",
+          "Some traders buy and sell every day, chasing small gains. But each trade costs a fee — and those fees add up fast.",
+        chart: {
+          xKey: "year",
+          ySuffix: "",
+          yDomain: [70, 190],
+          lines: [
+            { key: "holder", label: "Buy & hold", color: "#16a34a" },
+            {
+              key: "trader",
+              label: "Frequent trader (after fees)",
+              color: "#dc2626",
+              dashed: true,
+            },
+          ],
+          data: TRADER_VS_HOLDER_DATA,
+        },
+        tip: "Transaction fees, taxes, and bad timing eat into returns. Doing less often means earning more.",
       },
       {
-        title: "The Patient Farmer",
+        title: "Zoom Out",
         content:
-          "Meanwhile, a quiet farmer bought wood and potatoes years ago and simply held them. Through good kings and bad kings — bull markets and bear markets — the value of his holdings grew steadily. Time was his greatest ally.",
-        tip: "Historically, major stock indices have always recovered from crashes — given enough time.",
+          "Up close, potatoes look terrifying — wild swings every year. But zoom out to 30 years and the trend is unmistakable: up.",
+        chart: {
+          xKey: "year",
+          ySuffix: "%",
+          yDomain: [-30, 400],
+          xInterval: 10,
+          lines: [{ key: "asset", label: "Potatoes (cumulative return)", color: "#B8860B" }],
+          data: buildSingleAssetChart("potatoes"),
+        },
       },
       {
-        title: "The Good King & The Bad King",
+        title: "Dollar-Cost Averaging",
         content:
-          "Under the Good King, trade flourishes and prices rise. But kings change — the Bad King raises taxes and frightens merchants. Prices fall. Panic spreads. Those who sell during the Bad King's reign lock in their losses forever. Those who wait almost always see a new Good King rise.",
+          "Instead of timing the market, invest the same amount every month. When prices drop, you buy more shares. When they rise, you buy fewer. Your average cost smooths out.",
+        chart: {
+          xKey: "month",
+          ySuffix: "",
+          yDomain: [4, 14],
+          lines: [
+            { key: "price", label: "Market price", color: "#1E90FF" },
+            { key: "avgCost", label: "Your average cost", color: "#16a34a", dashed: true },
+          ],
+          data: DCA_DATA,
+        },
+        tip: "DCA removes the stress of 'when should I buy?' — you just invest regularly and let math work for you.",
       },
       {
-        title: "Keeping Your Nerves",
+        title: "Time in the Market",
         content:
-          "In 2008, many real-world investors sold their stocks in terror. Those who held on saw their portfolios fully recover within a few years — and then grow to new highs. The hardest part of investing is doing nothing when everything screams 'act!'",
-        tip: "The market rewards patience. Over any 20-year period in history, broad stock indices have always ended higher than they started.",
-      },
-      {
-        title: "Compound Growth in Action",
-        content:
-          "Each year, the patient farmer's investments grew a little. And the next year, those gains earned their own gains. After 25 years, his modest portfolio had multiplied many times over. Compound growth turned his patience into prosperity.",
+          "Trying to predict the best days to buy is nearly impossible. Missing just the 10 best days over 20 years can cut your returns in half. Being invested consistently matters more than being invested perfectly.",
+        tip: "'Time in the market beats timing the market' — this is not just a saying, it is backed by decades of data.",
       },
       {
         title: "Lesson Learned",
         content:
-          "Markets go up and down — that is completely normal. Long-term thinking beats short-term trading. Stay invested through downturns, avoid emotional reactions, and let compound growth work its quiet magic. The farm is a marathon, not a sprint.",
+          "Trade less, invest regularly, and think in decades. Buy-and-hold beats frequent trading. Dollar-cost averaging removes timing stress. The patient farmer always outperforms the anxious trader.",
       },
     ],
   },
@@ -368,24 +590,38 @@ export const LESSONS: Lesson[] = [
     id: "diversification",
     number: 6,
     title: "Don't Put All Eggs in One Basket",
-    description: "Spreading your gold across goods protects you when markets shake.",
+    description: "Spreading your coins across goods protects you when markets shake.",
     icon: "🧺",
     slides: [
       {
         title: "The One-Good Trader",
         content:
-          "A trader in the next village put all his gold into fish. When the catch was good, he was the richest man around. But when a terrible storm came, he lost nearly everything in a single season.",
+          "A trader put all his coins into fish. When the catch was good, he was the richest man around. But when storms came, he lost nearly everything.",
+        chart: {
+          xKey: "year",
+          ySuffix: "%",
+          yDomain: [-100, 950],
+          xInterval: 10,
+          lines: [{ key: "asset", label: "Fish only", color: "#1E90FF" }],
+          data: buildSingleAssetChart("fish"),
+        },
       },
       {
         title: "The Balanced Trader",
         content:
-          "Another trader split his gold between wood, potatoes, and fish. When fish crashed, his wood and potatoes kept him afloat. He did not reach the highest highs, but he avoided the devastating lows.",
+          "Another trader split his coins equally between wood, potatoes, and fish. Smoother ride, still strong growth.",
+        chart: {
+          xKey: "year",
+          ySuffix: "%",
+          yDomain: [-100, 950],
+          xInterval: 10,
+          lines: [
+            { key: "fishOnly", label: "Fish only", color: "#1E90FF", dashed: true },
+            { key: "blended", label: "Blended (1/3 each)", color: "#16a34a" },
+          ],
+          data: buildDiversificationChart(),
+        },
         tip: "Diversification is the only 'free lunch' in investing — it reduces risk without necessarily reducing returns.",
-      },
-      {
-        title: "How Diversification Works",
-        content:
-          "Different assets respond to events differently. When the king raises taxes, fish might crash but wood barely moves. When a plague hits the harvest, potato prices soar while fish stays cheap. By holding a mix, bad news for one is cushioned by the others.",
       },
       {
         title: "Managing Your Risk",
@@ -419,7 +655,7 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Journey So Far",
         content:
-          "You started as a humble worker with a dream. Along the way, you learned that inflation steals idle gold, that even small investments grow, that different goods carry different risks, and that patience and diversification are your strongest allies.",
+          "You started as a humble worker with a dream. Along the way, you learned that inflation steals idle coins, that even small investments grow, that different goods carry different risks, and that patience and diversification are your strongest allies.",
       },
       {
         title: "Your Strategy Toolkit",
@@ -427,7 +663,7 @@ export const LESSONS: Lesson[] = [
           "You now understand the core pillars of smart investing: set clear goals, start early (even small), know your asset classes, expect volatility without panicking, think long-term, and diversify your holdings. These are the same principles used by the world's best investors.",
       },
       {
-        title: "From Medieval Gold to Real Money",
+        title: "From Medieval Coins to Real Money",
         content:
           "In our game, wood represents safe ETFs, potatoes represent stocks, and fish represents crypto. The principles are identical in the real world: balance risk, stay patient, diversify, and keep investing consistently — no matter how small the amount.",
         tip: "You do not need to be a finance expert. Understanding these basics already puts you ahead of most people.",
