@@ -104,6 +104,26 @@ export const createScenario = mutation({
   },
 })
 
+/** Delete a scenario */
+export const deleteScenario = mutation({
+  args: { scenarioId: v.id("scenarios") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.scenarioId)
+  },
+})
+
+/** Update an existing scenario */
+export const updateScenario = mutation({
+  args: {
+    scenarioId: v.id("scenarios"),
+    ...scenarioFieldsValidator,
+  },
+  handler: async (ctx, args) => {
+    const { scenarioId, ...fields } = args
+    await ctx.db.patch(scenarioId, fields)
+  },
+})
+
 // ─── Sessions ────────────────────────────────────────────────────
 
 /** Create a new competitive session */
@@ -156,6 +176,8 @@ export const getSessionWithLeaderboard = query({
     const session = await ctx.db.get(args.sessionId)
     if (!session) return null
 
+    const scenario = await ctx.db.get(session.scenarioId)
+
     const games = await ctx.db
       .query("games")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
@@ -185,7 +207,12 @@ export const getSessionWithLeaderboard = query({
     )
 
     return {
-      session,
+      session: {
+        ...session,
+        scenarioName: scenario?.name,
+        scenarioIcon: scenario?.icon,
+        playerCount: games.length,
+      },
       leaderboard: leaderboard
         .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
         .sort((a, b) => b.netWorth - a.netWorth),
@@ -226,7 +253,129 @@ export const listSessionGames = query({
   },
 })
 
+/** Get the authenticated user's game in a specific session */
+export const getMyGameInSession = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    return await ctx.db
+      .query("games")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .filter((q) => q.eq(q.field("sessionId"), args.sessionId))
+      .first()
+  },
+})
+
+/** Get leaderboard for a specific session at a specific step (year).
+ *  Returns all players' scores at that step, sorted by score descending. */
+export const getStepLeaderboard = query({
+  args: {
+    sessionId: v.id("sessions"),
+    step: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId)
+    if (!session) return null
+
+    // Get all games in this session
+    const games = await ctx.db
+      .query("games")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect()
+
+    // For each game, find the state at the requested step
+    const entries = await Promise.all(
+      games.map(async (game) => {
+        const stepDoc = await ctx.db
+          .query("gameSteps")
+          .withIndex("by_game_step", (q) => q.eq("gameId", game._id).eq("step", args.step))
+          .first()
+
+        if (!stepDoc) return null
+
+        const score = stepDoc.score ?? portfolioValue(stepDoc.portfolio, stepDoc.market)
+
+        return {
+          userId: game.userId,
+          playerName: game.playerName ?? `Player ${game.userId.substring(0, 4)}`,
+          gameId: game._id,
+          step: stepDoc.step,
+          date: stepDoc.date,
+          score,
+          goal: stepDoc.goal,
+          goalReached: stepDoc.goalReached,
+          status: game.status,
+        }
+      }),
+    )
+
+    const leaderboard = entries
+      .filter((e): e is NonNullable<typeof e> => e !== null)
+      .sort((a, b) => b.score - a.score)
+
+    // Compute scenario info for context
+    const scenario = await ctx.db.get(session.scenarioId)
+
+    return {
+      session,
+      scenarioName: scenario?.name ?? "Unknown",
+      step: args.step,
+      leaderboard,
+    }
+  },
+})
+
 // ─── Mutations ───────────────────────────────────────────────────
+
+/** Get the full leaderboard history for a session — net worth per player per step.
+ *  Used for the animated year-by-year leaderboard race on the results screen. */
+export const getSessionLeaderboardHistory = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId)
+    if (!session) return null
+
+    const games = await ctx.db
+      .query("games")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect()
+
+    // Build { playerName, gameId, steps: [{ step, date, score, goalReached }] } per player
+    const players = await Promise.all(
+      games.map(async (game) => {
+        const allSteps = await ctx.db
+          .query("gameSteps")
+          .withIndex("by_game", (q) => q.eq("gameId", game._id))
+          .collect()
+
+        return {
+          playerName: game.playerName ?? `Player ${game.userId.substring(0, 4)}`,
+          gameId: game._id as string,
+          userId: game.userId,
+          status: game.status,
+          steps: allSteps.map((s) => ({
+            step: s.step,
+            date: s.date,
+            score: s.score ?? portfolioValue(s.portfolio, s.market),
+            goalReached: s.goalReached,
+          })),
+        }
+      }),
+    )
+
+    const scenario = await ctx.db.get(session.scenarioId)
+
+    return {
+      session,
+      scenarioName: scenario?.name ?? "Unknown",
+      players,
+    }
+  },
+})
+
+// ─── Mutations (continued) ───────────────────────────────────────
 
 /** Start a new game from a scenario or session */
 export const startGame = mutation({
@@ -262,7 +411,7 @@ export const startGame = mutation({
 
     // Map Convex document → Scenario type
     const { _id, _creationTime, ...rest } = scenarioDoc
-    const scenario: Scenario = { id: _id, mode: "live", ...rest }
+    const scenario: Scenario = { id: _id, mode: rest.mode ?? "live", ...rest }
 
     const initialState = initializeGame(scenario)
 
@@ -288,6 +437,7 @@ export const startGame = mutation({
       actions: initialState.actions,
       goal: initialState.goal,
       goalReached: initialState.goalReached,
+      score: portfolioValue(initialState.portfolio, initialState.market),
     })
 
     return gameId
@@ -314,7 +464,7 @@ export const submitStep = mutation({
     const scenarioDoc = await ctx.db.get(game.scenarioId)
     if (!scenarioDoc) throw new Error("Scenario not found")
     const { _id, _creationTime, ...rest } = scenarioDoc
-    const scenario: Scenario = { id: _id, mode: "live", ...rest }
+    const scenario: Scenario = { id: _id, mode: rest.mode ?? "live", ...rest }
 
     // Load latest state
     const latestStep = await ctx.db
@@ -344,6 +494,9 @@ export const submitStep = mutation({
     // Check if game is over
     const gameOver = isGameOver(scenario, newState)
 
+    // Compute score
+    const score = portfolioValue(newState.portfolio, newState.market)
+
     // Persist new state vector
     await ctx.db.insert("gameSteps", {
       gameId: args.gameId,
@@ -355,6 +508,7 @@ export const submitStep = mutation({
       actions: newState.actions,
       goal: newState.goal,
       goalReached: newState.goalReached,
+      score,
     })
 
     // Update game record
@@ -366,7 +520,7 @@ export const submitStep = mutation({
     return {
       state: newState,
       gameOver,
-      portfolioValue: portfolioValue(newState.portfolio, newState.market),
+      portfolioValue: score,
     }
   },
 })

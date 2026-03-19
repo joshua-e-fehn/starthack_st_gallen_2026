@@ -53,6 +53,7 @@ const schema = defineSchema({
     actions: v.array(playerActionValidator),
     goal: v.number(),
     goalReached: v.boolean(),
+    score: v.optional(v.number()), // net worth (portfolio value) at this step
   })
     .index("by_game", ["gameId"])
     .index("by_game_step", ["gameId", "step"]),

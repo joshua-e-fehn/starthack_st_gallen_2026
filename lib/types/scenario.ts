@@ -41,6 +41,7 @@ export type Scenario = {
   id: string
   name: string
   description: string
+  icon?: string
   mode: "live" | "precomputed"
   /** Only populated if mode === "precomputed" */
   precomputedTrajectories?: PrecomputedStep[]

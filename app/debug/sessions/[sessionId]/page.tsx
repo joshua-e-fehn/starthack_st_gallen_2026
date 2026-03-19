@@ -54,7 +54,7 @@ export default function SessionDetailPage() {
         sessionId: session._id,
         playerName: playerName.trim(),
       })
-      router.push(`/debug/engine?gameId=${gameId}`)
+      router.push(`/dashboard/game?sessionId=${session._id}&gameId=${gameId}`)
     } catch (e) {
       const error = e as Error
       alert(error.message || "Error starting game.")
@@ -87,7 +87,11 @@ export default function SessionDetailPage() {
               <>
                 <Button
                   size="lg"
-                  onClick={() => router.push(`/debug/engine?gameId=${activeGame.gameId}`)}
+                  onClick={() =>
+                    router.push(
+                      `/dashboard/game?sessionId=${session._id}&gameId=${activeGame.gameId}`,
+                    )
+                  }
                 >
                   Continue Attempt
                 </Button>
