@@ -214,7 +214,7 @@ export default function SessionsDebugPage() {
             <div className="flex items-center justify-between border-b pb-2 text-sm font-medium text-muted-foreground">
               <span>Session Name</span>
               <span>Code</span>
-              <span>Scenario ID</span>
+              <span>Mode</span>
               <span>Action</span>
             </div>
             {activeSessions?.map((s) => (
@@ -231,9 +231,9 @@ export default function SessionsDebugPage() {
                 <Badge variant="secondary" className="font-mono">
                   {s.joinCode}
                 </Badge>
-                <span className="text-xs font-mono text-muted-foreground truncate max-w-[100px]">
-                  {s.scenarioId}
-                </span>
+                <Badge variant="outline" className="capitalize">
+                  {s.mode ?? "live"}
+                </Badge>
                 <Button size="sm" onClick={() => handleJoinSession(s)}>
                   Join
                 </Button>

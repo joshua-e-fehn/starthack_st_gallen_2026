@@ -1,5 +1,6 @@
 import type { TradableAsset } from "./assets"
-import type { AssetEventConfig, GlobalEventDefinition } from "./events"
+import type { AssetEventConfig, GameEvent, GlobalEventDefinition } from "./events"
+import type { MarketState } from "./market"
 
 /** Per-asset pricing + event risk parameters within a scenario */
 export type AssetPricing = {
@@ -23,6 +24,12 @@ export type MarketParams = {
   bearVolatility: number
 }
 
+/** A single precomputed step containing the market state and events that fired */
+export type PrecomputedStep = {
+  market: MarketState
+  events: GameEvent[]
+}
+
 /**
  * Full scenario configuration (α on the whiteboard).
  *
@@ -34,6 +41,9 @@ export type Scenario = {
   id: string
   name: string
   description: string
+  mode: "live" | "precomputed"
+  /** Only populated if mode === "precomputed" */
+  precomputedTrajectories?: PrecomputedStep[]
   startCapital: number
   recurringRevenue: number
   /** First year of the simulation (e.g. 1400) */
