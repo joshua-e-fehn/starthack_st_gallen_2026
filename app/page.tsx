@@ -16,6 +16,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
+import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { PublicHeader } from "@/components/organisms/public-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -52,10 +53,18 @@ function LeaderboardRow({
   entry,
   rank,
   total,
+  scalePercent,
 }: {
-  entry: { gameId: string; playerName: string; status: string; netWorth: number }
+  entry: {
+    gameId: string
+    playerName: string
+    status: string
+    netWorth: number
+    assetBreakdown: { gold: number; wood: number; potatoes: number; fish: number; total: number }
+  }
   rank: number
   total: number
+  scalePercent: number
 }) {
   const isFirst = rank === 1
   const isSecond = rank === 2
@@ -92,9 +101,15 @@ function LeaderboardRow({
         >
           {rank}
         </span>
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-semibold leading-tight">{entry.playerName}</p>
           <p className="text-[10px] text-muted-foreground">{entry.status}</p>
+          <AssetDistributionBar
+            breakdown={entry.assetBreakdown}
+            scalePercent={scalePercent}
+            showDetails={rank <= 3}
+            className="mt-1"
+          />
         </div>
       </div>
       <p className="font-mono text-sm font-black text-primary">{formatTaler(entry.netWorth)}</p>
@@ -342,6 +357,9 @@ function HomeContent() {
                         entry={entry}
                         rank={i + 1}
                         total={sessionData.leaderboard.length}
+                        scalePercent={
+                          (entry.netWorth / (sessionData.leaderboard[0]?.netWorth || 1)) * 100
+                        }
                       />
                     ))}
                   </div>

@@ -4,16 +4,13 @@ import { useMutation, useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   ArrowRight,
-  Calendar,
   ChevronDown,
   ChevronUp,
   Coins,
   History,
-  Info,
   Loader2,
   Minus,
   Plus,
-  RotateCcw,
   Store,
   TrendingDown,
   TrendingUp,
@@ -26,7 +23,6 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
 
 import { GameChatbot } from "@/components/molecules/game-chatbot"
-import { EventPopup } from "@/components/organisms/event-popup"
 import { StoryPlayer } from "@/components/organisms/story-player"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,7 +33,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -46,7 +42,6 @@ import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
-import type { GameEvent } from "@/lib/types/events"
 import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
 import type { StorySlide } from "@/lib/types/onboarding"
 import type { StateVector } from "@/lib/types/state_vector"
@@ -270,10 +265,10 @@ function AssetCard({
   tradePlan,
   history,
   projectedPortfolio,
-  projectedTalerBalance,
   expandedAsset,
   setExpandedAsset,
-  setTradePlan,
+  setTradeQuantity,
+  maxBuyForAsset,
   isMobile,
   gameOver,
 }: {
@@ -283,10 +278,10 @@ function AssetCard({
   tradePlan: Record<TradableAsset, number>
   history: StateVector[]
   projectedPortfolio: StateVector["portfolio"]
-  projectedTalerBalance: number
   expandedAsset: TradableAsset | null
   setExpandedAsset: (a: TradableAsset | null) => void
-  setTradePlan: React.Dispatch<React.SetStateAction<Record<TradableAsset, number>>>
+  setTradeQuantity: (asset: TradableAsset, quantity: number) => void
+  maxBuyForAsset: (asset: TradableAsset) => number
   isMobile: boolean
   gameOver: boolean
 }) {
@@ -303,11 +298,10 @@ function AssetCard({
   const isExpanded = expandedAsset === assetKey
   const tradeQty = tradePlan[assetKey]
 
-  const cashExcludingThis =
-    projectedTalerBalance +
-    (tradeQty > 0 ? tradeQty * bPrice : tradeQty < 0 ? tradeQty * sPrice : 0)
-  const maxBuy = Math.max(0, Math.floor(cashExcludingThis / bPrice))
+  const maxBuy = maxBuyForAsset(assetKey)
   const maxSell = portfolio[assetKey]
+  const baseMaxBuyForScale = bPrice > 0 ? Math.floor(portfolio.gold / bPrice) : 0
+  const visualMaxBuy = Math.max(baseMaxBuyForScale, Math.max(0, tradeQty), 1)
 
   const assetColor = lineConfig[assetKey].color
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
@@ -317,8 +311,8 @@ function AssetCard({
     if (!tradeBarRef.current) return
     const rect = tradeBarRef.current.getBoundingClientRect()
     const x = clamp(clientX - rect.left, 0, rect.width)
-    const val = mapXToTrade(x, rect.width, maxBuy, maxSell)
-    setTradePlan((prev) => ({ ...prev, [assetKey]: val }))
+    const val = mapXToTrade(x, rect.width, visualMaxBuy, maxSell)
+    setTradeQuantity(assetKey, val)
   }
 
   if (isMobile) {
@@ -333,7 +327,7 @@ function AssetCard({
         <CardContent className="p-3">
           <div className="flex items-center gap-3">
             {/* Left: Icon */}
-            <div className="rounded-xl p-2 bg-white shadow-sm flex-shrink-0">
+            <div className="rounded-xl p-2 bg-white shadow-sm shrink-0">
               <Image src={meta.icon} alt="" width={32} height={32} className="object-contain" />
             </div>
 
@@ -382,7 +376,7 @@ function AssetCard({
                     {/* Handle */}
                     <motion.div
                       className="absolute top-1/2 z-20 h-10 w-10 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white bg-white shadow-md flex items-center justify-center"
-                      style={{ left: `${mapTradeToX(tradeQty, 100, maxBuy, maxSell)}%` }}
+                      style={{ left: `${mapTradeToX(tradeQty, 100, visualMaxBuy, maxSell)}%` }}
                       animate={{ scale: isDragging ? 1.15 : 1 }}
                     >
                       <div
@@ -422,7 +416,7 @@ function AssetCard({
             <Button
               variant="ghost"
               size="icon"
-              className="size-8 rounded-full flex-shrink-0"
+              className="size-8 rounded-full shrink-0"
               onClick={() => setExpandedAsset(isExpanded ? null : assetKey)}
             >
               {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
@@ -555,12 +549,12 @@ function AssetCard({
                     disabled={gameOver || portfolio[assetKey] + tradeQty <= 0}
                     onClick={(e) => {
                       e.stopPropagation()
-                      setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] - 1 }))
+                      setTradeQuantity(assetKey, tradeQty - 1)
                     }}
                   >
                     <Minus className="size-5" />
                   </Button>
-                  <div className="flex flex-col items-center min-w-[4rem]">
+                  <div className="flex flex-col items-center min-w-16">
                     <span className="text-[10px] font-black uppercase text-muted-foreground opacity-50">
                       Draft
                     </span>
@@ -578,7 +572,7 @@ function AssetCard({
                     disabled={gameOver || maxBuy <= tradeQty}
                     onClick={(e) => {
                       e.stopPropagation()
-                      setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] + 1 }))
+                      setTradeQuantity(assetKey, tradeQty + 1)
                     }}
                   >
                     <Plus className="size-5" />
@@ -814,8 +808,6 @@ function GameContent() {
     return { id: _id, ...rest } as any
   }, [convexScenario])
 
-  const goalProgressImageSrc = scenario?.icon ?? "/farm.webp"
-
   const gameOver = useMemo(() => {
     if (!scenario || !current) return false
     return current.date >= scenario.endYear
@@ -854,7 +846,47 @@ function GameContent() {
     )
   }, [tradePlan, getBuyPriceFor, getSellPriceFor])
 
-  const projectedTalerBalance = roundMoney(portfolio.gold + plannedTalerDelta)
+  const computeMaxBuyForAsset = useCallback(
+    (asset: TradableAsset, plan: Record<TradableAsset, number>) => {
+      const price = getBuyPriceFor(asset)
+      if (price <= 0) return 0
+
+      let availableGold = portfolio.gold
+
+      for (const otherAsset of TRADABLE_ASSET_KEYS) {
+        if (otherAsset === asset) continue
+
+        const qty = plan[otherAsset]
+        if (qty > 0) {
+          availableGold -= qty * getBuyPriceFor(otherAsset)
+        } else if (qty < 0) {
+          availableGold += Math.abs(qty) * getSellPriceFor(otherAsset)
+        }
+      }
+
+      return Math.max(0, Math.floor(availableGold / price))
+    },
+    [portfolio.gold, getBuyPriceFor, getSellPriceFor],
+  )
+
+  const setTradeQuantity = useCallback(
+    (asset: TradableAsset, quantity: number) => {
+      setTradePlan((prev) => {
+        const maxBuy = computeMaxBuyForAsset(asset, prev)
+        const maxSell = portfolio[asset]
+        const clampedQty = clamp(quantity, -maxSell, maxBuy)
+
+        if (clampedQty === prev[asset]) return prev
+        return { ...prev, [asset]: clampedQty }
+      })
+    },
+    [computeMaxBuyForAsset, portfolio],
+  )
+
+  const maxBuyForAsset = useCallback(
+    (asset: TradableAsset) => computeMaxBuyForAsset(asset, tradePlan),
+    [computeMaxBuyForAsset, tradePlan],
+  )
 
   const projectedPortfolio = useMemo(() => {
     return {
@@ -899,10 +931,15 @@ function GameContent() {
 
     if (sessionId && current) {
       const nextStep = current.step + 1
+      const nextYear = current.date + 1
+      const isFiveYearCheckpoint = nextStep % 5 === 0
+      const isFinalYear = scenario ? nextYear >= scenario.endYear : false
       const name = localStorage.getItem("debug_playerName") ?? ""
-      router.push(
-        `/dashboard/sessions/${sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
-      )
+      if (isFiveYearCheckpoint || isFinalYear) {
+        router.push(
+          `/dashboard/sessions/${sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
+        )
+      }
     }
 
     try {
@@ -921,6 +958,7 @@ function GameContent() {
     submitStepMutation,
     sessionId,
     current,
+    scenario,
     router,
     guestId,
   ])
@@ -1038,7 +1076,7 @@ function GameContent() {
                   <div
                     className={cn(
                       "grid grid-cols-2 gap-px bg-muted/10 rounded-xl lg:rounded-3xl overflow-hidden border border-muted shadow-xs lg:shadow-md",
-                      isMobile ? "flex-shrink-0" : "flex-1",
+                      isMobile ? "shrink-0" : "flex-1",
                     )}
                   >
                     {[
@@ -1053,13 +1091,13 @@ function GameContent() {
                             key={meta.key}
                             className={cn(
                               "bg-white/70 flex items-center gap-2 lg:gap-4",
-                              isMobile ? "p-2 min-w-0" : "p-4 min-w-[140px]",
+                              isMobile ? "p-2 min-w-0" : "p-4 min-w-35",
                             )}
                           >
                             <div
                               className={cn(
                                 "rounded-lg lg:rounded-2xl shadow-xs",
-                                isMobile ? "p-1 flex-shrink-0" : "p-2",
+                                isMobile ? "p-1 shrink-0" : "p-2",
                               )}
                               style={{ backgroundColor: lineConfig[meta.key].color }}
                             >
@@ -1256,10 +1294,10 @@ function GameContent() {
                     tradePlan={tradePlan}
                     history={history}
                     projectedPortfolio={projectedPortfolio}
-                    projectedTalerBalance={projectedTalerBalance}
                     expandedAsset={expandedAsset}
                     setExpandedAsset={setExpandedAsset}
-                    setTradePlan={setTradePlan}
+                    setTradeQuantity={setTradeQuantity}
+                    maxBuyForAsset={maxBuyForAsset}
                     isMobile={isMobile}
                     gameOver={gameOver}
                   />
@@ -1304,7 +1342,7 @@ function GameContent() {
                       <div className="flex items-center gap-2 sm:gap-4 leading-none text-right">
                         <div className="flex flex-col items-end">
                           <span className="text-[8px] sm:text-[10px] opacity-70 mb-0.5">NEXT</span>
-                          <span className="text-xs sm:text-xl">YEAR</span>
+                          <span className="text-xs sm:text-xl">YEAR {current.date + 1}</span>
                         </div>
                         <ArrowRight className="size-5 sm:size-8 animate-pulse" />
                       </div>

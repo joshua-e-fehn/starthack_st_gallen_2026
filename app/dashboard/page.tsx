@@ -16,6 +16,7 @@ import {
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useRef } from "react"
+import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { ScenarioViewer } from "@/components/organisms/scenario-viewer"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -193,37 +194,48 @@ function DashboardContent() {
                     <TableRow className="bg-muted/50">
                       <TableHead className="w-15">Rank</TableHead>
                       <TableHead>Player</TableHead>
+                      <TableHead className="min-w-55">Assets</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Net Worth</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sessionData.leaderboard.map((player, index) => (
-                      <TableRow
-                        key={player.gameId}
-                        className={cn(index === 0 && "bg-yellow-500/5")}
-                      >
-                        <TableCell className="font-medium">
-                          {index === 0 ? (
-                            <Medal className="h-5 w-5 text-yellow-500" />
-                          ) : (
-                            `#${index + 1}`
-                          )}
-                        </TableCell>
-                        <TableCell className="font-semibold">{player.playerName}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={player.status === "active" ? "default" : "secondary"}
-                            className="text-[10px] h-5"
-                          >
-                            {player.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-bold text-primary">
-                          {player.netWorth.toLocaleString()} T
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {(() => {
+                      const maxNetWorth = sessionData.leaderboard[0]?.netWorth || 1
+                      return sessionData.leaderboard.map((player, index) => (
+                        <TableRow
+                          key={player.gameId}
+                          className={cn(index === 0 && "bg-yellow-500/5")}
+                        >
+                          <TableCell className="font-medium">
+                            {index === 0 ? (
+                              <Medal className="h-5 w-5 text-yellow-500" />
+                            ) : (
+                              `#${index + 1}`
+                            )}
+                          </TableCell>
+                          <TableCell className="font-semibold">{player.playerName}</TableCell>
+                          <TableCell>
+                            <AssetDistributionBar
+                              breakdown={player.assetBreakdown}
+                              scalePercent={(player.netWorth / maxNetWorth) * 100}
+                              showDetails={index < 3}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={player.status === "active" ? "default" : "secondary"}
+                              className="text-[10px] h-5"
+                            >
+                              {player.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold text-primary">
+                            {player.netWorth.toLocaleString()} T
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    })()}
                   </TableBody>
                 </Table>
               )}

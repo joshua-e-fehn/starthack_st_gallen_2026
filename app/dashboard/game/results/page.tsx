@@ -20,6 +20,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,17 +52,6 @@ const COLORS = {
   total: "oklch(0.72 0.18 150)",
   goal: "oklch(0.65 0.15 25)",
 }
-
-const PLAYER_COLORS = [
-  "oklch(0.72 0.18 150)",
-  "oklch(0.65 0.20 260)",
-  "oklch(0.70 0.18 30)",
-  "oklch(0.68 0.16 330)",
-  "oklch(0.60 0.15 200)",
-  "oklch(0.75 0.14 80)",
-  "oklch(0.62 0.18 120)",
-  "oklch(0.58 0.20 290)",
-]
 
 function formatTaler(n: number) {
   return new Intl.NumberFormat("de-CH").format(Math.round(n))
@@ -104,7 +94,13 @@ type PlayerHistory = {
   gameId: string
   userId: string
   status: string
-  steps: Array<{ step: number; date: number; score: number; goalReached: boolean }>
+  steps: Array<{
+    step: number
+    date: number
+    score: number
+    goalReached: boolean
+    assetBreakdown: { gold: number; wood: number; potatoes: number; fish: number; total: number }
+  }>
 }
 
 function LeaderboardRace({
@@ -161,6 +157,13 @@ function LeaderboardRace({
           gameId: p.gameId,
           score: latest?.score ?? 0,
           date: latest?.date ?? 0,
+          assetBreakdown: latest?.assetBreakdown ?? {
+            gold: 0,
+            wood: 0,
+            potatoes: 0,
+            fish: 0,
+            total: 0,
+          },
           goalReached: latest?.goalReached ?? false,
           hasData: stepsUpTo.length > 0,
         }
@@ -261,15 +264,12 @@ function LeaderboardRace({
                         </Badge>
                       )}
                     </div>
-                    {/* Score bar */}
-                    <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <motion.div
-                        className="h-full rounded-full"
-                        style={{ backgroundColor: PLAYER_COLORS[index % PLAYER_COLORS.length] }}
-                        animate={{ width: `${barWidth}%` }}
-                        transition={{ duration: 0.3 }}
-                      />
-                    </div>
+                    <AssetDistributionBar
+                      breakdown={entry.assetBreakdown}
+                      scalePercent={barWidth}
+                      showDetails={rank <= 3}
+                      className="mt-1"
+                    />
                   </div>
                   <p className="font-mono text-sm font-bold tabular-nums">
                     {formatTaler(entry.score)}
@@ -348,7 +348,7 @@ function PortfolioDonut({ state }: { state: StateVector }) {
                     return (
                       <div className="flex items-center gap-2">
                         <span
-                          className="size-2.5 shrink-0 rounded-[2px]"
+                          className="size-2.5 shrink-0 rounded-xs"
                           style={{ backgroundColor: point.fill ?? item.color }}
                         />
                         <span className="font-mono tabular-nums">

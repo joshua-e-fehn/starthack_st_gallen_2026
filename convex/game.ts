@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import { gameStep, initializeGame, isGameOver, portfolioValue } from "../lib/game/engine"
 import type { PlayerAction } from "../lib/types/actions"
+import { sellPrice } from "../lib/types/market"
 import type { Scenario } from "../lib/types/scenario"
 import { mutation, query } from "./_generated/server"
 import { playerActionValidator, scenarioFieldsValidator } from "./validators"
@@ -18,6 +19,36 @@ function resolvePlayerId(identity: { subject: string } | null, guestId?: string)
   if (identity) return identity.subject
   if (guestId) return `guest:${guestId}`
   throw new Error("Must be authenticated or provide a guestId")
+}
+
+function computeAssetBreakdown(step: {
+  portfolio: { gold: number; wood: number; potatoes: number; fish: number }
+  market: {
+    inflation: number
+    prices: {
+      wood: { basePrice: number; buyFactor: number; sellFactor: number }
+      potatoes: { basePrice: number; buyFactor: number; sellFactor: number }
+      fish: { basePrice: number; buyFactor: number; sellFactor: number }
+    }
+  }
+}) {
+  const inflation = step.market.inflation
+  const gold = Math.max(0, step.portfolio.gold)
+  const wood = Math.max(0, step.portfolio.wood * sellPrice(step.market.prices.wood, inflation))
+  const potatoes = Math.max(
+    0,
+    step.portfolio.potatoes * sellPrice(step.market.prices.potatoes, inflation),
+  )
+  const fish = Math.max(0, step.portfolio.fish * sellPrice(step.market.prices.fish, inflation))
+  const total = gold + wood + potatoes + fish
+
+  return {
+    gold,
+    wood,
+    potatoes,
+    fish,
+    total,
+  }
 }
 
 // ─── Queries ─────────────────────────────────────────────────────
@@ -225,6 +256,7 @@ export const getSessionWithLeaderboard = query({
           currentStep: game.currentStep,
           date: latestStep.date,
           netWorth: portfolioValue(latestStep.portfolio, latestStep.market),
+          assetBreakdown: computeAssetBreakdown(latestStep),
           status: game.status,
         }
       }),
@@ -330,6 +362,7 @@ export const getStepLeaderboard = query({
           step: stepDoc.step,
           date: stepDoc.date,
           score,
+          assetBreakdown: computeAssetBreakdown(stepDoc),
           goal: stepDoc.goal,
           goalReached: stepDoc.goalReached,
           status: game.status,
@@ -385,6 +418,7 @@ export const getSessionLeaderboardHistory = query({
             step: s.step,
             date: s.date,
             score: s.score ?? portfolioValue(s.portfolio, s.market),
+            assetBreakdown: computeAssetBreakdown(s),
             goalReached: s.goalReached,
           })),
         }

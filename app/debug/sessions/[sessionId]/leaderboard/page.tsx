@@ -5,6 +5,7 @@ import { useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useRef, useState } from "react"
+import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
@@ -125,7 +126,7 @@ function LeaderboardContent() {
   const isVisible = (index: number) => revealIndex <= index || !isRevealing
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-background to-muted/30">
+    <div className="bg-linear-to-b from-background to-muted/30 flex min-h-screen flex-col">
       {/* Header */}
       <div className="border-b bg-background/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
@@ -213,6 +214,7 @@ function LeaderboardContent() {
               const rank = index + 1
               const isMe = entry.gameId === gameId
               const visible = isVisible(index)
+              const maxScore = leaderboard[0]?.score || 1
 
               if (!visible) return null
 
@@ -228,7 +230,7 @@ function LeaderboardContent() {
                     damping: 25,
                     delay: index === revealIndex ? 0 : 0.05,
                   }}
-                  className={`relative overflow-hidden rounded-lg border bg-gradient-to-r ${getRankColor(rank)} ${
+                  className={`relative overflow-hidden rounded-lg border bg-linear-to-r ${getRankColor(rank)} ${
                     isMe ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
                   }`}
                 >
@@ -261,6 +263,12 @@ function LeaderboardContent() {
                       <p className="text-muted-foreground text-xs">
                         {entry.status === "finished" ? "Finished" : `Year ${entry.date}`}
                       </p>
+                      <AssetDistributionBar
+                        breakdown={entry.assetBreakdown}
+                        scalePercent={(entry.score / maxScore) * 100}
+                        showDetails={rank <= 3}
+                        className="mt-1.5"
+                      />
                     </div>
 
                     {/* Score */}
@@ -278,7 +286,7 @@ function LeaderboardContent() {
                   {/* Rank 1 glow effect */}
                   {rank === 1 && (
                     <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-yellow-400/10 via-transparent to-yellow-400/10"
+                      className="bg-linear-to-r absolute inset-0 from-yellow-400/10 via-transparent to-yellow-400/10"
                       animate={{ opacity: [0.3, 0.6, 0.3] }}
                       transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
                     />

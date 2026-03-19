@@ -14,6 +14,7 @@ import {
 import { useParams, useRouter } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
 import { useCallback, useMemo, useState } from "react"
+import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -111,7 +112,7 @@ export default function SessionLobbyPage() {
                     size={200}
                     level="M"
                     marginSize={2}
-                    className="h-auto w-full max-w-[200px]"
+                    className="h-auto w-full max-w-50"
                   />
                 </div>
 
@@ -186,43 +187,52 @@ export default function SessionLobbyPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {leaderboard.map((entry, index) => (
-                    <motion.div
-                      key={entry.gameId}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className={cn(
-                        "flex items-center justify-between rounded-lg border px-3 py-2.5",
-                        index === 0
-                          ? "border-yellow-500/20 bg-yellow-500/5"
-                          : "border-border/70 bg-background/80",
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={cn(
-                            "flex size-7 items-center justify-center rounded-full text-xs font-bold",
-                            index === 0
-                              ? "bg-yellow-500 text-yellow-950"
-                              : "bg-muted text-muted-foreground",
-                          )}
-                        >
-                          {index + 1}
-                        </span>
-                        <div>
-                          <p className="text-sm font-bold">{entry.playerName}</p>
-                          <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <ActivityIcon className="size-2" />
-                            {entry.status}
-                          </p>
+                  {leaderboard.map((entry, index) => {
+                    const maxNetWorth = leaderboard[0]?.netWorth || 1
+                    return (
+                      <motion.div
+                        key={entry.gameId}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className={cn(
+                          "flex items-center justify-between rounded-lg border px-3 py-2.5",
+                          index === 0
+                            ? "border-yellow-500/20 bg-yellow-500/5"
+                            : "border-border/70 bg-background/80",
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={cn(
+                              "flex size-7 items-center justify-center rounded-full text-xs font-bold",
+                              index === 0
+                                ? "bg-yellow-500 text-yellow-950"
+                                : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {index + 1}
+                          </span>
+                          <div>
+                            <p className="text-sm font-bold">{entry.playerName}</p>
+                            <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <ActivityIcon className="size-2" />
+                              {entry.status}
+                            </p>
+                            <AssetDistributionBar
+                              breakdown={entry.assetBreakdown}
+                              scalePercent={(entry.netWorth / maxNetWorth) * 100}
+                              showDetails={index < 3}
+                              className="mt-1"
+                            />
+                          </div>
                         </div>
-                      </div>
-                      <p className="font-mono text-sm font-black text-primary">
-                        {formatTaler(entry.netWorth)}
-                      </p>
-                    </motion.div>
-                  ))}
+                        <p className="font-mono text-sm font-black text-primary">
+                          {formatTaler(entry.netWorth)}
+                        </p>
+                      </motion.div>
+                    )
+                  })}
                 </div>
               )}
             </CardContent>
