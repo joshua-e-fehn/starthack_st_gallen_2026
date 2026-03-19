@@ -1,6 +1,6 @@
 "use client"
 
-import { useConvex, useQuery } from "convex/react"
+import { useConvex, useMutation, useQuery } from "convex/react"
 import { motion } from "framer-motion"
 import {
   ActivityIcon,
