@@ -995,7 +995,7 @@ function GameContent() {
                         Timeline
                       </span>
                     )}
-                    <h1 className="text-4xl lg:text-5xl font-black tabular-nums tracking-tighter text-[#1A1A1A]">
+                    <h1 className="text-4xl lg:text-4xl font-black tabular-nums tracking-tighter text-[#1A1A1A]">
                       Year {current.date}
                     </h1>
                   </div>
@@ -1008,7 +1008,7 @@ function GameContent() {
                     <Badge
                       variant={current.market.regime === "bull" ? "default" : "destructive"}
                       className={cn(
-                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-base font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full bg-[#FFD700] text-black border-none",
+                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-lg font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full bg-[#FFD700] text-black border-none",
                       )}
                     >
                       {current.market.regime === "bull" ? "🐂 Bull" : "🐻 Bear"}
@@ -1019,17 +1019,17 @@ function GameContent() {
                 {/* Assets + Pie Chart Container (Row on Mobile) */}
                 <div
                   className={cn(
-                    "flex items-center gap-4 lg:gap-10",
+                    "flex wood-board items-center",
                     isMobile
-                      ? "w-full justify-between"
-                      : "flex-col lg:flex-row wood-board p-6 rounded-[3rem] shadow-2xl",
+                      ? "w-full justify-between gap-4 p-4 rounded-2xl"
+                      : "flex-col lg:flex-row gap-4 lg:gap-10 p-6 rounded-[3rem] shadow-2xl",
                   )}
                 >
                   {/* 2x2 Asset Grid */}
                   <div
                     className={cn(
-                      "grid grid-cols-2 gap-px bg-muted/10 rounded-2xl lg:rounded-3xl overflow-hidden border border-muted shadow-xs lg:shadow-md",
-                      isMobile && "flex-1",
+                      "grid grid-cols-2 gap-px bg-muted/10 rounded-xl lg:rounded-3xl overflow-hidden border border-muted shadow-xs lg:shadow-md",
+                      isMobile ? "flex-shrink-0" : "flex-1",
                     )}
                   >
                     {[
