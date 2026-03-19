@@ -1,6 +1,7 @@
 import { Hono } from "hono"
-import { generateGeminiResponse, generateGeminiResponseStream } from "@/lib/ai/chatbot"
+import { generateGeminiResponse } from "@/lib/ai/chatbot"
 import { getLandingQuoteSystemPrompt, getLandingQuoteUserPrompt } from "@/lib/ai/prompt"
+import { generateGeminiResponseStream } from "@/lib/ai/quote"
 
 const app = new Hono()
 
