@@ -1,9 +1,13 @@
 "use client"
 
-import { ArrowDown, ArrowUp, Minus, Plus, RotateCcw } from "lucide-react"
+import { useMutation, useQuery } from "convex/react"
+import { ArrowDown, ArrowUp, Loader2, Minus, Plus, RotateCcw } from "lucide-react"
 import Image from "next/image"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recharts"
+import { StoryPlayer } from "@/components/organisms/story-player"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -21,21 +25,19 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer"
+import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
+import { portfolioValue } from "@/lib/game/engine"
+import type { PlayerAction } from "@/lib/types/actions"
+import type { TradableAsset } from "@/lib/types/assets"
+import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
+import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
+import type { StorySlide } from "@/lib/types/onboarding"
+import type { StateVector } from "@/lib/types/state_vector"
 
-type TradableAsset = "wood" | "potatoes" | "fish"
+// ─── Constants ───────────────────────────────────────────────────
+
 type AssetKey = TradableAsset | "taler"
-
-type Holdings = Record<TradableAsset, number>
-type TradePlan = Record<TradableAsset, number>
-type Prices = Record<TradableAsset, number>
-
-type PriceSnapshot = {
-  step: number
-  taler: number
-  wood: number
-  potatoes: number
-  fish: number
-}
 
 const goodsMeta: Array<{
   key: AssetKey
@@ -85,59 +87,109 @@ const priceChartConfig = {
   totalValue: { label: "Total Value", color: lineConfig.totalValue.color },
 } satisfies ChartConfig
 
+const ONBOARDING_KEY = "game_onboarding_seen"
+
+const onboardingSlides: StorySlide[] = [
+  {
+    id: "farmer",
+    shortName: "Farmer",
+    title: "You are a farmer and work on a farm",
+    body: "You rise with the sun, tending your fields and animals at the king's court. Life is simple, but every harvest reminds you: hard work alone won't build the future you dream of.",
+    imageSrc: "/onboarding/story1.webp",
+  },
+  {
+    id: "merchant",
+    shortName: "Merchant",
+    title: "You want to diversify and become a merchant",
+    body: "You begin to wonder, what if your taler could work as hard as you do? As whispers of trade and distant markets reach your ears, you decide to become more than a farmer: a merchant in the making.",
+    imageSrc: "/onboarding/story2.webp",
+  },
+  {
+    id: "first-taler",
+    shortName: "First Taler",
+    title: "The village elder gives you your first bag of taler",
+    body: "Seeing your ambition, the village elder entrusts you with a small bag of taler. Use it wisely, he says. Fortunes are not only grown in fields, but in choices.",
+    imageSrc: "/onboarding/story3.webp",
+  },
+  {
+    id: "yearly-income",
+    shortName: "Yearly Income",
+    title: "You receive income every year",
+    body: "Each year, your farm provides steady income. It's your foundation, reliable but limited. How you use it will decide whether you stay a farmer, or rise beyond.",
+    imageSrc: "/onboarding/story4.webp",
+  },
+  {
+    id: "build-future",
+    shortName: "Build Future",
+    title: "Trade, grow, and build your future",
+    body: "Buy, sell, and adapt as seasons change and fortunes rise and fall. Some choices will reward you, others will test you. Stay patient, think long-term, and one day you may own your dream farm worked not by your hands alone, but by those you employ.",
+    imageSrc: "/onboarding/story5.webp",
+  },
+]
+
+// ─── Helpers ─────────────────────────────────────────────────────
+
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
-}
-
-function priceForAsset(prices: Prices, key: TradableAsset) {
-  return prices[key]
 }
 
 function roundMoney(n: number) {
   return Math.round(n * 100) / 100
 }
 
+function formatTaler(n: number) {
+  return `${new Intl.NumberFormat("de-CH").format(Math.round(n * 100) / 100)}`
+}
+
 function mapYToTrade(y: number, height: number, maxBuy: number, maxSell: number) {
   const center = height / 2
   const cappedY = clamp(y, 0, height)
-
   if (cappedY <= center) {
     const ratio = (center - cappedY) / center
     return Math.round(ratio * maxBuy)
   }
-
   const ratio = (cappedY - center) / center
   return -Math.round(ratio * maxSell)
 }
 
 function mapTradeToY(value: number, height: number, maxBuy: number, maxSell: number) {
   const center = height / 2
-
   if (value >= 0) {
-    if (maxBuy === 0) {
-      return center
-    }
-    const ratio = value / maxBuy
-    return center - ratio * center
+    if (maxBuy === 0) return center
+    return center - (value / maxBuy) * center
   }
-
-  if (maxSell === 0) {
-    return center
-  }
-
-  const ratio = Math.abs(value) / maxSell
-  return center + ratio * center
+  if (maxSell === 0) return center
+  return center + (Math.abs(value) / maxSell) * center
 }
 
-function MiniPriceGraph({
-  data,
-  taler,
-  holdings,
-}: {
-  data: PriceSnapshot[]
-  taler: number
-  holdings: Holdings
-}) {
+// ─── Chart ───────────────────────────────────────────────────────
+
+function MiniPriceGraph({ history }: { history: StateVector[] }) {
+  const [selectedIndex, setSelectedIndex] = useState(Math.max(0, history.length - 1))
+
+  useEffect(() => {
+    setSelectedIndex(Math.max(0, history.length - 1))
+  }, [history.length])
+
+  const chartData = useMemo(() => {
+    return history.map((state) => {
+      const inf = state.market.inflation
+      return {
+        step: state.date,
+        talerBalance: roundMoney(state.portfolio.gold),
+        woodValue: roundMoney(state.portfolio.wood * sellPrice(state.market.prices.wood, inf)),
+        potatoesValue: roundMoney(
+          state.portfolio.potatoes * sellPrice(state.market.prices.potatoes, inf),
+        ),
+        fishValue: roundMoney(state.portfolio.fish * sellPrice(state.market.prices.fish, inf)),
+        totalValue: roundMoney(portfolioValue(state.portfolio, state.market)),
+      }
+    })
+  }, [history])
+
+  const safeSelectedIndex = clamp(selectedIndex, 0, Math.max(0, chartData.length - 1))
+  const selectedPoint = chartData[safeSelectedIndex]
+
   const keys = ["talerBalance", "woodValue", "potatoesValue", "fishValue", "totalValue"] as const
   const seriesColors: Record<(typeof keys)[number], string> = {
     talerBalance: lineConfig.taler.color,
@@ -146,30 +198,6 @@ function MiniPriceGraph({
     fishValue: lineConfig.fish.color,
     totalValue: lineConfig.totalValue.color,
   }
-  const [selectedIndex, setSelectedIndex] = useState(Math.max(0, data.length - 1))
-
-  useEffect(() => {
-    setSelectedIndex(Math.max(0, data.length - 1))
-  }, [data.length])
-
-  const chartData = useMemo(() => {
-    return data.map((point) => ({
-      ...point,
-      talerBalance: roundMoney(taler),
-      woodValue: roundMoney(holdings.wood * point.wood),
-      potatoesValue: roundMoney(holdings.potatoes * point.potatoes),
-      fishValue: roundMoney(holdings.fish * point.fish),
-      totalValue: roundMoney(
-        taler +
-          holdings.wood * point.wood +
-          holdings.potatoes * point.potatoes +
-          holdings.fish * point.fish,
-      ),
-    }))
-  }, [data, holdings, taler])
-
-  const safeSelectedIndex = clamp(selectedIndex, 0, Math.max(0, chartData.length - 1))
-  const selectedPoint = chartData[safeSelectedIndex]
 
   return (
     <div className="rounded-xl border bg-muted/40 p-3">
@@ -178,9 +206,7 @@ function MiniPriceGraph({
           data={chartData}
           onClick={(state) => {
             const activeIndex = state?.activeTooltipIndex
-            if (typeof activeIndex === "number") {
-              setSelectedIndex(activeIndex)
-            }
+            if (typeof activeIndex === "number") setSelectedIndex(activeIndex)
           }}
           margin={{ top: 12, right: 16, left: -6, bottom: 0 }}
         >
@@ -192,7 +218,6 @@ function MiniPriceGraph({
               </linearGradient>
             ))}
           </defs>
-
           <CartesianGrid vertical={false} />
           <XAxis
             dataKey="step"
@@ -207,7 +232,7 @@ function MiniPriceGraph({
             axisLine={false}
             tickMargin={8}
             width={68}
-            tickFormatter={(value) => value.toLocaleString("de-CH")}
+            tickFormatter={(value) => Number(value).toLocaleString("de-CH")}
           />
           <ChartTooltip
             cursor={{ strokeDasharray: "5 5" }}
@@ -229,7 +254,6 @@ function MiniPriceGraph({
               />
             }
           />
-
           {selectedPoint ? (
             <ReferenceLine
               x={selectedPoint.step}
@@ -239,7 +263,6 @@ function MiniPriceGraph({
               strokeDasharray="5 5"
             />
           ) : null}
-
           <Area
             type="monotone"
             dataKey="talerBalance"
@@ -290,7 +313,6 @@ function MiniPriceGraph({
             activeDot={{ r: 7 }}
             dot={{ r: 3, strokeWidth: 1.2, fill: lineConfig.totalValue.color }}
           />
-
           <ChartLegend content={<ChartLegendContent />} />
         </AreaChart>
       </ChartContainer>
@@ -298,13 +320,28 @@ function MiniPriceGraph({
   )
 }
 
-function DrawerAssetHistoryGraph({ data, asset }: { data: PriceSnapshot[]; asset: TradableAsset }) {
+function DrawerAssetHistoryGraph({
+  history,
+  asset,
+}: {
+  history: StateVector[]
+  asset: TradableAsset
+}) {
   const assetChartConfig = {
     [asset]: {
       label: lineConfig[asset].label,
       color: lineConfig[asset].color,
     },
   } satisfies ChartConfig
+
+  const data = useMemo(
+    () =>
+      history.map((s) => ({
+        step: s.date,
+        [asset]: roundMoney(nominalPrice(s.market.prices[asset], s.market.inflation)),
+      })),
+    [history, asset],
+  )
 
   return (
     <div className="rounded-lg border bg-muted/30 p-2">
@@ -360,117 +397,228 @@ function DrawerAssetHistoryGraph({ data, asset }: { data: PriceSnapshot[]; asset
   )
 }
 
-export default function Game() {
-  const [taler, setTaler] = useState(120)
-  const [holdings, setHoldings] = useState<Holdings>({
-    wood: 4,
-    potatoes: 3,
-    fish: 2,
-  })
-  const [prices, setPrices] = useState<Prices>({
-    wood: 12,
-    potatoes: 9,
-    fish: 15,
-  })
-  const [tradePlan, setTradePlan] = useState<TradePlan>({
+// ─── Main Game Page ──────────────────────────────────────────────
+
+function GameContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const sessionIdParam = searchParams.get("sessionId") as Id<"sessions"> | null
+  const gameIdParam = searchParams.get("gameId") as Id<"games"> | null
+
+  // ─── Onboarding ─────────────────────────────────────────────
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [onboardingChecked, setOnboardingChecked] = useState(false)
+
+  useEffect(() => {
+    const seen = localStorage.getItem(ONBOARDING_KEY)
+    if (!seen) setShowOnboarding(true)
+    setOnboardingChecked(true)
+  }, [])
+
+  const handleOnboardingComplete = useCallback(() => {
+    localStorage.setItem(ONBOARDING_KEY, "true")
+    setShowOnboarding(false)
+  }, [])
+
+  // ─── Convex data ────────────────────────────────────────────
+  const startGameMutation = useMutation(api.game.startGame)
+  const submitStepMutation = useMutation(api.game.submitStep)
+
+  const [gameId, setGameId] = useState<Id<"games"> | null>(gameIdParam)
+  const [isStarting, setIsStarting] = useState(false)
+
+  const sessionData = useQuery(
+    api.game.getSessionWithLeaderboard,
+    sessionIdParam ? { sessionId: sessionIdParam } : "skip",
+  )
+
+  const convexGame = useQuery(api.game.getGame, gameId ? { gameId } : "skip")
+  const convexScenario = useQuery(
+    api.game.getScenario,
+    convexGame?.scenarioId ? { scenarioId: convexGame.scenarioId } : "skip",
+  )
+  const convexHistory = useQuery(api.game.getGameTimeSeries, gameId ? { gameId } : "skip")
+
+  const sessionId = sessionIdParam ?? convexGame?.sessionId ?? null
+
+  // ─── Auto-start game when session is loaded & onboarding done ──
+  useEffect(() => {
+    if (gameId || isStarting || showOnboarding || !onboardingChecked) return
+    if (!sessionIdParam || !sessionData) return
+
+    const playerName = localStorage.getItem("debug_playerName") ?? "Player"
+
+    // Check if user already has a game in this session (re-join)
+    const existingActive = sessionData.leaderboard.find((e) => e.status === "active")
+    if (existingActive) {
+      setGameId(existingActive.gameId)
+      return
+    }
+
+    setIsStarting(true)
+    startGameMutation({
+      scenarioId: sessionData.session.scenarioId,
+      sessionId: sessionIdParam,
+      playerName,
+    })
+      .then((id) => {
+        setGameId(id)
+        router.replace(`/dashboard/game?sessionId=${sessionIdParam}&gameId=${id}`)
+      })
+      .catch((e) => {
+        console.error("Failed to start game:", e)
+        alert((e as Error).message || "Failed to start game")
+        router.push("/")
+      })
+      .finally(() => setIsStarting(false))
+  }, [
+    gameId,
+    isStarting,
+    showOnboarding,
+    onboardingChecked,
+    sessionIdParam,
+    sessionData,
+    startGameMutation,
+    router,
+  ])
+
+  // ─── Build local state from Convex ──────────────────────────
+  const history: StateVector[] = useMemo(() => {
+    if (!convexHistory?.length) return []
+    // biome-ignore lint/suspicious/noExplicitAny: Convex doc → StateVector shape match
+    return convexHistory as any
+  }, [convexHistory])
+
+  const current = history.length > 0 ? history[history.length - 1] : null
+
+  const scenario = useMemo(() => {
+    if (!convexScenario) return null
+    const { _id, _creationTime, ...rest } = convexScenario
+    // biome-ignore lint/suspicious/noExplicitAny: shape match
+    return { id: _id, ...rest } as any
+  }, [convexScenario])
+
+  const gameOver = useMemo(() => {
+    if (!scenario || !current) return false
+    return current.date >= scenario.endYear
+  }, [current, scenario])
+
+  // ─── Trade state ────────────────────────────────────────────
+  const [tradePlan, setTradePlan] = useState<Record<TradableAsset, number>>({
     wood: 0,
     potatoes: 0,
     fish: 0,
   })
-  const [priceHistory, setPriceHistory] = useState<PriceSnapshot[]>([
-    { step: 1, taler: 1, wood: 12, potatoes: 9, fish: 15 },
-    { step: 2, taler: 1, wood: 13, potatoes: 8.8, fish: 16 },
-    { step: 3, taler: 1, wood: 11.5, potatoes: 9.4, fish: 14.6 },
-    { step: 4, taler: 1, wood: 12.8, potatoes: 10.2, fish: 13.8 },
-  ])
-
   const [selectedAsset, setSelectedAsset] = useState<TradableAsset | null>(null)
   const [draftTradeValue, setDraftTradeValue] = useState(0)
-
   const [isDraggingTradeBar, setIsDraggingTradeBar] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
+
+  // ─── Derived values ─────────────────────────────────────────
+  const portfolio = current?.portfolio ?? { gold: 0, wood: 0, potatoes: 0, fish: 0 }
+  const market = current?.market
+  const inflation = market?.inflation ?? 1
+
+  const getBuyPriceFor = useCallback(
+    (asset: TradableAsset) => (market ? buyPrice(market.prices[asset], inflation) : 0),
+    [market, inflation],
+  )
+
+  const getSellPriceFor = useCallback(
+    (asset: TradableAsset) => (market ? sellPrice(market.prices[asset], inflation) : 0),
+    [market, inflation],
+  )
 
   const totalAssetValue = useMemo(() => {
     return {
-      taler,
-      wood: roundMoney(holdings.wood * prices.wood),
-      potatoes: roundMoney(holdings.potatoes * prices.potatoes),
-      fish: roundMoney(holdings.fish * prices.fish),
+      taler: portfolio.gold,
+      wood: roundMoney(portfolio.wood * getSellPriceFor("wood")),
+      potatoes: roundMoney(portfolio.potatoes * getSellPriceFor("potatoes")),
+      fish: roundMoney(portfolio.fish * getSellPriceFor("fish")),
     }
-  }, [holdings, prices, taler])
+  }, [portfolio, getSellPriceFor])
 
-  const maxAssetValue = useMemo(() => {
-    return Math.max(...Object.values(totalAssetValue), 1)
-  }, [totalAssetValue])
+  const maxAssetValue = useMemo(
+    () => Math.max(...Object.values(totalAssetValue), 1),
+    [totalAssetValue],
+  )
 
-  const selectedPrice = selectedAsset ? priceForAsset(prices, selectedAsset) : 0
+  const totalValue = current ? portfolioValue(current.portfolio, current.market) : 0
+
+  const selectedBuyPrice = selectedAsset ? getBuyPriceFor(selectedAsset) : 0
+  const selectedSellPriceVal = selectedAsset ? getSellPriceFor(selectedAsset) : 0
 
   const tradeCostExcludingSelected = useMemo(() => {
-    if (!selectedAsset) {
-      return 0
-    }
-
+    if (!selectedAsset) return 0
     return (Object.keys(tradePlan) as TradableAsset[])
       .filter((asset) => asset !== selectedAsset)
       .reduce((sum, asset) => {
-        return sum + tradePlan[asset] * priceForAsset(prices, asset)
+        if (tradePlan[asset] > 0) return sum + tradePlan[asset] * getBuyPriceFor(asset)
+        if (tradePlan[asset] < 0) return sum - Math.abs(tradePlan[asset]) * getSellPriceFor(asset)
+        return sum
       }, 0)
-  }, [prices, selectedAsset, tradePlan])
+  }, [selectedAsset, tradePlan, getBuyPriceFor, getSellPriceFor])
 
   const maxBuy = useMemo(() => {
-    if (!selectedAsset || selectedPrice <= 0) {
-      return 0
-    }
-
-    const freeCash = taler - tradeCostExcludingSelected
-    return Math.max(0, Math.floor(freeCash / selectedPrice))
-  }, [selectedAsset, selectedPrice, taler, tradeCostExcludingSelected])
+    if (!selectedAsset || selectedBuyPrice <= 0) return 0
+    const freeCash = portfolio.gold - tradeCostExcludingSelected
+    return Math.max(0, Math.floor(freeCash / selectedBuyPrice))
+  }, [selectedAsset, selectedBuyPrice, portfolio.gold, tradeCostExcludingSelected])
 
   const maxSell = useMemo(() => {
-    if (!selectedAsset) {
-      return 0
-    }
-    return holdings[selectedAsset]
-  }, [holdings, selectedAsset])
+    if (!selectedAsset) return 0
+    return portfolio[selectedAsset]
+  }, [portfolio, selectedAsset])
 
-  const currentTradeClamp = useMemo(() => {
-    return clamp(draftTradeValue, -maxSell, maxBuy)
-  }, [draftTradeValue, maxBuy, maxSell])
+  const currentTradeClamp = useMemo(
+    () => clamp(draftTradeValue, -maxSell, maxBuy),
+    [draftTradeValue, maxBuy, maxSell],
+  )
 
   const projectedHolding = useMemo(() => {
-    if (!selectedAsset) {
-      return 0
-    }
-    return holdings[selectedAsset] + currentTradeClamp
-  }, [holdings, selectedAsset, currentTradeClamp])
+    if (!selectedAsset) return 0
+    return portfolio[selectedAsset] + currentTradeClamp
+  }, [portfolio, selectedAsset, currentTradeClamp])
 
-  const selectedMeta = useMemo(() => {
-    if (!selectedAsset) {
-      return null
-    }
-    return goodsMeta.find((meta) => meta.key === selectedAsset) ?? null
-  }, [selectedAsset])
+  const selectedMeta = useMemo(
+    () => (selectedAsset ? (goodsMeta.find((m) => m.key === selectedAsset) ?? null) : null),
+    [selectedAsset],
+  )
 
   const buyDelta = Math.max(0, currentTradeClamp)
   const sellDelta = Math.max(0, -currentTradeClamp)
-  const projectedAssetValue = roundMoney(projectedHolding * selectedPrice)
-  const projectedTalerBalance = useMemo(() => {
-    const selectedTradeCost = currentTradeClamp * selectedPrice
-    return roundMoney(taler - tradeCostExcludingSelected - selectedTradeCost)
-  }, [currentTradeClamp, selectedPrice, taler, tradeCostExcludingSelected])
-  const projectedTalerDelta = roundMoney(projectedTalerBalance - taler)
-  const plannedTalerDelta = useMemo(() => {
-    const plannedTradeCost = (Object.keys(tradePlan) as TradableAsset[]).reduce((sum, asset) => {
-      return sum + tradePlan[asset] * priceForAsset(prices, asset)
-    }, 0)
+  const projectedAssetValue = roundMoney(
+    projectedHolding * (currentTradeClamp >= 0 ? selectedBuyPrice : selectedSellPriceVal),
+  )
 
-    return roundMoney(-plannedTradeCost)
-  }, [prices, tradePlan])
+  const plannedTalerDelta = useMemo(() => {
+    return -roundMoney(
+      (Object.keys(tradePlan) as TradableAsset[]).reduce((sum, asset) => {
+        const qty = tradePlan[asset]
+        if (qty > 0) return sum + qty * getBuyPriceFor(asset)
+        if (qty < 0) return sum + qty * getSellPriceFor(asset)
+        return sum
+      }, 0),
+    )
+  }, [tradePlan, getBuyPriceFor, getSellPriceFor])
+
+  const projectedTalerBalance = roundMoney(portfolio.gold + plannedTalerDelta)
+
   const selectedAssetColor = selectedAsset
     ? lineConfig[selectedAsset].color
     : "oklch(0.62 0.14 228)"
-  const currentYear = priceHistory.length
 
+  // Sync trade plan draft when selected asset changes
+  useEffect(() => {
+    if (!selectedAsset) return
+    setTradePlan((prev) => {
+      if (prev[selectedAsset] === currentTradeClamp) return prev
+      return { ...prev, [selectedAsset]: currentTradeClamp }
+    })
+  }, [currentTradeClamp, selectedAsset])
+
+  // ─── Handlers ───────────────────────────────────────────────
   function openTradeModal(asset: TradableAsset) {
     setSelectedAsset(asset)
     setDraftTradeValue(tradePlan[asset])
@@ -482,93 +630,128 @@ export default function Game() {
   }
 
   function onPointerUpdate(clientY: number) {
-    if (!tradeBarRef.current) {
-      return
-    }
-
+    if (!tradeBarRef.current) return
     const rect = tradeBarRef.current.getBoundingClientRect()
     const y = clamp(clientY - rect.top, 0, rect.height)
     setDraftTradeValue(mapYToTrade(y, rect.height, maxBuy, maxSell))
   }
 
-  useEffect(() => {
-    if (!selectedAsset) {
-      return
+  const handleSubmitTrades = useCallback(async () => {
+    if (!gameId || isSubmitting || gameOver) return
+
+    const actions: PlayerAction[] = []
+    for (const asset of TRADABLE_ASSET_KEYS) {
+      const qty = tradePlan[asset]
+      if (qty > 0) actions.push({ type: "buy", asset, quantity: qty })
+      if (qty < 0) actions.push({ type: "sell", asset, quantity: Math.abs(qty) })
     }
 
-    setTradePlan((previous) => {
-      if (previous[selectedAsset] === currentTradeClamp) {
-        return previous
+    setIsSubmitting(true)
+    try {
+      await submitStepMutation({ gameId, actions })
+      setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
+
+      // Navigate to leaderboard if in a session
+      if (sessionId && current) {
+        const nextStep = current.step + 1
+        const name = localStorage.getItem("debug_playerName") ?? ""
+        router.push(
+          `/dashboard/sessions/${sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
+        )
       }
-
-      return {
-        ...previous,
-        [selectedAsset]: currentTradeClamp,
-      }
-    })
-  }, [currentTradeClamp, selectedAsset])
-
-  function rollNextTimeframe() {
-    let nextTaler = taler
-    const nextHoldings: Holdings = { ...holdings }
-
-    ;(Object.keys(tradePlan) as TradableAsset[]).forEach((asset) => {
-      const planned = tradePlan[asset]
-      if (planned === 0) {
-        return
-      }
-
-      const price = priceForAsset(prices, asset)
-
-      if (planned > 0) {
-        const affordable = Math.min(planned, Math.floor(nextTaler / price))
-        nextHoldings[asset] += affordable
-        nextTaler -= affordable * price
-      } else {
-        const sellQty = Math.min(Math.abs(planned), nextHoldings[asset])
-        nextHoldings[asset] -= sellQty
-        nextTaler += sellQty * price
-      }
-    })
-
-    const rolledPrices: Prices = {
-      wood: roundMoney(Math.max(1, prices.wood * (0.82 + Math.random() * 0.36))),
-      potatoes: roundMoney(Math.max(1, prices.potatoes * (0.78 + Math.random() * 0.4))),
-      fish: roundMoney(Math.max(1, prices.fish * (0.7 + Math.random() * 0.5))),
+    } catch (e) {
+      console.error("Submit step failed:", e)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setTaler(roundMoney(nextTaler))
-    setHoldings(nextHoldings)
-    setPrices(rolledPrices)
-    setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
-    setPriceHistory((previous) => [
-      ...previous,
-      {
-        step: previous.length + 1,
-        taler: 1,
-        wood: rolledPrices.wood,
-        potatoes: rolledPrices.potatoes,
-        fish: rolledPrices.fish,
-      },
-    ])
-  }
+  }, [gameId, isSubmitting, gameOver, tradePlan, submitStepMutation, sessionId, current, router])
 
   const indicatorY = mapTradeToY(currentTradeClamp, 220, maxBuy, maxSell)
 
+  // ─── Loading / onboarding states ────────────────────────────
+  if (!onboardingChecked) return null
+
+  if (showOnboarding) {
+    return (
+      <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
+        <StoryPlayer
+          slides={onboardingSlides}
+          autoAdvanceMs={7000}
+          previousAtStartLabel="Back"
+          completeLabel="Start Playing"
+          onPreviousAtStart={() => router.push("/")}
+          onComplete={handleOnboardingComplete}
+        />
+      </main>
+    )
+  }
+
+  if (!gameId || !current || !market) {
+    return (
+      <main className="mx-auto flex min-h-[60vh] w-full max-w-4xl items-center justify-center px-4 py-6">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Loader2 className="size-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            {isStarting ? "Starting your game..." : "Loading game..."}
+          </p>
+        </div>
+      </main>
+    )
+  }
+
+  // ─── Render ─────────────────────────────────────────────────
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
       <div className="space-y-4">
+        {/* Year & status header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold">Year {current.date}</h1>
+            <Badge
+              variant={current.market.regime === "bull" ? "default" : "destructive"}
+              className="text-[10px]"
+            >
+              {current.market.regime === "bull" ? "🐂 Bull" : "🐻 Bear"}
+            </Badge>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-medium">
+              {formatTaler(totalValue)} / {formatTaler(current.goal)} taler
+            </p>
+            {current.goalReached && (
+              <Badge variant="default" className="bg-green-600 text-[10px]">
+                🎯 Goal Reached
+              </Badge>
+            )}
+            {gameOver && (
+              <Badge variant="outline" className="ml-1 text-[10px]">
+                Game Over
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Goal progress bar */}
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className={`h-full rounded-full transition-all ${totalValue >= current.goal ? "bg-green-500" : "bg-primary"}`}
+            style={{ width: `${Math.min(100, (totalValue / current.goal) * 100)}%` }}
+          />
+        </div>
+
+        {/* Asset cards */}
         <div className="grid grid-cols-4 gap-2">
           {goodsMeta.map((meta) => {
             const value = totalAssetValue[meta.key]
             const opacity = value / maxAssetValue
-            const tradeDelta = meta.key === "taler" ? plannedTalerDelta : tradePlan[meta.key]
-            const hasTradeDelta = tradeDelta !== 0
-            const isTradeDeltaPositive = tradeDelta > 0
+            const tradeDeltaRaw =
+              meta.key === "taler" ? plannedTalerDelta : tradePlan[meta.key as TradableAsset]
+            const hasTradeDelta = tradeDeltaRaw !== 0
+            const isTradeDeltaPositive = tradeDeltaRaw > 0
             const tradeDeltaLabel =
               meta.key === "taler"
-                ? `${isTradeDeltaPositive ? "+" : ""}${roundMoney(tradeDelta).toLocaleString("de-CH")}`
-                : `${isTradeDeltaPositive ? "+" : ""}${tradeDelta}`
+                ? `${isTradeDeltaPositive ? "+" : ""}${formatTaler(tradeDeltaRaw)}`
+                : `${isTradeDeltaPositive ? "+" : ""}${tradeDeltaRaw}`
             const tradeDeltaColor = lineConfig[meta.key].color
 
             return (
@@ -576,27 +759,22 @@ export default function Game() {
                 type="button"
                 key={meta.key}
                 onClick={() => {
-                  if (meta.key !== "taler") {
-                    openTradeModal(meta.key)
-                  }
+                  if (meta.key !== "taler" && !gameOver) openTradeModal(meta.key as TradableAsset)
                 }}
                 className="flex h-full flex-col justify-end text-left"
+                disabled={gameOver}
               >
-                <div className="flex h-55 flex-col justify-end relative rounded-lg border border-white/70 overflow-hidden">
-                  {/* Background layer - full height with low opacity */}
+                <div className="relative flex h-55 flex-col justify-end overflow-hidden rounded-lg border border-white/70">
                   <div
                     className={`absolute inset-0 ${meta.colorClass}`}
                     style={{ opacity: 0.15 }}
                   />
-
-                  {/* Colored fill layer - rises proportionally */}
                   <div
                     className={`absolute bottom-0 w-full transition-all ${meta.colorClass}`}
                     style={{ height: `${Math.max(20, opacity * 100)}%` }}
                   />
-
                   {hasTradeDelta ? (
-                    <div className="absolute top-2 right-2 z-20 flex items-center gap-1 rounded-md bg-background/85 px-2 py-1 text-xs font-semibold shadow-sm">
+                    <div className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-md bg-background/85 px-2 py-1 text-xs font-semibold shadow-sm">
                       {isTradeDeltaPositive ? (
                         <ArrowUp className="size-3.5" style={{ color: tradeDeltaColor }} />
                       ) : (
@@ -605,10 +783,8 @@ export default function Game() {
                       <span style={{ color: tradeDeltaColor }}>{tradeDeltaLabel}</span>
                     </div>
                   ) : null}
-
-                  {/* Content layer - icon and text on top */}
                   <div className="absolute inset-0 flex w-full items-end justify-center">
-                    <div className="flex flex-col items-center w-full py-3 pb-3">
+                    <div className="flex w-full flex-col items-center py-3 pb-3">
                       <Image
                         src={meta.icon}
                         alt={meta.name}
@@ -617,14 +793,16 @@ export default function Game() {
                         className="object-contain"
                       />
                       <p className="font-mono text-xl font-black leading-none text-white drop-shadow-sm">
-                        {meta.key === "taler" ? taler : holdings[meta.key]}
+                        {meta.key === "taler"
+                          ? formatTaler(portfolio.gold)
+                          : portfolio[meta.key as TradableAsset]}
                       </p>
                     </div>
                   </div>
                 </div>
                 <div className="mt-1">
-                  <p className="text-sm text-center font-medium">
-                    {value.toLocaleString("de-CH")}
+                  <p className="text-center text-sm font-medium">
+                    {formatTaler(value)}
                     <br /> Talers
                   </p>
                 </div>
@@ -633,23 +811,42 @@ export default function Game() {
           })}
         </div>
 
-        <Card className="bg-muted/50">
-          <CardHeader>
-            <CardTitle>Year {currentYear}</CardTitle>
-            <CardDescription>
-              Asset values over time in talers (cash, each asset class, and total value).
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MiniPriceGraph data={priceHistory} taler={taler} holdings={holdings} />
-          </CardContent>
-        </Card>
+        {/* Chart */}
+        {history.length > 1 && (
+          <Card className="bg-muted/50">
+            <CardHeader>
+              <CardTitle>Year {current.date}</CardTitle>
+              <CardDescription>
+                Asset values over time in talers (cash, each asset class, and total value).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <MiniPriceGraph history={history} />
+            </CardContent>
+          </Card>
+        )}
 
-        <Button type="button" className="h-12 w-full text-base" onClick={rollNextTimeframe}>
-          Done trading &amp; roll events
+        {/* Submit button */}
+        <Button
+          type="button"
+          className="h-12 w-full text-base"
+          onClick={handleSubmitTrades}
+          disabled={gameOver || isSubmitting}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Processing...
+            </>
+          ) : gameOver ? (
+            "Game Over"
+          ) : (
+            "Done trading & roll events"
+          )}
         </Button>
       </div>
 
+      {/* Trade drawer */}
       <Drawer open={selectedAsset !== null} onOpenChange={(open) => !open && closeTradeModal()}>
         <DrawerContent className="mx-auto w-full max-w-2xl rounded-t-2xl">
           <DrawerHeader>
@@ -663,9 +860,7 @@ export default function Game() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => {
-                  setDraftTradeValue(0)
-                }}
+                onClick={() => setDraftTradeValue(0)}
                 aria-label="Reset trade to no change"
               >
                 <RotateCcw className="size-4" />
@@ -677,9 +872,10 @@ export default function Game() {
           </DrawerHeader>
 
           <div className="max-h-[70vh] overflow-y-auto px-4 pb-4" data-vaul-no-drag>
+            {/* Price & balance info */}
             <div className="mb-3 grid grid-cols-2 gap-2 text-sm">
               <div className="rounded-lg border bg-muted/40 p-2">
-                <div className="text-xs text-muted-foreground">Price</div>
+                <div className="text-xs text-muted-foreground">Buy Price</div>
                 <div className="flex items-center gap-1.5 font-medium">
                   {selectedMeta ? (
                     <Image
@@ -690,7 +886,7 @@ export default function Game() {
                       className="object-contain"
                     />
                   ) : null}
-                  <span>{selectedPrice.toLocaleString("de-CH")} taler</span>
+                  <span>{formatTaler(selectedBuyPrice)} taler</span>
                 </div>
               </div>
               <div className="rounded-lg border bg-muted/40 p-2">
@@ -703,32 +899,24 @@ export default function Game() {
                     height={16}
                     className="object-contain"
                   />
-                  <span>{projectedTalerBalance.toLocaleString("de-CH")} taler</span>
-                  {projectedTalerDelta !== 0 ? (
-                    <span
-                      className={projectedTalerDelta > 0 ? "text-emerald-700" : "text-rose-700"}
-                    >
-                      ({projectedTalerDelta > 0 ? "+" : ""}
-                      {projectedTalerDelta.toLocaleString("de-CH")})
-                    </span>
-                  ) : null}
+                  <span>{formatTaler(projectedTalerBalance)} taler</span>
                 </div>
               </div>
             </div>
 
-            {selectedAsset ? (
+            {/* Drawer price history chart */}
+            {selectedAsset && history.length > 1 ? (
               <div className="mb-4">
-                <DrawerAssetHistoryGraph data={priceHistory} asset={selectedAsset} />
+                <DrawerAssetHistoryGraph history={history} asset={selectedAsset} />
               </div>
             ) : null}
 
+            {/* Trade slider */}
             <div className="mb-4 space-y-3">
               <button
                 type="button"
                 className="flex w-full items-center justify-between rounded-lg border bg-emerald-500/10 px-3 py-2 text-sm transition-colors hover:bg-emerald-500/15"
-                onClick={() => {
-                  setDraftTradeValue((v) => clamp(v + 1, -maxSell, maxBuy))
-                }}
+                onClick={() => setDraftTradeValue((v) => clamp(v + 1, -maxSell, maxBuy))}
                 aria-label="Increase acquired goods by one"
               >
                 <div className="flex items-center gap-2 font-semibold text-emerald-700">
@@ -737,7 +925,7 @@ export default function Game() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-medium text-foreground">
-                    {roundMoney(buyDelta * selectedPrice).toLocaleString("de-CH")} taler
+                    {formatTaler(buyDelta * selectedBuyPrice)} taler
                   </span>
                   <span className="flex items-center gap-1.5 rounded-md bg-background/80 px-2 py-1 font-medium">
                     {selectedMeta ? (
@@ -763,28 +951,19 @@ export default function Game() {
                   onPointerUpdate(event.clientY)
                 }}
                 onPointerMove={(event) => {
-                  if (!isDraggingTradeBar) {
-                    return
-                  }
+                  if (!isDraggingTradeBar) return
                   onPointerUpdate(event.clientY)
                 }}
-                onPointerUp={() => {
-                  setIsDraggingTradeBar(false)
-                }}
-                onPointerLeave={() => {
-                  setIsDraggingTradeBar(false)
-                }}
+                onPointerUp={() => setIsDraggingTradeBar(false)}
+                onPointerLeave={() => setIsDraggingTradeBar(false)}
               >
                 <div className="absolute inset-0 overflow-hidden rounded-xl">
                   <div className="h-1/2 w-full bg-linear-to-b from-emerald-500/20 via-emerald-500/10 to-background/60" />
                   <div className="h-1/2 w-full bg-linear-to-t from-rose-500/20 via-rose-500/10 to-background/60" />
                 </div>
-
                 <div className="absolute inset-x-2 top-1/2 h-px -translate-y-1/2 bg-muted-foreground/30" />
-
-                <div className="absolute top-2 bottom-2 left-1/2 z-10 w-32 -translate-x-1/2 overflow-hidden rounded-full border border-white/60 bg-background/60 shadow-inner backdrop-blur-sm">
+                <div className="absolute bottom-2 top-2 left-1/2 z-10 w-32 -translate-x-1/2 overflow-hidden rounded-full border border-white/60 bg-background/60 shadow-inner backdrop-blur-sm">
                   <div className="absolute inset-0 bg-linear-to-b from-white/35 via-white/20 to-black/10" />
-
                   {currentTradeClamp !== 0 ? (
                     <div
                       className="absolute inset-x-0"
@@ -797,7 +976,6 @@ export default function Game() {
                     />
                   ) : null}
                 </div>
-
                 <div
                   className="absolute left-1/2 z-20 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 bg-white/85 shadow-[0_4px_14px_rgba(0,0,0,0.18)]"
                   style={{ top: `${indicatorY}px` }}
@@ -807,17 +985,16 @@ export default function Game() {
                     style={{ backgroundColor: selectedAssetColor, opacity: 0.9 }}
                   />
                 </div>
-
                 <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
                   Buy +{buyDelta}
                 </div>
                 <div className="pointer-events-none absolute right-3 top-3 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
-                  {projectedAssetValue.toLocaleString("de-CH")} taler
+                  {formatTaler(projectedAssetValue)} taler
                 </div>
-                <div className="pointer-events-none absolute left-3 bottom-3 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
+                <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
                   Sell -{sellDelta}
                 </div>
-                <div className="pointer-events-none absolute right-3 bottom-3 flex items-center gap-1 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
+                <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
                   {selectedMeta ? (
                     <Image
                       src={selectedMeta.icon}
@@ -834,9 +1011,7 @@ export default function Game() {
               <button
                 type="button"
                 className="flex w-full items-center justify-between rounded-lg border bg-rose-500/10 px-3 py-2 text-sm transition-colors hover:bg-rose-500/15"
-                onClick={() => {
-                  setDraftTradeValue((v) => clamp(v - 1, -maxSell, maxBuy))
-                }}
+                onClick={() => setDraftTradeValue((v) => clamp(v - 1, -maxSell, maxBuy))}
                 aria-label="Increase sold goods by one"
               >
                 <div className="flex items-center gap-2 font-semibold text-rose-700">
@@ -845,7 +1020,7 @@ export default function Game() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-medium text-foreground">
-                    {roundMoney(sellDelta * selectedPrice).toLocaleString("de-CH")} taler
+                    {formatTaler(sellDelta * selectedSellPriceVal)} taler
                   </span>
                   <span className="flex items-center gap-1.5 rounded-md bg-background/80 px-2 py-1 font-medium">
                     {selectedMeta ? (
@@ -866,5 +1041,19 @@ export default function Game() {
         </DrawerContent>
       </Drawer>
     </main>
+  )
+}
+
+export default function GamePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <Loader2 className="size-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <GameContent />
+    </Suspense>
   )
 }

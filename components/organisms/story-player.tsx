@@ -30,8 +30,8 @@ export function StoryPlayer({
 }: StoryPlayerProps) {
   const LONG_PRESS_MS = 260
   const playerShellClassName =
-    "mx-auto flex h-[calc(100svh-2rem)] w-full max-w-[430px] flex-col rounded-3xl border border-primary/30 bg-card/90 p-4 shadow-2xl backdrop-blur sm:h-[calc(100svh-4rem)] sm:p-6"
-  const storyCardClassName = "flex-1 overflow-hidden border-border/70 bg-background py-0"
+    "mx-auto flex h-[calc(100vh-3rem)] w-full max-w-[430px] flex-col p-4 sm:h-[calc(100vh-3rem)] sm:p-6"
+  const storyCardClassName = "flex-1 overflow-hidden py-0"
   const storyImageClassName = "h-full w-full object-cover object-center"
   const [currentIndex, setCurrentIndex] = useState(0)
   const [progress, setProgress] = useState(0)

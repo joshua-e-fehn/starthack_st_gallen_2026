@@ -89,7 +89,7 @@ function DashboardContent() {
     if (sessionId && sessionData) {
       // If we already have a game in this session, just go there
       if (myGameInSession) {
-        router.push(`/debug/engine?gameId=${myGameInSession._id}`)
+        router.push(`/dashboard/game?sessionId=${sessionId}&gameId=${myGameInSession._id}`)
         return
       }
 
@@ -99,7 +99,7 @@ function DashboardContent() {
           sessionId: sessionData.session._id,
           playerName: name,
         })
-        router.push(`/debug/engine?gameId=${gameId}`)
+        router.push(`/dashboard/game?sessionId=${sessionData.session._id}&gameId=${gameId}`)
       } catch (error) {
         console.error("Error starting game:", error)
         alert(error instanceof Error ? error.message : "Failed to start game")

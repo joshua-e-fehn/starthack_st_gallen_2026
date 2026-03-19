@@ -33,7 +33,8 @@ export default function CreateSessionPage() {
         name: sessionName,
       })
 
-      router.push(`/?sessionId=${sessionId}`)
+      // Navigate to admin lobby with QR code + join code
+      router.push(`/dashboard/sessions/${sessionId}`)
     } catch (error) {
       console.error("Error creating session:", error)
       alert("Failed to create session. Please try again.")

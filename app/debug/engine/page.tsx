@@ -863,7 +863,16 @@ function DebugPage() {
     const actions = phaseState.executedActions ?? []
     await handleSubmitStep(actions)
     setPhaseState({ phase: "trade" })
-  }, [phaseState, handleSubmitStep])
+
+    // Navigate to leaderboard if playing in a session
+    if (gameId && convexGame?.sessionId) {
+      const nextStep = current.step + 1
+      const name = convexGame.playerName ?? ""
+      router.push(
+        `/debug/sessions/${convexGame.sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&name=${encodeURIComponent(name)}`,
+      )
+    }
+  }, [phaseState, handleSubmitStep, gameId, convexGame, current.step, router])
 
   // ─── Old full-step handlers (auto-run, skip) ────────────────
 
