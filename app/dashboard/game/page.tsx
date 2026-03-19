@@ -3,6 +3,7 @@
 import { useMutation, useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
+  ArrowRight,
   ChevronDown,
   ChevronUp,
   Coins,
@@ -20,7 +21,7 @@ import {
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recharts"
+import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
 
 import { GameChatbot } from "@/components/molecules/game-chatbot"
 import { StoryPlayer } from "@/components/organisms/story-player"
@@ -391,6 +392,15 @@ function GameContent() {
 
   const totalValue = current ? portfolioValue(projectedPortfolio, current.market) : 0
 
+  const allocationData = useMemo(() => {
+    return [
+      { name: "Taler", value: totalAssetValue.taler, color: lineConfig.taler.color },
+      { name: "Wood", value: totalAssetValue.wood, color: lineConfig.wood.color },
+      { name: "Potatoes", value: totalAssetValue.potatoes, color: lineConfig.potatoes.color },
+      { name: "Fish", value: totalAssetValue.fish, color: lineConfig.fish.color },
+    ].filter((d) => d.value > 0)
+  }, [totalAssetValue])
+
   const handleSubmitTrades = useCallback(async () => {
     if (!gameId || isSubmitting || gameOver) return
 
@@ -545,130 +555,143 @@ function GameContent() {
           {/* 2. Overview: Net Worth & Goal */}
           <div className="relative overflow-hidden rounded-3xl border border-primary/10 bg-linear-to-br from-primary/[0.03] to-transparent p-6 sm:p-8 shadow-sm">
             <div className="relative z-10 space-y-6">
-              <div className="flex items-end justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="size-4 text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                      Portfolio Value
-                    </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8">
+                <div className="space-y-6 flex-1">
+                  <div className="flex items-end justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="size-4 text-primary" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                          Portfolio Value
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-5xl font-black tracking-tight">
+                          {formatTaler(totalValue)}
+                        </span>
+                        <span className="text-xl font-bold text-muted-foreground">taler</span>
+                      </div>
+                    </div>
+                    <div className="text-right space-y-1">
+                      <div className="flex items-center justify-end gap-2 text-primary">
+                        <Trophy className="size-4" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+                          Target
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-end gap-1">
+                        <span className="text-2xl font-black text-primary/80">
+                          {formatTaler(current.goal)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-black tracking-tight">
-                      {formatTaler(totalValue)}
-                    </span>
-                    <span className="text-xl font-bold text-muted-foreground">taler</span>
+
+                  {/* Progress Bar (Single Color) */}
+                  <div className="space-y-3">
+                    <div className="relative group">
+                      <div className="h-14 w-full overflow-hidden rounded-2xl border-2 border-primary/10 bg-muted/20 p-1 shadow-inner backdrop-blur-md">
+                        <div className="h-full rounded-xl overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{
+                              width: `${Math.min(100, (totalValue / current.goal) * 100)}%`,
+                            }}
+                            className="h-full transition-all duration-700 ease-out bg-primary"
+                          />
+                        </div>
+
+                        {totalValue >= current.goal && (
+                          <motion.div
+                            initial={{ x: "-100%" }}
+                            animate={{ x: "200%" }}
+                            transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
+                            className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg]"
+                          />
+                        )}
+                      </div>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="px-4 py-1 rounded-full bg-black/20 backdrop-blur-sm">
+                          <span className="text-xs font-black uppercase tracking-[0.2em] text-white">
+                            {((totalValue / current.goal) * 100).toFixed(0)}% TO INDEPENDENCE
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right space-y-1">
-                  <div className="flex items-center justify-end gap-2 text-primary">
-                    <Trophy className="size-4" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">
-                      Target
-                    </span>
-                  </div>
-                  <div className="flex items-baseline justify-end gap-1">
-                    <span className="text-2xl font-black text-primary/80">
-                      {formatTaler(current.goal)}
-                    </span>
+
+                {/* Asset Allocation Cake Chart */}
+                <div className="flex flex-col items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                    Allocation
+                  </span>
+                  <div className="h-32 w-32">
+                    <PieChart width={128} height={128}>
+                      <Pie
+                        data={allocationData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={30}
+                        outerRadius={60}
+                        paddingAngle={4}
+                        dataKey="value"
+                        stroke="none"
+                        animationDuration={1000}
+                      >
+                        {allocationData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
                   </div>
                 </div>
               </div>
 
-              {/* Progress Bar */}
-              <div className="space-y-3">
-                <div className="relative group">
-                  <div className="h-14 w-full overflow-hidden rounded-2xl border-2 border-primary/10 bg-muted/20 p-1 shadow-inner backdrop-blur-md">
-                    <div className="flex h-full w-full rounded-xl overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(totalAssetValue.taler / current.goal) * 100}%` }}
-                        className="h-full transition-all duration-700 ease-out"
-                        style={{ backgroundColor: lineConfig.taler.color }}
-                      />
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(totalAssetValue.wood / current.goal) * 100}%` }}
-                        className="h-full transition-all duration-700 ease-out border-l border-white/20"
-                        style={{ backgroundColor: lineConfig.wood.color }}
-                      />
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(totalAssetValue.potatoes / current.goal) * 100}%` }}
-                        className="h-full transition-all duration-700 ease-out border-l border-white/20"
-                        style={{ backgroundColor: lineConfig.potatoes.color }}
-                      />
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(totalAssetValue.fish / current.goal) * 100}%` }}
-                        className="h-full transition-all duration-700 ease-out border-l border-white/20"
-                        style={{ backgroundColor: lineConfig.fish.color }}
-                      />
-                    </div>
-
-                    {totalValue >= current.goal && (
-                      <motion.div
-                        initial={{ x: "-100%" }}
-                        animate={{ x: "200%" }}
-                        transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
-                        className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg]"
-                      />
-                    )}
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="px-4 py-1 rounded-full bg-black/20 backdrop-blur-sm">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-white">
-                        {((totalValue / current.goal) * 100).toFixed(0)}% TO INDEPENDENCE
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-center">
-                  <AnimatePresence mode="wait">
-                    {current.goalReached || goalAnimation === "reached" ? (
-                      <motion.div
-                        key="goal-reached"
-                        initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                        className="flex items-center gap-2"
+              <div className="flex items-center justify-center">
+                <AnimatePresence mode="wait">
+                  {current.goalReached || goalAnimation === "reached" ? (
+                    <motion.div
+                      key="goal-reached"
+                      initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                      className="flex items-center gap-2"
+                    >
+                      <Badge
+                        variant="default"
+                        className="bg-green-600 px-4 py-1.5 text-xs font-black uppercase tracking-widest shadow-lg shadow-green-500/20 ring-4 ring-green-500/10"
                       >
-                        <Badge
-                          variant="default"
-                          className="bg-green-600 px-4 py-1.5 text-xs font-black uppercase tracking-widest shadow-lg shadow-green-500/20 ring-4 ring-green-500/10"
-                        >
-                          🎯 GOAL REACHED!
-                        </Badge>
-                      </motion.div>
-                    ) : goalAnimation === "lost" ? (
-                      <motion.div
-                        key="goal-lost"
-                        initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                        🎯 GOAL REACHED!
+                      </Badge>
+                    </motion.div>
+                  ) : goalAnimation === "lost" ? (
+                    <motion.div
+                      key="goal-lost"
+                      initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                    >
+                      <Badge
+                        variant="destructive"
+                        className="px-4 py-1.5 text-xs font-black uppercase tracking-widest shadow-lg shadow-destructive/20 ring-4 ring-destructive/10"
                       >
+                        📉 GOAL LOST
+                      </Badge>
+                    </motion.div>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      {gameOver && (
                         <Badge
-                          variant="destructive"
-                          className="px-4 py-1.5 text-xs font-black uppercase tracking-widest shadow-lg shadow-destructive/20 ring-4 ring-destructive/10"
+                          variant="outline"
+                          className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-background/50 border-primary/20"
                         >
-                          📉 GOAL LOST
+                          ⌛ END OF TIMES
                         </Badge>
-                      </motion.div>
-                    ) : (
-                      <div className="flex items-center gap-4">
-                        {gameOver && (
-                          <Badge
-                            variant="outline"
-                            className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-background/50 border-primary/20"
-                          >
-                            ⌛ END OF TIMES
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                      )}
+                    </div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
             {/* Background pattern decoration */}
@@ -711,7 +734,6 @@ function GameContent() {
                   const prevMarket = history.length > 1 ? history[history.length - 2].market : null
                   const prevPrice = prevMarket ? prevMarket.prices[assetKey] : null
                   const isUp = prevPrice ? currentPrice.basePrice >= prevPrice.basePrice : true
-                  const trendColor = isUp ? "text-green-500" : "text-rose-500"
 
                   const isExpanded = expandedAsset === assetKey
                   const tradeQty = tradePlan[assetKey]
@@ -719,21 +741,28 @@ function GameContent() {
                   const maxBuyLocal = Math.max(0, Math.floor(projectedTalerBalance / bPrice))
                   const maxSellLocal = portfolio[assetKey] + tradeQty
 
+                  // Get specific color from lineConfig
+                  const assetColor = lineConfig[assetKey].color
+
                   return (
                     <Card
                       key={meta.key}
                       className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50"}`}
+                      style={{ backgroundColor: `${assetColor}15` }} // Subtle background tint
                     >
                       <CardContent className="p-0">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 gap-4">
                           <div className="flex items-center gap-5">
-                            <div className={`rounded-2xl p-3 ${meta.colorClass} shadow-inner`}>
+                            <div
+                              className="rounded-2xl p-3 shadow-inner"
+                              style={{ backgroundColor: assetColor }}
+                            >
                               <Image
                                 src={meta.icon}
                                 alt={meta.name}
                                 width={48}
                                 height={48}
-                                className="object-contain drop-shadow-sm"
+                                className="object-contain brightness-0 invert"
                               />
                             </div>
                             <div className="space-y-1">
@@ -745,7 +774,8 @@ function GameContent() {
                                   {formatTaler(sPrice)}
                                 </span>
                                 <div
-                                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-muted/50 ${trendColor} text-[10px] font-bold`}
+                                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-white/50 text-[10px] font-bold"
+                                  style={{ color: isUp ? "#16a34a" : "#dc2626" }}
                                 >
                                   {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                                   {isUp ? "UP" : "DOWN"}
@@ -766,11 +796,11 @@ function GameContent() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 bg-muted/30 p-1 rounded-2xl border border-border/50">
+                            <div className="flex items-center gap-2 bg-white/40 p-1 rounded-2xl border border-white/60 shadow-xs">
                               <Button
                                 size="icon"
-                                variant="secondary"
-                                className="size-10 rounded-xl shadow-xs"
+                                variant="ghost"
+                                className="size-10 rounded-xl hover:bg-white/20"
                                 disabled={gameOver || maxSellLocal <= 0}
                                 onClick={() =>
                                   setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] - 1 }))
@@ -791,8 +821,8 @@ function GameContent() {
                               </div>
                               <Button
                                 size="icon"
-                                variant="secondary"
-                                className="size-10 rounded-xl shadow-xs"
+                                variant="ghost"
+                                className="size-10 rounded-xl hover:bg-white/20"
                                 disabled={gameOver || maxBuyLocal <= 0}
                                 onClick={() =>
                                   setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] + 1 }))
@@ -805,7 +835,7 @@ function GameContent() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className={`rounded-full size-10 transition-colors ${isExpanded ? "bg-primary/10 text-primary" : ""}`}
+                              className={`rounded-full size-10 transition-colors ${isExpanded ? "bg-white/40 text-primary" : "hover:bg-white/20"}`}
                               onClick={() => setExpandedAsset(isExpanded ? null : assetKey)}
                             >
                               {isExpanded ? (
@@ -825,11 +855,11 @@ function GameContent() {
                               exit={{ height: 0, opacity: 0 }}
                               transition={{ duration: 0.4, ease: "circOut" }}
                             >
-                              <div className="border-t bg-muted/10 p-4 sm:p-6 space-y-6">
+                              <div className="border-t border-white/20 bg-white/10 p-4 sm:p-6 space-y-6">
                                 <AssetHistoryGraph history={history} asset={assetKey} />
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div className="bg-background/60 backdrop-blur-sm border rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
+                                  <div className="bg-white/60 backdrop-blur-sm border border-white/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
                                     <div className="flex items-center gap-2">
                                       <Store className="size-3 text-muted-foreground" />
                                       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -845,7 +875,7 @@ function GameContent() {
                                           {formatTaler(bPrice)}
                                         </span>
                                       </div>
-                                      <div className="h-8 w-px bg-border mx-4" />
+                                      <div className="h-8 w-px bg-white mx-4" />
                                       <div className="flex flex-col items-end">
                                         <span className="text-[10px] font-bold text-muted-foreground uppercase">
                                           You Sell At
@@ -857,7 +887,7 @@ function GameContent() {
                                     </div>
                                   </div>
 
-                                  <div className="bg-background/60 backdrop-blur-sm border rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
+                                  <div className="bg-white/60 backdrop-blur-sm border border-white/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
                                     <div className="flex items-center gap-2">
                                       <Wallet className="size-3 text-muted-foreground" />
                                       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -873,7 +903,7 @@ function GameContent() {
                                           {projectedPortfolio[assetKey]} Units
                                         </span>
                                       </div>
-                                      <div className="h-8 w-px bg-border mx-4" />
+                                      <div className="h-8 w-px bg-white mx-4" />
                                       <div className="flex flex-col items-end text-right">
                                         <span className="text-[10px] font-bold text-muted-foreground uppercase">
                                           Total Position Value
@@ -935,9 +965,12 @@ function GameContent() {
                         <span>FINISH TRADING</span>
                       </div>
                       <div className="h-10 w-px bg-white/20" />
-                      <div className="flex flex-col items-end leading-none">
-                        <span className="text-[10px] font-black opacity-70 mb-1">PROCEED TO</span>
-                        <span className="text-xl">NEXT YEAR</span>
+                      <div className="flex items-center gap-4 leading-none">
+                        <div className="flex flex-col items-end">
+                          <span className="text-[10px] font-black opacity-70 mb-1">PROCEED TO</span>
+                          <span className="text-xl">NEXT YEAR</span>
+                        </div>
+                        <ArrowRight className="size-8 animate-pulse" />
                       </div>
                     </div>
                   )}
