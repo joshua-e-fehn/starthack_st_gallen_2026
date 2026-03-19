@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { CheckIcon, LockIcon, SparklesIcon } from "lucide-react"
+import { CheckIcon, LockIcon, SparklesIcon, Store } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useRef } from "react"
@@ -80,7 +80,7 @@ export default function LearnPage() {
           <p className="mt-1 text-sm text-muted-foreground sm:text-base">
             Complete all 7 lessons to claim your reward!
           </p>
-          <div className="mx-auto mt-4 max-w-xs">
+          <div className="mx-auto mt-4 flex max-w-xs flex-col gap-3">
             <div className="relative h-4 overflow-hidden rounded-full bg-muted">
               <motion.div
                 className="h-full rounded-full bg-gradient-to-r from-primary via-primary/90 to-primary"
@@ -92,6 +92,16 @@ export default function LearnPage() {
                 {completedCount} / {LESSONS.length}
               </span>
             </div>
+
+            <Link href="/learn/dojo">
+              <Button
+                variant="outline"
+                className="w-full gap-2 rounded-2xl border-2 border-primary/20 bg-primary/5 font-black uppercase tracking-widest hover:bg-primary/10"
+              >
+                <Store className="size-4" />
+                Dojo Trainingscamp
+              </Button>
+            </Link>
           </div>
         </motion.div>
 
