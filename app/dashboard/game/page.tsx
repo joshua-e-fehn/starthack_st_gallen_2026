@@ -627,9 +627,9 @@ function GameContent() {
               const bPrice = buyPrice(currentPrice, inf)
               const sPrice = sellPrice(currentPrice, inf)
 
-              const prevPrice =
-                history.length > 1 ? history[history.length - 2].market.prices[assetKey] : null
-              const isUp = prevPrice ? currentPrice > prevPrice : true
+              const prevMarket = history.length > 1 ? history[history.length - 2].market : null
+              const prevPrice = prevMarket ? prevMarket.prices[assetKey] : null
+              const isUp = prevPrice ? currentPrice.basePrice >= prevPrice.basePrice : true
               const trendColor = isUp ? "text-green-500" : "text-rose-500"
 
               const isExpanded = expandedAsset === assetKey
