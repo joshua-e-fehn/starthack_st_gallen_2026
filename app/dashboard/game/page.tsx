@@ -42,37 +42,8 @@ import type { StateVector } from "@/lib/types/state_vector"
 // ─── Constants ───────────────────────────────────────────────────
 
 type AssetKey = TradableAsset | "taler"
-type TradePlan = Record<TradableAsset, number>
-
-type OnboardingStep = {
-  targetId: string
-  title: string
-  description: string
-}
 
 const onboardingStorageKey = "game-onboarding-completed"
-const onboardingSteps: OnboardingStep[] = [
-  {
-    targetId: "portfolio-grid",
-    title: "Portfolio Overview",
-    description: "These cards show your current units and each position's value in talers.",
-  },
-  {
-    targetId: "asset-wood",
-    title: "Pick an Asset",
-    description: "Tap a goods card to open trading controls for that asset.",
-  },
-  {
-    targetId: "price-chart",
-    title: "Watch the Trend",
-    description: "Use this chart to compare asset value movement over the years.",
-  },
-  {
-    targetId: "roll-year",
-    title: "Commit Your Turn",
-    description: "When your plan is ready, click here to roll events and move to the next year.",
-  },
-]
 
 const goodsMeta: Array<{
   key: AssetKey
@@ -555,9 +526,6 @@ function GameContent() {
   const [selectedAsset, setSelectedAsset] = useState<TradableAsset | null>(null)
   const [draftTradeValue, setDraftTradeValue] = useState(0)
   const [isDraggingTradeBar, setIsDraggingTradeBar] = useState(false)
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
-  const [onboardingIndex, setOnboardingIndex] = useState(0)
-  const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
 
@@ -576,21 +544,43 @@ function GameContent() {
     [market, inflation],
   )
 
+  const plannedTalerDelta = useMemo(() => {
+    return -roundMoney(
+      (Object.keys(tradePlan) as TradableAsset[]).reduce((sum, asset) => {
+        const qty = tradePlan[asset]
+        if (qty > 0) return sum + qty * getBuyPriceFor(asset)
+        if (qty < 0) return sum + qty * getSellPriceFor(asset)
+        return sum
+      }, 0),
+    )
+  }, [tradePlan, getBuyPriceFor, getSellPriceFor])
+
+  const projectedTalerBalance = roundMoney(portfolio.gold + plannedTalerDelta)
+
+  const projectedPortfolio = useMemo(() => {
+    return {
+      gold: portfolio.gold + plannedTalerDelta,
+      wood: portfolio.wood + tradePlan.wood,
+      potatoes: portfolio.potatoes + tradePlan.potatoes,
+      fish: portfolio.fish + tradePlan.fish,
+    }
+  }, [portfolio, plannedTalerDelta, tradePlan])
+
   const totalAssetValue = useMemo(() => {
     return {
-      taler: portfolio.gold,
-      wood: roundMoney(portfolio.wood * getSellPriceFor("wood")),
-      potatoes: roundMoney(portfolio.potatoes * getSellPriceFor("potatoes")),
-      fish: roundMoney(portfolio.fish * getSellPriceFor("fish")),
+      taler: projectedPortfolio.gold,
+      wood: roundMoney(projectedPortfolio.wood * getSellPriceFor("wood")),
+      potatoes: roundMoney(projectedPortfolio.potatoes * getSellPriceFor("potatoes")),
+      fish: roundMoney(projectedPortfolio.fish * getSellPriceFor("fish")),
     }
-  }, [portfolio, getSellPriceFor])
+  }, [projectedPortfolio, getSellPriceFor])
 
   const maxAssetValue = useMemo(
     () => Math.max(...Object.values(totalAssetValue), 1),
     [totalAssetValue],
   )
 
-  const totalValue = current ? portfolioValue(current.portfolio, current.market) : 0
+  const totalValue = current ? portfolioValue(projectedPortfolio, current.market) : 0
 
   const selectedBuyPrice = selectedAsset ? getBuyPriceFor(selectedAsset) : 0
   const selectedSellPriceVal = selectedAsset ? getSellPriceFor(selectedAsset) : 0
@@ -622,119 +612,6 @@ function GameContent() {
     [draftTradeValue, maxBuy, maxSell],
   )
 
-  const currentYear = history.length
-  const activeStep = onboardingSteps[onboardingIndex]
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return
-    }
-
-    const isCompleted = window.localStorage.getItem(onboardingStorageKey) === "true"
-    if (!isCompleted) {
-      setIsOnboardingOpen(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!isOnboardingOpen || !activeStep) {
-      setHighlightRect(null)
-      return
-    }
-
-    const resolveTargetRect = () => {
-      const target = document.querySelector<HTMLElement>(
-        `[data-onboarding-id="${activeStep.targetId}"]`,
-      )
-      if (!target) {
-        setHighlightRect(null)
-        return
-      }
-
-      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" })
-      setHighlightRect(target.getBoundingClientRect())
-    }
-
-    resolveTargetRect()
-
-    const onViewportChange = () => {
-      const target = document.querySelector<HTMLElement>(
-        `[data-onboarding-id="${activeStep.targetId}"]`,
-      )
-      setHighlightRect(target ? target.getBoundingClientRect() : null)
-    }
-
-    window.addEventListener("resize", onViewportChange)
-    window.addEventListener("scroll", onViewportChange, true)
-
-    return () => {
-      window.removeEventListener("resize", onViewportChange)
-      window.removeEventListener("scroll", onViewportChange, true)
-    }
-  }, [activeStep, isOnboardingOpen])
-
-  function closeOnboarding(markComplete: boolean) {
-    setIsOnboardingOpen(false)
-
-    if (markComplete && typeof window !== "undefined") {
-      window.localStorage.setItem(onboardingStorageKey, "true")
-    }
-  }
-
-  function startOnboarding() {
-    setOnboardingIndex(0)
-    setIsOnboardingOpen(true)
-  }
-
-  function nextOnboardingStep() {
-    const isLastStep = onboardingIndex === onboardingSteps.length - 1
-    if (isLastStep) {
-      closeOnboarding(true)
-      return
-    }
-
-    setOnboardingIndex((previous) => previous + 1)
-  }
-
-  function previousOnboardingStep() {
-    setOnboardingIndex((previous) => Math.max(0, previous - 1))
-  }
-
-  const isLastOnboardingStep = onboardingIndex === onboardingSteps.length - 1
-  const stepProgress = `${onboardingIndex + 1} / ${onboardingSteps.length}`
-
-  const tooltipStyle = useMemo(() => {
-    if (!highlightRect) {
-      return {
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-      }
-    }
-
-    const viewportWidth = typeof window === "undefined" ? 1024 : window.innerWidth
-    const viewportHeight = typeof window === "undefined" ? 768 : window.innerHeight
-    const tooltipWidth = 320
-    const spaceAbove = highlightRect.top
-    const preferBelow = spaceAbove < 190
-    const centeredLeft = highlightRect.left + highlightRect.width / 2 - tooltipWidth / 2
-    const constrainedLeft = clamp(centeredLeft, 12, viewportWidth - tooltipWidth - 12)
-
-    if (preferBelow) {
-      const top = clamp(highlightRect.bottom + 12, 12, viewportHeight - 220)
-      return {
-        top: `${top}px`,
-        left: `${constrainedLeft}px`,
-      }
-    }
-
-    const top = clamp(highlightRect.top - 168, 12, viewportHeight - 220)
-    return {
-      top: `${top}px`,
-      left: `${constrainedLeft}px`,
-    }
-  }, [highlightRect])
-
   const projectedHolding = useMemo(() => {
     if (!selectedAsset) return 0
     return portfolio[selectedAsset] + currentTradeClamp
@@ -750,19 +627,6 @@ function GameContent() {
   const projectedAssetValue = roundMoney(
     projectedHolding * (currentTradeClamp >= 0 ? selectedBuyPrice : selectedSellPriceVal),
   )
-
-  const plannedTalerDelta = useMemo(() => {
-    return -roundMoney(
-      (Object.keys(tradePlan) as TradableAsset[]).reduce((sum, asset) => {
-        const qty = tradePlan[asset]
-        if (qty > 0) return sum + qty * getBuyPriceFor(asset)
-        if (qty < 0) return sum + qty * getSellPriceFor(asset)
-        return sum
-      }, 0),
-    )
-  }, [tradePlan, getBuyPriceFor, getSellPriceFor])
-
-  const projectedTalerBalance = roundMoney(portfolio.gold + plannedTalerDelta)
 
   const selectedAssetColor = selectedAsset
     ? lineConfig[selectedAsset].color
@@ -1068,8 +932,8 @@ function GameContent() {
                       />
                       <p className="font-mono text-xl font-black leading-none text-white drop-shadow-sm">
                         {meta.key === "taler"
-                          ? formatTaler(portfolio.gold)
-                          : portfolio[meta.key as TradableAsset]}
+                          ? formatTaler(projectedPortfolio.gold)
+                          : projectedPortfolio[meta.key as TradableAsset]}
                       </p>
                     </div>
                   </div>
