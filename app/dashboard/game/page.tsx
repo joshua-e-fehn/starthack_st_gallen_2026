@@ -587,33 +587,33 @@ function GameContent() {
           </div>
 
           {/* 2. Overview: Net Worth & Goal */}
-          <div className="relative overflow-hidden rounded-3xl border border-primary/10 bg-linear-to-br from-primary/[0.03] to-transparent p-6 sm:p-8 shadow-sm">
-            <div className="relative z-10 space-y-6">
-              <div className="flex flex-col gap-6">
+          <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-linear-to-br from-primary/[0.03] to-transparent p-4 sm:p-5 shadow-sm">
+            <div className="relative z-10 space-y-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex items-end justify-between">
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <Wallet className="size-4 text-primary" />
+                      <Wallet className="size-3.5 text-primary" />
                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
                         Portfolio Value
                       </span>
                     </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-5xl font-black tracking-tight">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-3xl font-black tracking-tight">
                         {formatTaler(totalValue)}
                       </span>
-                      <span className="text-xl font-bold text-muted-foreground">taler</span>
+                      <span className="text-sm font-bold text-muted-foreground">taler</span>
                     </div>
                   </div>
-                  <div className="text-right space-y-1">
+                  <div className="text-right space-y-0.5">
                     <div className="flex items-center justify-end gap-2 text-primary">
-                      <Trophy className="size-4" />
+                      <Trophy className="size-3.5" />
                       <span className="text-[10px] font-black uppercase tracking-[0.2em]">
                         Target
                       </span>
                     </div>
                     <div className="flex items-baseline justify-end gap-1">
-                      <span className="text-2xl font-black text-primary/80">
+                      <span className="text-xl font-black text-primary/80">
                         {formatTaler(current.goal)}
                       </span>
                     </div>
@@ -621,10 +621,10 @@ function GameContent() {
                 </div>
 
                 {/* Progress Bar (Single Color) */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div className="relative group">
-                    <div className="h-14 w-full overflow-hidden rounded-2xl border-2 border-primary/10 bg-muted/20 p-1 shadow-inner backdrop-blur-md">
-                      <div className="h-full rounded-xl overflow-hidden">
+                    <div className="h-8 w-full overflow-hidden rounded-xl border-2 border-primary/10 bg-muted/20 p-0.5 shadow-inner backdrop-blur-md">
+                      <div className="h-full rounded-lg overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{
@@ -644,8 +644,8 @@ function GameContent() {
                       )}
                     </div>
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="px-4 py-1 rounded-full bg-black/20 backdrop-blur-sm">
-                        <span className="text-xs font-black uppercase tracking-[0.2em] text-white">
+                      <div className="px-3 py-0.5 rounded-full bg-black/10 backdrop-blur-sm">
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">
                           {((totalValue / current.goal) * 100).toFixed(0)}% TO INDEPENDENCE
                         </span>
                       </div>
