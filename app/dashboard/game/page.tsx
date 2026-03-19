@@ -521,23 +521,24 @@ function GameContent() {
             </div>
 
             <div className="flex items-center justify-between sm:justify-end gap-8 bg-muted/30 p-3 pr-6 rounded-2xl border border-primary/5">
-              <div className="flex items-center gap-5 pl-3">
+              <div className="flex items-center gap-4 pl-3">
                 {goodsMeta.map((meta) => (
                   <Tooltip key={meta.key}>
                     <TooltipTrigger asChild>
-                      <div className="flex flex-col items-center gap-1 group cursor-help">
+                      <div className="flex items-center gap-2 group cursor-help">
                         <div
-                          className={`p-2 rounded-xl ${meta.colorClass} shadow-xs group-hover:scale-110 transition-all duration-300`}
+                          className="p-1.5 rounded-lg shadow-xs group-hover:scale-110 transition-all duration-300"
+                          style={{ backgroundColor: lineConfig[meta.key].color }}
                         >
                           <Image
                             src={meta.icon}
                             alt={meta.name}
-                            width={24}
-                            height={24}
+                            width={20}
+                            height={20}
                             className="object-contain"
                           />
                         </div>
-                        <span className="font-mono text-sm font-black tabular-nums">
+                        <span className="font-mono text-base font-black tabular-nums">
                           {meta.key === "taler"
                             ? Math.round(projectedPortfolio.gold)
                             : projectedPortfolio[meta.key as TradableAsset]}
