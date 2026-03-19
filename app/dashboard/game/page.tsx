@@ -1,18 +1,19 @@
 "use client"
 
+import { Minus, Plus } from "lucide-react"
 import Image from "next/image"
 import { useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 
 type TradableAsset = "wood" | "potatoes" | "fish"
 type AssetKey = TradableAsset | "taler"
@@ -260,22 +261,26 @@ export default function Game() {
     return clamp(draftTradeValue, -maxSell, maxBuy)
   }, [draftTradeValue, maxBuy, maxSell])
 
-  const projectedTaler = useMemo(() => {
-    if (!selectedAsset) {
-      return taler
-    }
-
-    const previous = tradePlan[selectedAsset]
-    const deltaCost = (currentTradeClamp - previous) * selectedPrice
-    return roundMoney(taler - deltaCost)
-  }, [selectedAsset, taler, tradePlan, selectedPrice, currentTradeClamp])
-
   const projectedHolding = useMemo(() => {
     if (!selectedAsset) {
       return 0
     }
     return holdings[selectedAsset] + currentTradeClamp
   }, [holdings, selectedAsset, currentTradeClamp])
+
+  const selectedMeta = useMemo(() => {
+    if (!selectedAsset) {
+      return null
+    }
+    return goodsMeta.find((meta) => meta.key === selectedAsset) ?? null
+  }, [selectedAsset])
+
+  const buyDelta = Math.max(0, currentTradeClamp)
+  const sellDelta = Math.max(0, -currentTradeClamp)
+  const projectedAssetValue = roundMoney(projectedHolding * selectedPrice)
+  const selectedAssetColor = selectedAsset
+    ? lineConfig[selectedAsset].color
+    : "oklch(0.62 0.14 228)"
 
   function openTradeModal(asset: TradableAsset) {
     setSelectedAsset(asset)
@@ -369,8 +374,6 @@ export default function Game() {
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
       <div className="space-y-4">
-        <div className="text-lg font-semibold">&lt; Post Finance</div>
-
         <div className="grid grid-cols-4 gap-2">
           {goodsMeta.map((meta) => {
             const value = totalAssetValue[meta.key]
@@ -473,38 +476,87 @@ export default function Game() {
         </Card>
       </div>
 
-      <Sheet open={selectedAsset !== null} onOpenChange={(open) => !open && closeTradeModal()}>
-        <SheetContent side="bottom" className="mx-auto w-full max-w-2xl rounded-t-2xl">
-          <SheetHeader>
-            <SheetTitle>
+      <Drawer open={selectedAsset !== null} onOpenChange={(open) => !open && closeTradeModal()}>
+        <DrawerContent className="mx-auto w-full max-w-2xl rounded-t-2xl">
+          <DrawerHeader>
+            <DrawerTitle>
               {selectedAsset
                 ? `Trade ${selectedAsset[0].toUpperCase()}${selectedAsset.slice(1)}`
                 : "Trade"}
-            </SheetTitle>
-            <SheetDescription>
+            </DrawerTitle>
+            <DrawerDescription>
               Interactive trade bar: middle is no change, up buys, down sells.
-            </SheetDescription>
-          </SheetHeader>
+            </DrawerDescription>
+          </DrawerHeader>
 
-          <div className="px-4 pb-4">
+          <div className="max-h-[70vh] overflow-y-auto px-4 pb-4" data-vaul-no-drag>
             <div className="mb-3 grid grid-cols-2 gap-2 text-sm">
               <div className="rounded-lg border bg-muted/40 p-2">
                 <div className="text-xs text-muted-foreground">Price</div>
-                <div className="font-medium">{selectedPrice.toLocaleString("de-CH")} taler</div>
+                <div className="flex items-center gap-1.5 font-medium">
+                  {selectedMeta ? (
+                    <Image
+                      src={selectedMeta.icon}
+                      alt={selectedMeta.name}
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
+                  ) : null}
+                  <span>{selectedPrice.toLocaleString("de-CH")} taler</span>
+                </div>
               </div>
               <div className="rounded-lg border bg-muted/40 p-2">
-                <div className="text-xs text-muted-foreground">Limits</div>
-                <div className="font-medium">
-                  Sell up to {maxSell}, buy up to {maxBuy}
+                <div className="text-xs text-muted-foreground">Taler Balance</div>
+                <div className="flex items-center gap-1.5 font-medium">
+                  <Image
+                    src="/asset-classes/taler.webp"
+                    alt="Taler"
+                    width={16}
+                    height={16}
+                    className="object-contain"
+                  />
+                  <span>{taler.toLocaleString("de-CH")} taler</span>
                 </div>
               </div>
             </div>
 
-            <div className="mb-3 flex items-center gap-4">
-              <div className="text-xs text-muted-foreground">Buy</div>
+            <div className="mb-4 space-y-3">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg border bg-emerald-500/10 px-3 py-2 text-sm transition-colors hover:bg-emerald-500/15"
+                onClick={() => {
+                  setDraftTradeValue((v) => clamp(v + 1, -maxSell, maxBuy))
+                }}
+                aria-label="Increase acquired goods by one"
+              >
+                <div className="flex items-center gap-2 font-semibold text-emerald-700">
+                  <Plus className="size-4" />
+                  <span>Acquired</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-foreground">
+                    {roundMoney(buyDelta * selectedPrice).toLocaleString("de-CH")} taler
+                  </span>
+                  <span className="flex items-center gap-1.5 rounded-md bg-background/80 px-2 py-1 font-medium">
+                    {selectedMeta ? (
+                      <Image
+                        src={selectedMeta.icon}
+                        alt={selectedMeta.name}
+                        width={16}
+                        height={16}
+                        className="object-contain"
+                      />
+                    ) : null}
+                    +{buyDelta}
+                  </span>
+                </div>
+              </button>
+
               <div
                 ref={tradeBarRef}
-                className="relative h-55 flex-1 rounded-xl border bg-background"
+                className="relative h-55 rounded-xl border bg-background"
+                data-vaul-no-drag
                 onPointerDown={(event) => {
                   setIsDraggingTradeBar(true)
                   onPointerUpdate(event.clientY)
@@ -522,87 +574,107 @@ export default function Game() {
                   setIsDraggingTradeBar(false)
                 }}
               >
-                <div className="absolute inset-x-2 top-1/2 h-px -translate-y-1/2 bg-muted-foreground/40" />
+                <div className="absolute inset-0 overflow-hidden rounded-xl">
+                  <div className="h-1/2 w-full bg-linear-to-b from-emerald-500/20 via-emerald-500/10 to-background/60" />
+                  <div className="h-1/2 w-full bg-linear-to-t from-rose-500/20 via-rose-500/10 to-background/60" />
+                </div>
 
-                {currentTradeClamp !== 0 ? (
-                  <div
-                    className="absolute inset-x-3 rounded-md bg-primary/25"
-                    style={{
-                      top: currentTradeClamp > 0 ? `${indicatorY}px` : "50%",
-                      bottom: currentTradeClamp > 0 ? "50%" : `${220 - indicatorY}px`,
-                    }}
-                  />
-                ) : null}
+                <div className="absolute inset-x-2 top-1/2 h-px -translate-y-1/2 bg-muted-foreground/30" />
+
+                <div className="absolute top-2 bottom-2 left-1/2 z-10 w-32 -translate-x-1/2 overflow-hidden rounded-full border border-white/60 bg-background/60 shadow-inner backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-linear-to-b from-white/35 via-white/20 to-black/10" />
+
+                  {currentTradeClamp !== 0 ? (
+                    <div
+                      className="absolute inset-x-0"
+                      style={{
+                        top: currentTradeClamp > 0 ? `${indicatorY}px` : "50%",
+                        bottom: currentTradeClamp > 0 ? "50%" : `${220 - indicatorY}px`,
+                        backgroundColor: selectedAssetColor,
+                        opacity: 0.4,
+                      }}
+                    />
+                  ) : null}
+                </div>
 
                 <div
-                  className="absolute left-2 right-2 h-2 -translate-y-1/2 rounded-full bg-primary"
+                  className="absolute left-1/2 z-20 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 bg-white/85 shadow-[0_4px_14px_rgba(0,0,0,0.18)]"
                   style={{ top: `${indicatorY}px` }}
-                />
-              </div>
-              <div className="text-xs text-muted-foreground">Sell</div>
-            </div>
+                >
+                  <div
+                    className="absolute inset-1 rounded-full"
+                    style={{ backgroundColor: selectedAssetColor, opacity: 0.9 }}
+                  />
+                </div>
 
-            <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
-              <div className="rounded-lg border bg-muted/40 p-2">
-                <div className="text-xs text-muted-foreground">Trade Delta</div>
-                <div className="font-medium">
-                  {currentTradeClamp > 0 ? `+${currentTradeClamp}` : currentTradeClamp}
+                <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
+                  Buy +{buyDelta}
+                </div>
+                <div className="pointer-events-none absolute right-3 top-3 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
+                  {projectedAssetValue.toLocaleString("de-CH")} taler
+                </div>
+                <div className="pointer-events-none absolute left-3 bottom-3 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
+                  Sell -{sellDelta}
+                </div>
+                <div className="pointer-events-none absolute right-3 bottom-3 flex items-center gap-1 rounded-md bg-background/85 px-2 py-1 text-xs font-medium shadow-sm">
+                  {selectedMeta ? (
+                    <Image
+                      src={selectedMeta.icon}
+                      alt={selectedMeta.name}
+                      width={14}
+                      height={14}
+                      className="object-contain"
+                    />
+                  ) : null}
+                  {projectedHolding} units
                 </div>
               </div>
-              <div className="rounded-lg border bg-muted/40 p-2">
-                <div className="text-xs text-muted-foreground">Projected State</div>
-                <div className="font-medium">
-                  {projectedTaler.toLocaleString("de-CH")} taler, {projectedHolding} units
-                </div>
-              </div>
-            </div>
 
-            <div className="flex gap-2">
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                className="flex-1"
+                className="flex w-full items-center justify-between rounded-lg border bg-rose-500/10 px-3 py-2 text-sm transition-colors hover:bg-rose-500/15"
                 onClick={() => {
                   setDraftTradeValue((v) => clamp(v - 1, -maxSell, maxBuy))
                 }}
+                aria-label="Increase sold goods by one"
               >
-                Sell 1
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  setDraftTradeValue(0)
-                }}
-              >
-                No Change
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  setDraftTradeValue((v) => clamp(v + 1, -maxSell, maxBuy))
-                }}
-              >
-                Buy 1
-              </Button>
+                <div className="flex items-center gap-2 font-semibold text-rose-700">
+                  <Minus className="size-4" />
+                  <span>Sold</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-foreground">
+                    {roundMoney(sellDelta * selectedPrice).toLocaleString("de-CH")} taler
+                  </span>
+                  <span className="flex items-center gap-1.5 rounded-md bg-background/80 px-2 py-1 font-medium">
+                    {selectedMeta ? (
+                      <Image
+                        src={selectedMeta.icon}
+                        alt={selectedMeta.name}
+                        width={16}
+                        height={16}
+                        className="object-contain"
+                      />
+                    ) : null}
+                    -{sellDelta}
+                  </span>
+                </div>
+              </button>
             </div>
           </div>
 
-          <SheetFooter>
-            <SheetClose asChild>
+          <DrawerFooter>
+            <DrawerClose asChild>
               <Button type="button" variant="outline" onClick={closeTradeModal}>
                 Cancel
               </Button>
-            </SheetClose>
+            </DrawerClose>
             <Button type="button" onClick={applyDraftTrade}>
               Apply Trade
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </main>
   )
 }
