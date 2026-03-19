@@ -375,12 +375,12 @@ function AssetCard({
 
                     {/* Handle */}
                     <motion.div
-                      className="absolute top-1/2 z-20 h-7 w-7 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white bg-white shadow-md flex items-center justify-center"
+                      className="absolute top-1/2 z-20 h-10 w-10 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white bg-white shadow-md flex items-center justify-center"
                       style={{ left: `${mapTradeToX(tradeQty, 100, maxBuy, maxSell)}%` }}
                       animate={{ scale: isDragging ? 1.15 : 1 }}
                     >
                       <div
-                        className="absolute inset-0.5 rounded-full"
+                        className="absolute inset-1 rounded-full"
                         style={{ backgroundColor: assetColor }}
                       />
                     </motion.div>
