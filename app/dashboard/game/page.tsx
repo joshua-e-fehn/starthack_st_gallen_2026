@@ -36,6 +36,7 @@ import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
+import type { GameEvent } from "@/lib/types/events"
 import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
 import type { StorySlide } from "@/lib/types/onboarding"
 import type { StateVector } from "@/lib/types/state_vector"
@@ -563,7 +564,7 @@ function GameContent() {
   const [onboardingIndex, setOnboardingIndex] = useState(0)
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [eventToShow, setEventToShow] = useState<(typeof current.events)[number] | null>(null)
+  const [eventToShow, setEventToShow] = useState<GameEvent | null>(null)
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
   const onboardingAssistantVideoRef = useRef<HTMLVideoElement | null>(null)
 
