@@ -259,6 +259,50 @@ export function advanceYear(year: number): number {
   return year + 1
 }
 
+// ─── Event normalization ─────────────────────────────────────────
+
+/**
+ * Normalize legacy event structure to current format.
+ *
+ * Old precomputed events have quantityMultiplier/goldDelta/priceMultiplier
+ * directly on the event object. New events nest them in an 'effects' object.
+ *
+ * This ensures backward compatibility with old precomputed scenarios.
+ */
+function normalizeEvent(event: GameEvent): GameEvent {
+  // If effects already exists and has values, it's already normalized
+  if (event.effects && Object.keys(event.effects).length > 0) {
+    return event
+  }
+
+  // Check if this is a legacy event with values directly on the object
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy event format
+  const legacyEvent = event as any
+
+  const hasLegacyValues =
+    legacyEvent.quantityMultiplier !== undefined ||
+    legacyEvent.goldDelta !== undefined ||
+    legacyEvent.priceMultiplier !== undefined
+
+  if (!hasLegacyValues) {
+    // No values to migrate, return as-is
+    return event
+  }
+
+  // Migrate to new format
+  return {
+    type: event.type,
+    name: event.name,
+    description: event.description,
+    targetAsset: event.targetAsset,
+    effects: {
+      quantityMultiplier: legacyEvent.quantityMultiplier,
+      goldDelta: legacyEvent.goldDelta,
+      priceMultiplier: legacyEvent.priceMultiplier,
+    },
+  }
+}
+
 // ─── Main step function ──────────────────────────────────────────
 
 /**
@@ -304,12 +348,15 @@ export async function gameStep(
       const newGoal = prevState.goal * inflationRatio
       const totalVal = portfolioValue(portfolio, precomputed.market)
 
+      // Normalize legacy event structure (backward compatibility)
+      const normalizedEvents = precomputed.events.map(normalizeEvent)
+
       return {
         step: prevState.step + 1,
         date: advanceYear(prevState.date),
         portfolio,
         market: precomputed.market,
-        events: precomputed.events,
+        events: normalizedEvents,
         actions,
         goal: newGoal,
         goalReached: totalVal >= newGoal,
