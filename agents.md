@@ -421,7 +421,7 @@ Product vision, user journey, simulation rules, and educational framing are gove
 - **Simulation mapping** — wood, potatoes, and fish as metaphors for asset classes
 - **Economic systems** — inflation, market phases, and random events
 - **Product constraints** — clarity over realism, strategy over complexity, asynchronous multiplayer
-- **AI integration** — Gemini powers dynamic content generation throughout the game
+- **AI integration** — Gemini powers chatbot assistance and landing page quotes
 
 > **Rule:** Any time gameplay, content, progression, onboarding flow, or economic logic is created or modified, `STORY.md` must be consulted and followed.
 
