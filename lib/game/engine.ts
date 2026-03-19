@@ -1,3 +1,4 @@
+import { getGeminiClient } from "../ai/gemini-client"
 import type { PlayerAction } from "../types/actions"
 import type { Portfolio, TradableAsset } from "../types/assets"
 import { createPortfolio, TRADABLE_ASSET_KEYS } from "../types/assets"
@@ -96,15 +97,15 @@ export function applyActions(
  *
  * Returns the list of events that fired and their effects on portfolio/prices.
  */
-export function resolveEvents(
+export async function resolveEvents(
   scenario: Scenario,
   portfolio: Portfolio,
   prices: Record<TradableAsset, AssetMarketPrice>,
-): {
+): Promise<{
   firedEvents: GameEvent[]
   portfolio: Portfolio
   prices: Record<TradableAsset, AssetMarketPrice>
-} {
+}> {
   const firedEvents: GameEvent[] = []
   let updatedPortfolio = { ...portfolio }
   const updatedPrices = { ...prices }
@@ -169,6 +170,33 @@ export function resolveEvents(
         basePrice: Math.max(0.01, updatedPrices[asset].basePrice * eventCfg.priceMultiplier),
       }
     }
+  }
+
+  // ── 3. AI event (15% chance) ──────────────────────────────────
+  if (Math.random() < 0.15) {
+    try {
+      const ai = getGeminiClient()
+      const prompt = `Generate a medieval market event. Return JSON: { "name": "Event Name", "description": "What happened", "effect": "price_up" | "price_down" | "gold_gain" | "gold_loss" }`
+      const response = await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
+        contents: prompt,
+        config: { temperature: 0.8, responseMimeType: "application/json", maxOutputTokens: 200 },
+      })
+      const event = JSON.parse(response.text?.trim() || "{}")
+      if (event.name && event.description) {
+        firedEvents.push({ type: "ai_generated", name: event.name, description: event.description })
+        if (event.effect === "price_up") {
+          for (const asset of TRADABLE_ASSET_KEYS) updatedPrices[asset].basePrice *= 1.1
+        } else if (event.effect === "price_down") {
+          for (const asset of TRADABLE_ASSET_KEYS)
+            updatedPrices[asset].basePrice = Math.max(0.01, updatedPrices[asset].basePrice * 0.9)
+        } else if (event.effect === "gold_gain") {
+          updatedPortfolio.gold += 50
+        } else if (event.effect === "gold_loss") {
+          updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold - 30)
+        }
+      }
+    } catch {}
   }
 
   return { firedEvents, portfolio: updatedPortfolio, prices: updatedPrices }
@@ -272,11 +300,11 @@ export function advanceYear(year: number): number {
  *
  * `actions` are the user's decisions BEFORE events and market evolution.
  */
-export function gameStep(
+export async function gameStep(
   scenario: Scenario,
   prevState: StateVector,
   actions: PlayerAction[],
-): StateVector {
+): Promise<StateVector> {
   // If precomputed mode, use the saved trajectory for this step
   if (scenario.mode === "precomputed" && scenario.precomputedTrajectories) {
     const nextStepIdx = prevState.step // step 0 is initial, so trajectories[0] is result of step 0 -> 1
@@ -343,7 +371,7 @@ export function gameStep(
     firedEvents,
     portfolio: portfolioAfterEvents,
     prices: pricesAfterEvents,
-  } = resolveEvents(scenario, portfolioAfterActions, prevState.market.prices)
+  } = await resolveEvents(scenario, portfolioAfterActions, prevState.market.prices)
 
   // 3. Evolve market (regime transition, real returns, inflation)
   //    Start from event-modified prices so event price shocks carry forward
@@ -380,14 +408,14 @@ export function gameStep(
 /**
  * Generate a full sequence of market states and events for a precomputed scenario.
  */
-export function generateTrajectories(scenario: Scenario): PrecomputedStep[] {
+export async function generateTrajectories(scenario: Scenario): Promise<PrecomputedStep[]> {
   const steps: PrecomputedStep[] = []
   let currentMarket = initializeMarket(scenario)
   const years = scenario.endYear - scenario.startYear
 
   for (let i = 0; i < years; i++) {
     // 1. Roll events
-    const { firedEvents, prices: pricesAfterEvents } = resolveEvents(
+    const { firedEvents, prices: pricesAfterEvents } = await resolveEvents(
       scenario,
       createPortfolio(0), // Portfolio doesn't matter for price/event generation
       currentMarket.prices,

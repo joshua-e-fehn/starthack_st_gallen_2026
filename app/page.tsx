@@ -1,6 +1,6 @@
 "use client"
 
-import { useConvex, useQuery } from "convex/react"
+import { useConvex, useMutation, useQuery } from "convex/react"
 import { motion } from "framer-motion"
 import {
   ActivityIcon,
@@ -49,6 +49,7 @@ function HomeContent() {
     api.game.getSessionWithLeaderboard,
     sessionId ? { sessionId } : "skip",
   )
+  const myGameInSession = useQuery(api.game.getMyGameInSession, sessionId ? { sessionId } : "skip")
   const isLoaded = !!sessionId && !!sessionData
   const isLoadingSession = !!sessionId && sessionData === undefined
 
@@ -145,6 +146,8 @@ function HomeContent() {
     }
   }, [])
 
+  const startGame = useMutation(api.game.startGame)
+
   async function onStartGame() {
     const trimmedName = playerName.trim()
     if (!trimmedName) {
@@ -153,8 +156,24 @@ function HomeContent() {
     }
     localStorage.setItem("debug_playerName", trimmedName)
 
-    if (isLoaded) {
-      router.push(`/dashboard/game?sessionId=${sessionId}`)
+    if (isLoaded && sessionData) {
+      // If we already have a game in this session, just go there
+      if (myGameInSession) {
+        router.push(`/debug/engine?gameId=${myGameInSession._id}`)
+        return
+      }
+
+      try {
+        const gameId = await startGame({
+          scenarioId: sessionData.session.scenarioId,
+          sessionId: sessionData.session._id,
+          playerName: trimmedName,
+        })
+        router.push(`/debug/engine?gameId=${gameId}`)
+      } catch (error) {
+        console.error("Error starting game:", error)
+        alert(error instanceof Error ? error.message : "Failed to start game")
+      }
       return
     }
   }

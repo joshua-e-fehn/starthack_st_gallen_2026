@@ -246,6 +246,21 @@ export const listSessionGames = query({
   },
 })
 
+/** Get the authenticated user's game in a specific session */
+export const getMyGameInSession = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+
+    return await ctx.db
+      .query("games")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .filter((q) => q.eq(q.field("sessionId"), args.sessionId))
+      .first()
+  },
+})
+
 // ─── Mutations ───────────────────────────────────────────────────
 
 /** Start a new game from a scenario or session */
@@ -282,7 +297,7 @@ export const startGame = mutation({
 
     // Map Convex document → Scenario type
     const { _id, _creationTime, ...rest } = scenarioDoc
-    const scenario: Scenario = { id: _id, ...rest }
+    const scenario: Scenario = { id: _id, mode: rest.mode ?? "live", ...rest }
 
     const initialState = initializeGame(scenario)
 
@@ -334,7 +349,7 @@ export const submitStep = mutation({
     const scenarioDoc = await ctx.db.get(game.scenarioId)
     if (!scenarioDoc) throw new Error("Scenario not found")
     const { _id, _creationTime, ...rest } = scenarioDoc
-    const scenario: Scenario = { id: _id, ...rest }
+    const scenario: Scenario = { id: _id, mode: rest.mode ?? "live", ...rest }
 
     // Load latest state
     const latestStep = await ctx.db
@@ -359,7 +374,7 @@ export const submitStep = mutation({
     const actions = args.actions as PlayerAction[]
 
     // Run engine step
-    const newState = gameStep(scenario, prevState, actions)
+    const newState = await gameStep(scenario, prevState, actions)
 
     // Check if game is over
     const gameOver = isGameOver(scenario, newState)

@@ -9,6 +9,7 @@
 | Runtime                         | Bun                                   | 1.3+           |
 | Backend / Database              | Convex                                | 1.32           |
 | Authentication                  | Better Auth + @convex-dev/better-auth | 1.5.5 / 0.11.1 |
+| AI Engine                       | Gemini (Google GenAI SDK)             | 1.46           |
 | UI Components                   | shadcn/ui + Radix UI                  | 4.0 / 1.4      |
 | Styling                         | Tailwind CSS v4                       | 4.1            |
 | Animation                       | Framer Motion                         | 12.x           |
@@ -420,6 +421,7 @@ Product vision, user journey, simulation rules, and educational framing are gove
 - **Simulation mapping** — wood, potatoes, and fish as metaphors for asset classes
 - **Economic systems** — inflation, market phases, and random events
 - **Product constraints** — clarity over realism, strategy over complexity, asynchronous multiplayer
+- **AI integration** — Gemini powers dynamic content generation throughout the game
 
 > **Rule:** Any time gameplay, content, progression, onboarding flow, or economic logic is created or modified, `STORY.md` must be consulted and followed.
 

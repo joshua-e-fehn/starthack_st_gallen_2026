@@ -8,6 +8,7 @@ export const DEBUG_SCENARIO: Scenario = {
   id: "debug-001",
   name: "Debug Scenario",
   description: "A test scenario with moderate parameters for engine debugging.",
+  mode: "live",
   startCapital: 1000,
   recurringRevenue: 100,
   startYear: 1400,
