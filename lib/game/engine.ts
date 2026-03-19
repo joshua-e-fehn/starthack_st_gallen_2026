@@ -138,28 +138,6 @@ export async function resolveEvents(
       }
     }
 
-    // ── Price multiplier ──────────────────────────────────────────
-    if (effects.priceMultiplier !== undefined) {
-      if (effects.targetAsset) {
-        // Single asset
-        updatedPrices[effects.targetAsset] = {
-          ...updatedPrices[effects.targetAsset],
-          basePrice: Math.max(
-            0.01,
-            updatedPrices[effects.targetAsset].basePrice * effects.priceMultiplier,
-          ),
-        }
-      } else {
-        // All assets
-        for (const asset of TRADABLE_ASSET_KEYS) {
-          updatedPrices[asset] = {
-            ...updatedPrices[asset],
-            basePrice: Math.max(0.01, updatedPrices[asset].basePrice * effects.priceMultiplier),
-          }
-        }
-      }
-    }
-
     // ── Gold delta ────────────────────────────────────────────────
     if (effects.goldDelta !== undefined) {
       updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold + effects.goldDelta)
@@ -196,11 +174,20 @@ export async function resolveEvents(
  * 5. Carry forward buy/sell factors
  */
 export function stepMarket(scenario: Scenario, prev: MarketState): MarketState {
-  // 1. Regime transition
-  let regime = prev.regime
-  if (regime === "peace" && Math.random() < scenario.market.peaceToWarProbability) {
+  // Helper: resolve market params with legacy bull/bear fallbacks
+  const m = scenario.market
+  const peaceReturn = m.peaceReturn ?? m.bullReturn ?? 0.08
+  const warReturn = m.warReturn ?? m.bearReturn ?? -0.06
+  const peaceVolatility = m.peaceVolatility ?? m.bullVolatility ?? 0.05
+  const warVolatility = m.warVolatility ?? m.bearVolatility ?? 0.05
+  const peaceToWarProb = m.peaceToWarProbability ?? m.bullToBearProbability ?? 0.1
+  const warToPeaceProb = m.warToPeaceProbability ?? m.bearToBullProbability ?? 0.25
+
+  // 1. Regime transition (normalize legacy bull/bear → peace/war)
+  let regime = prev.regime === "bull" ? "peace" : prev.regime === "bear" ? "war" : prev.regime
+  if (regime === "peace" && Math.random() < peaceToWarProb) {
     regime = "war"
-  } else if (regime === "war" && Math.random() < scenario.market.warToPeaceProbability) {
+  } else if (regime === "war" && Math.random() < warToPeaceProb) {
     regime = "peace"
   }
 
@@ -211,8 +198,8 @@ export function stepMarket(scenario: Scenario, prev: MarketState): MarketState {
   // 3. Market regime return: r_market ~ N(μ_regime, σ_regime²)  — same for all assets
   const rMarket =
     regime === "peace"
-      ? scenario.market.peaceReturn + scenario.market.peaceVolatility * randomNormal()
-      : scenario.market.warReturn + scenario.market.warVolatility * randomNormal()
+      ? peaceReturn + peaceVolatility * randomNormal()
+      : warReturn + warVolatility * randomNormal()
 
   // 4. Per-asset real price evolution (multiplicative)
   const prices = {} as Record<TradableAsset, AssetMarketPrice>
