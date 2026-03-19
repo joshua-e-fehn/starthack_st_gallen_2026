@@ -36,6 +36,13 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -307,13 +314,6 @@ function AssetCard({
   const isExpanded = expandedAsset === assetKey
   const tradeQty = tradePlan[assetKey]
 
-  const maxBuyLocal = Math.max(
-    0,
-    Math.floor((projectedTalerBalance - (tradeQty > 0 ? -tradeQty * bPrice : 0)) / bPrice),
-  )
-  // Correct maxBuy: how many more can we buy given remaining cash?
-  // Actually, tradePlan already accounts for plannedTalerDelta.
-  // We need to know how much cash is available EXCLUDING this asset's current trade.
   const cashExcludingThis =
     projectedTalerBalance +
     (tradeQty > 0 ? tradeQty * bPrice : tradeQty < 0 ? tradeQty * sPrice : 0)
@@ -331,8 +331,6 @@ function AssetCard({
     const val = mapXToTrade(x, rect.width, maxBuy, maxSell)
     setTradePlan((prev) => ({ ...prev, [assetKey]: val }))
   }
-
-  const indicatorX = mapTradeToX(tradeQty, 200, maxBuy, maxSell) // Fixed width for mapping or dynamic?
 
   return (
     <Card
@@ -395,7 +393,10 @@ function AssetCard({
                     variant="ghost"
                     className="size-10 rounded-xl hover:bg-white/20"
                     disabled={gameOver || portfolio[assetKey] + tradeQty <= 0}
-                    onClick={() => setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] - 1 }))}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] - 1 }))
+                    }}
                   >
                     <Minus className="size-5" />
                   </Button>
@@ -415,7 +416,10 @@ function AssetCard({
                     variant="ghost"
                     className="size-10 rounded-xl hover:bg-white/20"
                     disabled={gameOver || maxBuy <= tradeQty}
-                    onClick={() => setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] + 1 }))}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] + 1 }))
+                    }}
                   >
                     <Plus className="size-5" />
                   </Button>
@@ -433,7 +437,6 @@ function AssetCard({
             </div>
           </div>
 
-          {/* Horizontal Slider for Mobile - Directly Integrated */}
           {isMobile && !gameOver && (
             <div className="space-y-3 pt-2 border-t border-black/5">
               <div className="flex justify-between items-end px-1">
@@ -476,11 +479,9 @@ function AssetCard({
                   <div className="w-1/2 h-full bg-linear-to-l from-emerald-500/10 to-transparent" />
                 </div>
                 <div className="absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 bg-black/10" />
-
-                {/* Visual Handle */}
                 <motion.div
                   className="absolute top-1/2 z-20 h-10 w-10 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white bg-white shadow-lg flex items-center justify-center"
-                  style={{ left: `${mapTradeToX(tradeQty, 100, maxBuy, maxSell)}%` }} // Simplified for responsive
+                  style={{ left: `${mapTradeToX(tradeQty, 100, maxBuy, maxSell)}%` }}
                   animate={{ scale: isDragging ? 1.1 : 1 }}
                 >
                   <div
@@ -723,7 +724,6 @@ function GameContent() {
   const scenario = useMemo(() => {
     if (!convexScenario) return null
     const { _id, _creationTime, ...rest } = convexScenario
-    // biome-ignore lint/suspicious/noExplicitAny: shape match
     return { id: _id, ...rest } as any
   }, [convexScenario])
 
@@ -887,162 +887,155 @@ function GameContent() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <TooltipProvider>
         <div className="space-y-8">
-          {/* 1. Header: Status, Quick Stats & Allocation */}
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between bg-card p-6 rounded-3xl border shadow-sm border-primary/5">
-            <div className="flex flex-wrap items-center gap-8">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
-                  Timeline
-                </span>
-                <h1 className="text-4xl sm:text-5xl font-black tabular-nums tracking-tighter">
-                  Year {current.date}
-                </h1>
-              </div>
-              <div className="h-12 w-px bg-border hidden sm:block" />
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
-                  Market Condition
-                </span>
-                <Badge
-                  variant={current.market.regime === "bull" ? "default" : "destructive"}
-                  className="px-4 py-1.5 text-xs font-black uppercase tracking-widest shadow-sm ring-4 ring-primary/5"
-                >
-                  {current.market.regime === "bull" ? "🐂 Bull Market" : "🐻 Bear Market"}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between lg:justify-end gap-10 bg-muted/40 p-5 px-8 rounded-3xl border border-primary/10 shadow-inner">
-              <div className="flex items-center gap-6">
-                {goodsMeta.map((meta) => (
-                  <Tooltip key={meta.key}>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-2.5 group cursor-help">
-                        <div
-                          className="p-2 rounded-xl shadow-sm group-hover:scale-110 transition-all duration-300"
-                          style={{ backgroundColor: lineConfig[meta.key].color }}
-                        >
-                          <Image
-                            src={meta.icon}
-                            alt={meta.name}
-                            width={24}
-                            height={24}
-                            className="object-contain"
-                          />
-                        </div>
-                        <span className="font-mono text-lg font-black tabular-nums">
-                          {meta.key === "taler"
-                            ? Math.round(projectedPortfolio.gold)
-                            : projectedPortfolio[meta.key as TradableAsset]}
-                        </span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="p-3 max-w-[200px]">
-                      <p className="font-bold text-xs mb-1">{meta.name}</p>
-                      <p className="text-[10px] text-muted-foreground leading-tight">
-                        {meta.description}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
-
-              <div className="h-16 w-px bg-border/60 hidden sm:block" />
-
-              <div className="hidden sm:flex flex-col items-center">
-                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">
-                  Spread
-                </span>
-                <div className="h-20 w-20 relative">
-                  <PieChart width={80} height={80}>
-                    <Pie
-                      data={allocationData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={18}
-                      outerRadius={40}
-                      paddingAngle={0}
-                      dataKey="value"
-                      stroke="none"
-                      animationDuration={1000}
+          {/* 1. Combined Header & Overview Section */}
+          <div className="relative overflow-hidden rounded-[2.5rem] border-4 border-muted bg-[#F9F8F3] p-8 shadow-xl">
+            <div className="relative z-10 flex flex-col gap-10">
+              {/* Top Row: Timeline, Assets Grid, Donut Chart */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+                {/* Timeline & Market */}
+                <div className="space-y-6">
+                  <div className="space-y-1">
+                    <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                      Timeline
+                    </span>
+                    <h1 className="text-7xl font-black tabular-nums tracking-tighter text-[#1A1A1A]">
+                      Year {current.date}
+                    </h1>
+                  </div>
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                      Market Condition
+                    </span>
+                    <Badge
+                      variant={current.market.regime === "bull" ? "default" : "destructive"}
+                      className="px-6 py-2 text-sm font-black uppercase tracking-widest shadow-md rounded-full bg-[#FFD700] text-black border-none hover:bg-[#FFD700]/90"
                     >
-                      {allocationData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
+                      {current.market.regime === "bull" ? "🐂 Bull Market" : "🐻 Bear Market"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* 2x2 Asset Grid */}
+                <div className="grid grid-cols-2 gap-px bg-muted/10 rounded-3xl overflow-hidden border border-muted shadow-sm">
+                  {[
+                    goodsMeta.find((m) => m.key === "potatoes"),
+                    goodsMeta.find((m) => m.key === "fish"),
+                    goodsMeta.find((m) => m.key === "taler"),
+                    goodsMeta.find((m) => m.key === "wood"),
+                  ].map(
+                    (meta) =>
+                      meta && (
+                        <div
+                          key={meta.key}
+                          className="bg-white p-4 flex items-center gap-4 min-w-[140px]"
+                        >
+                          <div
+                            className={`p-2 rounded-2xl shadow-sm`}
+                            style={{ backgroundColor: lineConfig[meta.key].color }}
+                          >
+                            <Image
+                              src={meta.icon}
+                              alt={meta.name}
+                              width={32}
+                              height={32}
+                              className="object-contain"
+                            />
+                          </div>
+                          <span className="font-mono text-2xl font-black tabular-nums">
+                            {meta.key === "taler"
+                              ? Math.round(projectedPortfolio.gold)
+                              : projectedPortfolio[meta.key as TradableAsset]}
+                          </span>
+                        </div>
+                      ),
+                  )}
+                </div>
+
+                {/* Larger Donut Chart */}
+                <div className="flex flex-col items-center bg-white p-4 rounded-[2rem] shadow-sm border border-muted/50">
+                  <div className="h-40 w-40 relative">
+                    <PieChart width={160} height={160}>
+                      <Pie
+                        data={allocationData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={80}
+                        paddingAngle={0}
+                        dataKey="value"
+                        stroke="none"
+                        animationDuration={1000}
+                      >
+                        {allocationData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* 2. Overview: Net Worth & Goal */}
-          <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-linear-to-br from-primary/[0.03] to-transparent p-4 sm:p-5 shadow-sm">
-            <div className="relative z-10 space-y-4">
-              <div className="flex flex-col gap-4">
-                <div className="flex items-end justify-between">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <Wallet className="size-3.5 text-primary" />
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                        Portfolio Value
-                      </span>
-                    </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-3xl font-black tracking-tight">
-                        {formatTaler(totalValue)}
-                      </span>
-                      <span className="text-sm font-bold text-muted-foreground">taler</span>
-                    </div>
+              {/* Bottom Labels: Portfolio Value & Target */}
+              <div className="flex items-end justify-between px-2 pt-4 border-t border-muted/20">
+                <div className="flex items-center gap-3">
+                  <Wallet className="size-5 text-muted-foreground/60" />
+                  <span className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                    Portfolio Value
+                  </span>
+                </div>
+                <div className="text-right space-y-1">
+                  <div className="flex items-center justify-end gap-2 text-[#FFD700]">
+                    <Trophy className="size-5" />
+                    <span className="text-sm font-black uppercase tracking-[0.2em]">Target</span>
                   </div>
-                  <div className="text-right space-y-0.5">
-                    <div className="flex items-center justify-end gap-2 text-primary">
-                      <Trophy className="size-3.5" />
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em]">
-                        Target
-                      </span>
-                    </div>
-                    <div className="flex items-baseline justify-end gap-1">
-                      <span className="text-xl font-black text-primary/80">
-                        {formatTaler(current.goal)}
-                      </span>
-                    </div>
+                  <div className="flex items-baseline justify-end gap-1">
+                    <span className="text-4xl font-black text-[#FFD700] drop-shadow-sm">
+                      {formatTaler(current.goal)}
+                    </span>
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <div className="relative group">
-                    <div className="h-8 w-full overflow-hidden rounded-xl border-2 border-primary/10 bg-muted/20 p-0.5 shadow-inner backdrop-blur-md">
-                      <div className="h-full rounded-lg overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{
-                            width: `${Math.min(100, (totalValue / current.goal) * 100)}%`,
-                          }}
-                          className="h-full transition-all duration-700 ease-out bg-primary"
-                        />
-                      </div>
+              {/* Massive Full-width Progress Bar */}
+              <div className="relative group -mx-2">
+                <div className="h-12 w-full overflow-hidden rounded-full border-4 border-white bg-white shadow-2xl">
+                  <div className="h-full w-full rounded-full overflow-hidden bg-muted/10 relative">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, (totalValue / current.goal) * 100)}%` }}
+                      className="h-full transition-all duration-1000 ease-out bg-[#FFD700]"
+                    />
 
-                      {totalValue >= current.goal && (
-                        <motion.div
-                          initial={{ x: "-100%" }}
-                          animate={{ x: "200%" }}
-                          transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
-                          className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg]"
-                        />
-                      )}
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="px-3 py-0.5 rounded-full bg-black/10 backdrop-blur-sm">
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">
-                          {((totalValue / current.goal) * 100).toFixed(0)}% TO INDEPENDENCE
+                    {/* Value text INSIDE the bar */}
+                    <div className="absolute inset-0 flex items-center justify-start px-6 pointer-events-none">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-black tabular-nums text-[#1A1A1A]">
+                          {formatTaler(totalValue)}
+                        </span>
+                        <span className="text-sm font-black uppercase text-[#1A1A1A]/60">
+                          taler
                         </span>
                       </div>
                     </div>
+
+                    {totalValue >= current.goal && (
+                      <motion.div
+                        initial={{ x: "-100%" }}
+                        animate={{ x: "200%" }}
+                        transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
+                        className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/40 to-transparent skew-x-[-25deg]"
+                      />
+                    )}
                   </div>
+                </div>
+
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+                  <span className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground">
+                    Independence Progress
+                  </span>
                 </div>
               </div>
 
@@ -1054,13 +1047,12 @@ function GameContent() {
                       initial={{ opacity: 0, scale: 0.8, y: 10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                      className="flex items-center gap-2"
                     >
                       <Badge
                         variant="default"
-                        className="bg-green-600 px-4 py-1.5 text-xs font-black uppercase tracking-widest shadow-lg shadow-green-500/20 ring-4 ring-green-500/10"
+                        className="bg-green-600 px-8 py-3 text-sm font-black uppercase tracking-widest shadow-xl ring-8 ring-green-500/10 rounded-full"
                       >
-                        🎯 GOAL REACHED!
+                        🎯 MISSION ACCOMPLISHED
                       </Badge>
                     </motion.div>
                   ) : goalAnimation === "lost" ? (
@@ -1072,9 +1064,9 @@ function GameContent() {
                     >
                       <Badge
                         variant="destructive"
-                        className="px-4 py-1.5 text-xs font-black uppercase tracking-widest shadow-lg shadow-destructive/20 ring-4 ring-destructive/10"
+                        className="px-8 py-3 text-sm font-black uppercase tracking-widest shadow-xl ring-8 ring-destructive/10 rounded-full"
                       >
-                        📉 GOAL LOST
+                        📉 FORTUNE DIMINISHED
                       </Badge>
                     </motion.div>
                   ) : (
@@ -1082,9 +1074,9 @@ function GameContent() {
                       {gameOver && (
                         <Badge
                           variant="outline"
-                          className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-background/50 border-primary/20"
+                          className="px-4 py-2 text-xs font-black uppercase tracking-widest bg-white shadow-sm border-primary/20 rounded-full"
                         >
-                          ⌛ END OF TIMES
+                          ⌛ THE FINAL YEAR
                         </Badge>
                       )}
                     </div>
@@ -1092,8 +1084,8 @@ function GameContent() {
                 </AnimatePresence>
               </div>
             </div>
-            <div className="absolute -right-10 -bottom-10 opacity-5 pointer-events-none rotate-12">
-              <Coins size={200} />
+            <div className="absolute -right-20 -bottom-20 opacity-[0.03] pointer-events-none rotate-12">
+              <Coins size={400} />
             </div>
           </div>
 
@@ -1175,7 +1167,7 @@ function GameContent() {
                     <div className="flex items-center justify-between w-full px-4 sm:px-8">
                       <div className="flex items-center gap-2 sm:gap-4">
                         <Store className="size-6 sm:size-8" />
-                        <span>FINISH TRADING</span>
+                        <span className="text-[15px] sm:text-xl leading-none">FINISH TRADING</span>
                       </div>
                       <div className="h-10 w-px bg-white/20" />
                       <div className="flex items-center gap-2 sm:gap-4 leading-none text-right">
