@@ -17,6 +17,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 
+import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -52,10 +53,18 @@ function LeaderboardRow({
   entry,
   rank,
   total,
+  scalePercent,
 }: {
-  entry: { gameId: string; playerName: string; status: string; netWorth: number }
+  entry: {
+    gameId: string
+    playerName: string
+    status: string
+    netWorth: number
+    assetBreakdown: { gold: number; wood: number; potatoes: number; fish: number; total: number }
+  }
   rank: number
   total: number
+  scalePercent: number
 }) {
   const isFirst = rank === 1
   const isLast = rank === total
@@ -84,9 +93,15 @@ function LeaderboardRow({
         >
           {rank}
         </span>
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-semibold leading-tight">{entry.playerName}</p>
           <p className="text-[10px] text-muted-foreground">{entry.status}</p>
+          <AssetDistributionBar
+            breakdown={entry.assetBreakdown}
+            scalePercent={scalePercent}
+            showDetails={rank <= 3}
+            className="mt-1"
+          />
         </div>
       </div>
       <p className="font-mono text-sm font-black text-primary">{formatTaler(entry.netWorth)}</p>
@@ -312,6 +327,7 @@ function HomeContent() {
                 {(() => {
                   const lb = sessionData.leaderboard
                   const MAX = 5
+                  const maxNetWorth = lb[0]?.netWorth || 1
 
                   // Show all if ≤5 entries
                   if (lb.length <= MAX) {
@@ -321,6 +337,7 @@ function HomeContent() {
                         entry={entry}
                         rank={i + 1}
                         total={lb.length}
+                        scalePercent={(entry.netWorth / maxNetWorth) * 100}
                       />
                     ))
                   }
@@ -338,6 +355,7 @@ function HomeContent() {
                           entry={entry}
                           rank={i + 1}
                           total={lb.length}
+                          scalePercent={(entry.netWorth / maxNetWorth) * 100}
                         />
                       ))}
                       <div className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-muted-foreground">
@@ -351,6 +369,7 @@ function HomeContent() {
                           entry={entry}
                           rank={lb.length - 1 + i}
                           total={lb.length}
+                          scalePercent={(entry.netWorth / maxNetWorth) * 100}
                         />
                       ))}
                     </>
