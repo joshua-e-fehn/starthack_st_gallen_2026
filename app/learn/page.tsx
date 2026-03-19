@@ -57,7 +57,7 @@ export default function LearnPage() {
     <div className="min-h-svh bg-background">
       <PublicHeader />
 
-      <main className="mx-auto max-w-sm px-4 pb-16 pt-6 sm:max-w-md sm:px-6 sm:pt-10">
+      <main className="mx-auto max-w-sm px-4 pb-16 pt-3 sm:max-w-md sm:px-6 sm:pt-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -65,16 +65,22 @@ export default function LearnPage() {
           transition={{ duration: 0.4 }}
           className="mb-8 text-center"
         >
-          <motion.span
+          <motion.div
             initial={{ scale: 0, rotate: -20 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ delay: 0.15, type: "spring", stiffness: 200 }}
-            className="mb-1 inline-block text-4xl"
+            className="mb-1 inline-block"
           >
-            🏰
-          </motion.span>
+            <Image
+              src="/asset-classes/farm.webp"
+              alt="The Farm"
+              width={120}
+              height={120}
+              className="h-32 w-auto drop-shadow-md sm:h-36"
+            />
+          </motion.div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Your Journey to the Farm
+            Your Journey to your Farm
           </h1>
           <p className="mt-1 text-sm text-muted-foreground sm:text-base">
             Complete all 7 lessons to claim your reward!
