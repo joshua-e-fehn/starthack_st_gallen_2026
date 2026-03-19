@@ -15,6 +15,7 @@ A modern full-stack web application built with Next.js, Convex, and Better Auth.
 | Runtime            | Bun                                   |
 | Backend / Database | Convex                                |
 | Authentication     | Better Auth + @convex-dev/better-auth |
+| AI Engine          | Gemini AI (Google GenAI SDK)          |
 | UI Components      | shadcn/ui + Radix UI                  |
 | Styling            | Tailwind CSS v4                       |
 | Animation          | Framer Motion                         |
@@ -51,6 +52,10 @@ CONVEX_DEPLOYMENT=dev:<your-convex-deployment>
 NEXT_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
 NEXT_PUBLIC_CONVEX_SITE_URL=https://<your-deployment>.convex.site
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
+
+# AI Features
+GEMINI_API_KEY=<your-gemini-api-key>
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 Set Convex server-side environment variables:

@@ -46,7 +46,7 @@ import {
   resolveEvents,
   stepMarket,
 } from "@/lib/game/engine"
-import { runMonteCarloSimulations } from "@/lib/game/monte-carlo"
+import { type MonteCarloDataPoint, runMonteCarloSimulations } from "@/lib/game/monte-carlo"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { Portfolio, TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
@@ -280,10 +280,15 @@ const mcChartConfig = {
 const NUM_SIMS = 100
 
 function MonteCarloChart({ history, scenario }: { history: StateVector[]; scenario: Scenario }) {
-  const mcData = useMemo(
-    () => runMonteCarloSimulations(history, scenario, NUM_SIMS),
-    [history, scenario],
-  )
+  const [mcData, setMcData] = useState<MonteCarloDataPoint[]>([])
+
+  useEffect(() => {
+    const loadData = async () => {
+      const data = await runMonteCarloSimulations(history, scenario, NUM_SIMS)
+      setMcData(data)
+    }
+    loadData()
+  }, [history, scenario])
 
   if (mcData.length < 2) {
     return (
@@ -738,7 +743,7 @@ function DebugPage() {
         }
         // History will be updated via useQuery sync
       } else {
-        const newState = gameStep(scenario, current, actions)
+        const newState = await gameStep(scenario, current, actions)
         setHistory((prev) => [...prev, newState])
       }
     },
@@ -789,7 +794,7 @@ function DebugPage() {
   }, [])
 
   /** Finalize trades and roll events */
-  const handleDoneTrading = useCallback(() => {
+  const handleDoneTrading = useCallback(async () => {
     if (gameOver) return
     const wp = phaseState.workingPortfolio ?? current.portfolio
     const actions = phaseState.executedActions ?? []
@@ -799,7 +804,7 @@ function DebugPage() {
       firedEvents,
       portfolio: portfolioAfterEvents,
       prices: pricesAfterEvents,
-    } = resolveEvents(scenario, wp, current.market.prices)
+    } = await resolveEvents(scenario, wp, current.market.prices)
 
     setPhaseState({
       phase: "events",
@@ -943,7 +948,7 @@ function DebugPage() {
         const newHistory = [...history]
         for (let i = 0; i < steps; i++) {
           if (isGameOver(scenario, state)) break
-          state = gameStep(scenario, state, [])
+          state = await gameStep(scenario, state, [])
           newHistory.push(state)
         }
         setHistory(newHistory)
@@ -973,7 +978,7 @@ function DebugPage() {
         for (let i = 0; i < steps; i++) {
           if (isGameOver(scenario, state)) break
           const actions = computeStrategyActions(state.portfolio, state.market, strategyAlloc)
-          state = gameStep(scenario, state, actions)
+          state = await gameStep(scenario, state, actions)
           newHistory.push(state)
         }
         setHistory(newHistory)

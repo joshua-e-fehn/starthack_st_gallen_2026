@@ -197,11 +197,21 @@ export const getSessionWithLeaderboard = query({
 export const listSessions = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
+    const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .order("desc")
       .collect()
+
+    return await Promise.all(
+      sessions.map(async (s) => {
+        const scenario = await ctx.db.get(s.scenarioId)
+        return {
+          ...s,
+          mode: scenario?.mode ?? "live",
+        }
+      }),
+    )
   },
 })
 
@@ -252,7 +262,7 @@ export const startGame = mutation({
 
     // Map Convex document → Scenario type
     const { _id, _creationTime, ...rest } = scenarioDoc
-    const scenario: Scenario = { id: _id, ...rest }
+    const scenario: Scenario = { id: _id, mode: "live", ...rest }
 
     const initialState = initializeGame(scenario)
 
@@ -304,7 +314,7 @@ export const submitStep = mutation({
     const scenarioDoc = await ctx.db.get(game.scenarioId)
     if (!scenarioDoc) throw new Error("Scenario not found")
     const { _id, _creationTime, ...rest } = scenarioDoc
-    const scenario: Scenario = { id: _id, ...rest }
+    const scenario: Scenario = { id: _id, mode: "live", ...rest }
 
     // Load latest state
     const latestStep = await ctx.db
@@ -329,7 +339,7 @@ export const submitStep = mutation({
     const actions = args.actions as PlayerAction[]
 
     // Run engine step
-    const newState = gameStep(scenario, prevState, actions)
+    const newState = await gameStep(scenario, prevState, actions)
 
     // Check if game is over
     const gameOver = isGameOver(scenario, newState)

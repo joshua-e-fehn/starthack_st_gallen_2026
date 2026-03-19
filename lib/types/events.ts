@@ -79,7 +79,7 @@ export type AssetEventConfig = {
 
 /** A resolved event that actually fired during a step */
 export type GameEvent = {
-  type: EventType
+  type: EventType | "ai_generated"
   name: string
   description: string
   /** Which asset was affected (undefined = global) */

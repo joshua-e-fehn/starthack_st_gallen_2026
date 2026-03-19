@@ -10,7 +10,10 @@ import {
 
 const schema = defineSchema({
   // ─── Scenario: game configuration template ───
-  scenarios: defineTable(scenarioFieldsValidator),
+  scenarios: defineTable({
+    ...scenarioFieldsValidator,
+    mode: v.optional(v.union(v.literal("live"), v.literal("precomputed"))),
+  }),
 
   // ─── Games: a single play-through ───
   games: defineTable({

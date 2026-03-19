@@ -54,6 +54,7 @@ const eventTypeValidator = v.union(
   v.literal("fire"),
   v.literal("mice_infestation"),
   v.literal("cooling_failure"),
+  v.literal("ai_generated"), // AI-generated events
 )
 
 export const globalEventDefinitionValidator = v.object({
@@ -100,9 +101,16 @@ export const marketParamsValidator = v.object({
   bearVolatility: v.number(),
 })
 
+export const precomputedStepValidator = v.object({
+  market: marketStateValidator,
+  events: v.array(gameEventValidator),
+})
+
 export const scenarioFieldsValidator = {
   name: v.string(),
   description: v.string(),
+  mode: v.optional(v.union(v.literal("live"), v.literal("precomputed"))),
+  precomputedTrajectories: v.optional(v.array(precomputedStepValidator)),
   startCapital: v.number(),
   recurringRevenue: v.number(),
   startYear: v.number(),

@@ -151,11 +151,11 @@ function percentile(sorted: number[], p: number): number {
  *
  * Returns percentile data per year suitable for a fan chart.
  */
-export function runMonteCarloSimulations(
+export async function runMonteCarloSimulations(
   history: StateVector[],
   scenario: Scenario,
   numSims = 100,
-): MonteCarloDataPoint[] {
+): Promise<MonteCarloDataPoint[]> {
   const stepsPlayed = history.length - 1 // step 0 is initial state
   if (stepsPlayed < 1) return []
 
@@ -179,7 +179,7 @@ export function runMonteCarloSimulations(
       const actions = materializeActions(intents[step], state)
 
       // Run one step with fresh randomness
-      state = gameStep(scenario, state, actions)
+      state = await gameStep(scenario, state, actions)
 
       sims[step].push(portfolioValue(state.portfolio, state.market))
     }
