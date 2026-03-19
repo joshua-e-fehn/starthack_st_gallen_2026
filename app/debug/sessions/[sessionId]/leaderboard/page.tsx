@@ -317,9 +317,7 @@ function LeaderboardContent() {
             ← Back to Session
           </Button>
           {gameId && (
-            <Button
-              onClick={() => router.push(`/dashboard/game?sessionId=${sessionId}&gameId=${gameId}`)}
-            >
+            <Button onClick={() => router.push(`/game?sessionId=${sessionId}&gameId=${gameId}`)}>
               Continue Playing →
             </Button>
           )}

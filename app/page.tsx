@@ -186,7 +186,7 @@ function HomeContent() {
           playerName: trimmedName,
           joinCode: sessionData.session.joinCode,
         })
-        router.push(`/dashboard/game?sessionId=${sessionId}&gameId=${myGameInSession._id}`)
+        router.push(`/game?sessionId=${sessionId}&gameId=${myGameInSession._id}`)
         return
       }
       try {
@@ -202,7 +202,7 @@ function HomeContent() {
           playerName: trimmedName,
           joinCode: sessionData.session.joinCode,
         })
-        router.push(`/dashboard/game?sessionId=${sessionData.session._id}&gameId=${gameId}`)
+        router.push(`/game?sessionId=${sessionData.session._id}&gameId=${gameId}`)
       } catch (error) {
         console.error("Error starting game:", error)
         alert(error instanceof Error ? error.message : "Failed to start game")
@@ -441,7 +441,7 @@ function HomeContent() {
                 className="h-12 w-full text-base font-semibold shadow-lg"
                 onClick={() =>
                   router.push(
-                    `/dashboard/game?sessionId=${gameSession.sessionId}&gameId=${gameSession.gameId}`,
+                    `/game?sessionId=${gameSession.sessionId}&gameId=${gameSession.gameId}`,
                   )
                 }
               >

@@ -165,9 +165,7 @@ export default function LearnCompletePage() {
               variant="outline"
               size="sm"
               onClick={() =>
-                router.push(
-                  `/dashboard/game?sessionId=${gameSession.sessionId}&gameId=${gameSession.gameId}`,
-                )
+                router.push(`/game?sessionId=${gameSession.sessionId}&gameId=${gameSession.gameId}`)
               }
             >
               {"\u2694\uFE0F"} Enter the Arena
