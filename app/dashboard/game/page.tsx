@@ -278,6 +278,11 @@ export default function Game() {
   const buyDelta = Math.max(0, currentTradeClamp)
   const sellDelta = Math.max(0, -currentTradeClamp)
   const projectedAssetValue = roundMoney(projectedHolding * selectedPrice)
+  const projectedTalerBalance = useMemo(() => {
+    const selectedTradeCost = currentTradeClamp * selectedPrice
+    return roundMoney(taler - tradeCostExcludingSelected - selectedTradeCost)
+  }, [currentTradeClamp, selectedPrice, taler, tradeCostExcludingSelected])
+  const projectedTalerDelta = roundMoney(projectedTalerBalance - taler)
   const selectedAssetColor = selectedAsset
     ? lineConfig[selectedAsset].color
     : "oklch(0.62 0.14 228)"
@@ -516,7 +521,15 @@ export default function Game() {
                     height={16}
                     className="object-contain"
                   />
-                  <span>{taler.toLocaleString("de-CH")} taler</span>
+                  <span>{projectedTalerBalance.toLocaleString("de-CH")} taler</span>
+                  {projectedTalerDelta !== 0 ? (
+                    <span
+                      className={projectedTalerDelta > 0 ? "text-emerald-700" : "text-rose-700"}
+                    >
+                      ({projectedTalerDelta > 0 ? "+" : ""}
+                      {projectedTalerDelta.toLocaleString("de-CH")})
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
