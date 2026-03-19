@@ -40,6 +40,8 @@ export type LessonSlide = {
   tip?: string
   /** Optional line chart rendered below the content */
   chart?: SlideChart
+  /** Optional image path (relative to /public) shown above the content */
+  image?: string
 }
 
 export type Lesson = {
@@ -50,6 +52,42 @@ export type Lesson = {
   icon: string
   slides: LessonSlide[]
 }
+
+// ── Compound-growth calculator ───────────────────────────────────
+/**
+ * Compute the future value of regular monthly contributions with compound interest.
+ * @param monthlyContribution — amount invested each month (e.g. 20 CHF)
+ * @param annualReturnPct     — expected annual return as a percentage (e.g. 7 for 7%)
+ * @param years               — investment horizon in years
+ * @returns total portfolio value (rounded to nearest integer)
+ */
+function futureValue(monthlyContribution: number, annualReturnPct: number, years: number): number {
+  const monthlyRate = annualReturnPct / 100 / 12
+  const months = years * 12
+  if (monthlyRate === 0) return Math.round(monthlyContribution * months)
+  // FV of annuity: PMT × ((1+r)^n − 1) / r
+  return Math.round(monthlyContribution * (((1 + monthlyRate) ** months - 1) / monthlyRate))
+}
+
+/** Generate chart data points for lesson 2 (invested vs. compounded line) */
+function buildCompoundChartData(
+  monthly: number,
+  annualReturn: number,
+  maxYears: number,
+  step: number,
+): Record<string, string | number>[] {
+  const points: Record<string, string | number>[] = []
+  for (let y = 0; y <= maxYears; y += step) {
+    points.push({
+      year: y === 0 ? "Start" : `Yr ${y}`,
+      invested: monthly * 12 * y,
+      portfolio: y === 0 ? 0 : futureValue(monthly, annualReturn, y),
+    })
+  }
+  return points
+}
+
+const COMPOUND_DATA = buildCompoundChartData(20, 10, 40, 5)
 
 export const LESSONS: Lesson[] = [
   // ────────────────────────────────────────────────────────────────
@@ -133,35 +171,61 @@ export const LESSONS: Lesson[] = [
     id: "small-amounts-matter",
     number: 2,
     title: "Every Coin Counts",
-    description: "Even a few gold coins can grow into a fortune over time.",
+    description: "Even a few coins each month can grow into a fortune over time.",
     icon: "💰",
     slides: [
       {
         title: "Too Little to Matter?",
         content:
-          "Many villagers think: 'I only have 10 gold to spare — what difference could that make?' So they spend it at the tavern instead. But one farmer thinks differently.",
+          "Many villagers think: 'I only have 20 coins to spare — what difference could that make?' So they spend it at the tavern instead. But one farmer thinks differently.",
+        tip: "Spoiler: those 20 coins will matter a lot.",
       },
       {
-        title: "The Power of Starting Small",
+        title: "20 Coins a Month",
         content:
-          "She invests just 10 gold into a small bundle of wood. A year later it is worth 10.5 gold — a 5% return. Not exciting? She does it again the next year... and the year after that.",
-        tip: "You do not need to be rich to start investing. Consistency matters far more than size.",
+          "He sets aside just 20 coins every single month — the price of a mug of mead. Not a fortune. But he invests it instead of spending it, and lets it grow year after year.",
+        tip: "In the real world, 20 CHF per month is enough to start. PostFinance lets you invest from as little as 20 CHF.",
       },
       {
-        title: "The Magic of Compounding",
+        title: "The Compound Effect",
         content:
-          "After 5 years of investing 10 gold each year, she does not have just 50 gold. She has 58 gold — because each year's gains earn their own gains. After 20 years, her small contributions have grown to over 350 gold!",
-        tip: "Compound interest is called the 'eighth wonder of the world.' Your money earns money on its own.",
+          "His investments earn about 10% per year. After 10 years he invested 2 400 coins — but his portfolio is already worth over 4 000. The earnings earn their own earnings.",
+        chart: {
+          xKey: "year",
+          ySuffix: "",
+          yDomain: [
+            0,
+            Math.round((COMPOUND_DATA[COMPOUND_DATA.length - 1].portfolio as number) / 1000) *
+              1000 +
+              1000,
+          ],
+          lines: [
+            {
+              key: "invested",
+              label: "Total coins invested",
+              color: "oklch(0.75 0.15 85)",
+              dashed: true,
+            },
+            {
+              key: "portfolio",
+              label: "Portfolio value (10% return)",
+              color: "oklch(0.65 0.2 145)",
+            },
+          ],
+          data: COMPOUND_DATA,
+        },
+        tip: "After 40 years, 20 coins/month (9 600 total) grow to over 126 000. That is the magic of compound interest. 🚀",
       },
       {
         title: "The Tavern Spender vs. the Investor",
+        image: "/farm.webp",
         content:
-          "Her neighbor spent the same 10 gold per year on mead and feasts. After 20 years, he has nothing saved. She is halfway to buying the farm — all from coins he thought were 'too small to matter.'",
+          "His neighbor spent 20 coins a month on feasts. After 40 years he has nothing. Our farmer turned those same small coins into a fortune — enough to buy a farm and retire comfortably.",
       },
       {
         title: "Lesson Learned",
         content:
-          "You do not need a treasure chest to start investing. Small, regular contributions — as little as a few coins — grow into significant wealth thanks to compounding. The best time to start is now. The second-best time is tomorrow.",
+          "You do not need to be rich to start investing. Small, regular contributions grow into serious wealth thanks to compounding. Start with whatever you can — even 20 CHF a month — and let time do the heavy lifting.",
       },
     ],
   },
@@ -270,7 +334,7 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Patient Farmer",
         content:
-          "Meanwhile, a quiet farmer bought wood and potatoes years ago and simply held them. Through good kings and bad kings — bull markets and bear markets — the value of her holdings grew steadily. Time was her greatest ally.",
+          "Meanwhile, a quiet farmer bought wood and potatoes years ago and simply held them. Through good kings and bad kings — bull markets and bear markets — the value of his holdings grew steadily. Time was his greatest ally.",
         tip: "Historically, major stock indices have always recovered from crashes — given enough time.",
       },
       {
@@ -287,7 +351,7 @@ export const LESSONS: Lesson[] = [
       {
         title: "Compound Growth in Action",
         content:
-          "Each year, the patient farmer's investments grew a little. And the next year, those gains earned their own gains. After 25 years, her modest portfolio had multiplied many times over. Compound growth turned her patience into prosperity.",
+          "Each year, the patient farmer's investments grew a little. And the next year, those gains earned their own gains. After 25 years, his modest portfolio had multiplied many times over. Compound growth turned his patience into prosperity.",
       },
       {
         title: "Lesson Learned",
@@ -315,7 +379,7 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Balanced Trader",
         content:
-          "Another trader split her gold between wood, potatoes, and fish. When fish crashed, her wood and potatoes kept her afloat. She did not reach the highest highs, but she avoided the devastating lows.",
+          "Another trader split his gold between wood, potatoes, and fish. When fish crashed, his wood and potatoes kept him afloat. He did not reach the highest highs, but he avoided the devastating lows.",
         tip: "Diversification is the only 'free lunch' in investing — it reduces risk without necessarily reducing returns.",
       },
       {

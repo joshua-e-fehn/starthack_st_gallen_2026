@@ -168,17 +168,17 @@ export default function LearnPage() {
                 >
                   {/* 3D puffy circle */}
                   <motion.div
-                    animate={isCurrent ? { scale: [1, 1.12, 1] } : undefined}
+                    animate={isCurrent ? { scale: [1, 1.24, 1] } : undefined}
                     transition={
                       isCurrent
-                        ? { duration: 1.6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }
+                        ? { duration: 1.0, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }
                         : undefined
                     }
                     className={cn(
                       "flex items-center justify-center rounded-full transition-transform active:translate-y-1 active:shadow-none hover:brightness-105",
                       completed && "border-4 border-success bg-success text-white",
                       isCurrent &&
-                        "border-4 border-primary bg-primary text-primary-foreground ring-4 ring-primary/25",
+                        "border-4 border-primary bg-primary text-primary-foreground ring-[6px] ring-primary/30",
                       !unlocked &&
                         !completed &&
                         !isCurrent &&

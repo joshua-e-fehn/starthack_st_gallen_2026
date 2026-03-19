@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion"
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, SparklesIcon } from "lucide-react"
+import Image from "next/image"
 import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
 import { useCallback, useState } from "react"
@@ -227,10 +228,10 @@ export default function LessonPage() {
 
         {/* Progress dots */}
         <div className="mb-8 flex items-center justify-center gap-2">
-          {lesson.slides.map((slide, i) => (
+          {lesson.slides.map((s, i) => (
             <button
               type="button"
-              key={slide.title}
+              key={s.title}
               onClick={() => {
                 setDirection(i > currentSlide ? 1 : -1)
                 setCurrentSlide(i)
@@ -263,6 +264,17 @@ export default function LessonPage() {
               className="flex flex-col items-center text-center"
             >
               <h2 className="text-xl font-semibold sm:text-2xl">{slide.title}</h2>
+              {slide.image && (
+                <div className="mt-3 overflow-hidden rounded-lg">
+                  <Image
+                    src={slide.image}
+                    alt={slide.title}
+                    width={320}
+                    height={180}
+                    className="h-auto max-h-36 w-auto rounded-lg object-cover"
+                  />
+                </div>
+              )}
               <p className="mt-4 max-w-lg leading-relaxed text-muted-foreground">{slide.content}</p>
               {slide.chart && <SlideLineChart chart={slide.chart} />}
               {slide.tip && (
