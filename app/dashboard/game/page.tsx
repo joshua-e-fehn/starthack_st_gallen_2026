@@ -901,7 +901,7 @@ function GameContent() {
                     <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/60">
                       Timeline
                     </span>
-                    <h1 className="text-7xl font-black tabular-nums tracking-tighter text-[#1A1A1A]">
+                    <h1 className="text-5xl font-black tabular-nums tracking-tighter text-[#1A1A1A]">
                       Year {current.date}
                     </h1>
                   </div>
@@ -911,7 +911,7 @@ function GameContent() {
                     </span>
                     <Badge
                       variant={current.market.regime === "bull" ? "default" : "destructive"}
-                      className="px-6 py-2 text-sm font-black uppercase tracking-widest shadow-md rounded-full bg-[#FFD700] text-black border-none hover:bg-[#FFD700]/90"
+                      className="px-6 py-2 text-base font-black uppercase tracking-widest shadow-md rounded-full bg-[#FFD700] text-black border-none hover:bg-[#FFD700]/90"
                     >
                       {current.market.regime === "bull" ? "🐂 Bull Market" : "🐻 Bear Market"}
                     </Badge>
@@ -980,46 +980,42 @@ function GameContent() {
 
               {/* Bottom Labels: Portfolio Value & Target */}
               <div className="flex items-end justify-between px-2 pt-4 border-t border-muted/20">
-                <div className="flex items-center gap-3">
-                  <Wallet className="size-5 text-muted-foreground/60" />
-                  <span className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                    Portfolio Value
-                  </span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="size-4 text-muted-foreground/60" />
+                    <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+                      Portfolio Value
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-black tabular-nums text-[#1A1A1A]">
+                      {formatTaler(totalValue)}
+                    </span>
+                    <span className="text-xs font-black uppercase text-[#1A1A1A]/60">taler</span>
+                  </div>
                 </div>
                 <div className="text-right space-y-1">
                   <div className="flex items-center justify-end gap-2 text-[#FFD700]">
-                    <Trophy className="size-5" />
-                    <span className="text-sm font-black uppercase tracking-[0.2em]">Target</span>
+                    <Trophy className="size-4" />
+                    <span className="text-xs font-black uppercase tracking-[0.2em]">Target</span>
                   </div>
                   <div className="flex items-baseline justify-end gap-1">
-                    <span className="text-4xl font-black text-[#FFD700] drop-shadow-sm">
+                    <span className="text-2xl font-black text-[#FFD700] drop-shadow-sm">
                       {formatTaler(current.goal)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Massive Full-width Progress Bar */}
+              {/* Much slimmer Full-width Progress Bar */}
               <div className="relative group -mx-2">
-                <div className="h-12 w-full overflow-hidden rounded-full border-4 border-white bg-white shadow-2xl">
+                <div className="h-4 w-full overflow-hidden rounded-full border-2 border-white bg-white shadow-lg">
                   <div className="h-full w-full rounded-full overflow-hidden bg-muted/10 relative">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(100, (totalValue / current.goal) * 100)}%` }}
                       className="h-full transition-all duration-1000 ease-out bg-[#FFD700]"
                     />
-
-                    {/* Value text INSIDE the bar */}
-                    <div className="absolute inset-0 flex items-center justify-start px-6 pointer-events-none">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-black tabular-nums text-[#1A1A1A]">
-                          {formatTaler(totalValue)}
-                        </span>
-                        <span className="text-sm font-black uppercase text-[#1A1A1A]/60">
-                          taler
-                        </span>
-                      </div>
-                    </div>
 
                     {totalValue >= current.goal && (
                       <motion.div
@@ -1030,12 +1026,6 @@ function GameContent() {
                       />
                     )}
                   </div>
-                </div>
-
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-                  <span className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground">
-                    Independence Progress
-                  </span>
                 </div>
               </div>
 
