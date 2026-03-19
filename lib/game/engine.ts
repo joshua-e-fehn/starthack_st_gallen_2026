@@ -134,32 +134,6 @@ export async function resolveEvents(
     if (effects.goldDelta !== undefined) {
       updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold + effects.goldDelta)
     }
-
-  // ── 3. AI event (15% chance) ──────────────────────────────────
-  if (Math.random() < 0.15) {
-    try {
-      const ai = getGeminiClient()
-      const prompt = `Generate a medieval market event. Return JSON: { "name": "Event Name", "description": "What happened", "effect": "price_up" | "price_down" | "gold_gain" | "gold_loss" }`
-      const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
-        contents: prompt,
-        config: { temperature: 0.8, responseMimeType: "application/json", maxOutputTokens: 200 },
-      })
-      const event = JSON.parse(response.text?.trim() || "{}")
-      if (event.name && event.description) {
-        firedEvents.push({ type: "ai_generated", name: event.name, description: event.description })
-        if (event.effect === "price_up") {
-          for (const asset of TRADABLE_ASSET_KEYS) updatedPrices[asset].basePrice *= 1.1
-        } else if (event.effect === "price_down") {
-          for (const asset of TRADABLE_ASSET_KEYS)
-            updatedPrices[asset].basePrice = Math.max(0.01, updatedPrices[asset].basePrice * 0.9)
-        } else if (event.effect === "gold_gain") {
-          updatedPortfolio.gold += 10
-        } else if (event.effect === "gold_loss") {
-          updatedPortfolio.gold = Math.max(0, updatedPortfolio.gold - 5)
-        }
-      }
-    }
   }
 
   return { firedEvents, portfolio: updatedPortfolio, prices: updatedPrices }
