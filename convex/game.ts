@@ -262,7 +262,7 @@ export const startGame = mutation({
 
     // Map Convex document → Scenario type
     const { _id, _creationTime, ...rest } = scenarioDoc
-    const scenario: Scenario = { id: _id, mode: "live", ...rest }
+    const scenario: Scenario = { id: _id, mode: rest.mode ?? "live", ...rest }
 
     const initialState = initializeGame(scenario)
 
@@ -314,7 +314,7 @@ export const submitStep = mutation({
     const scenarioDoc = await ctx.db.get(game.scenarioId)
     if (!scenarioDoc) throw new Error("Scenario not found")
     const { _id, _creationTime, ...rest } = scenarioDoc
-    const scenario: Scenario = { id: _id, mode: "live", ...rest }
+    const scenario: Scenario = { id: _id, mode: rest.mode ?? "live", ...rest }
 
     // Load latest state
     const latestStep = await ctx.db
