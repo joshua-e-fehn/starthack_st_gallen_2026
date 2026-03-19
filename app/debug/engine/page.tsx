@@ -789,7 +789,7 @@ function DebugPage() {
   }, [])
 
   /** Finalize trades and roll events */
-  const handleDoneTrading = useCallback(() => {
+  const handleDoneTrading = useCallback(async () => {
     if (gameOver) return
     const wp = phaseState.workingPortfolio ?? current.portfolio
     const actions = phaseState.executedActions ?? []
@@ -799,7 +799,7 @@ function DebugPage() {
       firedEvents,
       portfolio: portfolioAfterEvents,
       prices: pricesAfterEvents,
-    } = resolveEvents(scenario, wp, current.market.prices)
+    } = await resolveEvents(scenario, wp, current.market.prices)
 
     setPhaseState({
       phase: "events",

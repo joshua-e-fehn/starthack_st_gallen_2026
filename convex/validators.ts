@@ -54,6 +54,7 @@ const eventTypeValidator = v.union(
   v.literal("fire"),
   v.literal("mice_infestation"),
   v.literal("cooling_failure"),
+  v.literal("ai_generated"), // AI-generated events
 )
 
 export const globalEventDefinitionValidator = v.object({
