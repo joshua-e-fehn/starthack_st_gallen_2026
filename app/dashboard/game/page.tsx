@@ -481,6 +481,18 @@ export default function Game() {
     setIsDraggingTradeBar(false)
   }
 
+  function saveTradePlanForSelectedAsset() {
+    if (!selectedAsset) {
+      return
+    }
+
+    setTradePlan((previous) => ({
+      ...previous,
+      [selectedAsset]: currentTradeClamp,
+    }))
+    closeTradeModal()
+  }
+
   function onPointerUpdate(clientY: number) {
     if (!tradeBarRef.current) {
       return
@@ -490,23 +502,6 @@ export default function Game() {
     const y = clamp(clientY - rect.top, 0, rect.height)
     setDraftTradeValue(mapYToTrade(y, rect.height, maxBuy, maxSell))
   }
-
-  useEffect(() => {
-    if (!selectedAsset) {
-      return
-    }
-
-    setTradePlan((previous) => {
-      if (previous[selectedAsset] === currentTradeClamp) {
-        return previous
-      }
-
-      return {
-        ...previous,
-        [selectedAsset]: currentTradeClamp,
-      }
-    })
-  }, [currentTradeClamp, selectedAsset])
 
   function rollNextTimeframe() {
     let nextTaler = taler
@@ -672,7 +667,8 @@ export default function Game() {
               </Button>
             </div>
             <DrawerDescription>
-              Interactive trade bar: middle is no change, up buys, down sells.
+              Interactive trade bar: middle is no change, up buys, down sells. Press Save trade to
+              remember your plan.
             </DrawerDescription>
           </DrawerHeader>
 
@@ -861,6 +857,15 @@ export default function Game() {
                   </span>
                 </div>
               </button>
+
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Button type="button" variant="outline" className="h-11" onClick={closeTradeModal}>
+                  Cancel
+                </Button>
+                <Button type="button" className="h-11" onClick={saveTradePlanForSelectedAsset}>
+                  Save trade
+                </Button>
+              </div>
             </div>
           </div>
         </DrawerContent>
