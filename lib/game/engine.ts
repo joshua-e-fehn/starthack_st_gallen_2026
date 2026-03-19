@@ -229,7 +229,16 @@ export function stepMarket(scenario: Scenario, prev: MarketState): MarketState {
     const rAsset = cfg.priceReturn + cfg.priceVolatility * randomNormal()
 
     // Real base price: P_real(t+1) = P_real(t) × (1 + r_asset) × (1 + r_market)
-    const newBase = Math.max(0.01, prev.prices[asset].basePrice * (1 + rAsset) * (1 + rMarket))
+    let newBase = prev.prices[asset].basePrice * (1 + rAsset) * (1 + rMarket)
+
+    // Recovery mechanism: if real base price falls below 1, give it a chance to
+    // "bottom out" and recover to prevent it from getting stuck near zero.
+    if (newBase < 1 && Math.random() < 0.2) {
+      // 20% chance to jump back to a "seed" price range [0.8, 1.2]
+      newBase = 0.8 + Math.random() * 0.4
+    }
+
+    newBase = Math.max(0.01, newBase)
 
     prices[asset] = {
       basePrice: newBase,

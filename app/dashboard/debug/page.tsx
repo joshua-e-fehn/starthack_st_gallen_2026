@@ -1,7 +1,16 @@
 "use client"
 
 import { useCallback, useMemo, useState } from "react"
-import { Area, CartesianGrid, ComposedChart, Legend, Line, XAxis, YAxis } from "recharts"
+import {
+  Area,
+  CartesianGrid,
+  ComposedChart,
+  Legend,
+  Line,
+  ReferenceArea,
+  XAxis,
+  YAxis,
+} from "recharts"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -472,6 +481,137 @@ function MonteCarloChart({ history, scenario }: { history: StateVector[]; scenar
             })()}
           </div>
         )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Market Prices chart ─────────────────────────────────────────
+
+const marketPriceChartConfig = {
+  wood: {
+    label: "Wood",
+    color: "#8B4513",
+  },
+  potatoes: {
+    label: "Potatoes",
+    color: "#DAA520",
+  },
+  fish: {
+    label: "Fish",
+    color: "#00CED1",
+  },
+} satisfies ChartConfig
+
+function MarketPriceChart({ history }: { history: StateVector[] }) {
+  const data = useMemo(
+    () =>
+      history.map((state) => ({
+        year: state.date,
+        wood:
+          Math.round(nominalPrice(state.market.prices.wood, state.market.inflation) * 100) / 100,
+        potatoes:
+          Math.round(nominalPrice(state.market.prices.potatoes, state.market.inflation) * 100) /
+          100,
+        fish:
+          Math.round(nominalPrice(state.market.prices.fish, state.market.inflation) * 100) / 100,
+        regime: state.market.regime,
+      })),
+    [history],
+  )
+
+  if (data.length < 2) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Market Prices Over Time</CardTitle>
+          <CardDescription>Play at least one year to see the chart.</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  // Build reference areas for regimes
+  const referenceAreas = []
+  for (let i = 0; i < data.length - 1; i++) {
+    const start = data[i].year
+    const end = data[i + 1].year
+    const regime = data[i].regime
+    referenceAreas.push(
+      <ReferenceArea
+        key={i}
+        x1={start}
+        x2={end}
+        fill={regime === "bull" ? "#22c55e" : "#ef4444"}
+        fillOpacity={0.1}
+        strokeOpacity={0}
+      />,
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Market Prices Over Time</CardTitle>
+        <CardDescription>
+          Nominal prices (gold) for tradable assets. Background shows market regime (Green = Bull,
+          Red = Bear).
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={marketPriceChartConfig} className="h-[350px] w-full">
+          <ComposedChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="year"
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) => String(v)}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) => String(Math.round(v))}
+            />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  formatter={(value) => (
+                    <span className="font-mono">
+                      {typeof value === "number" ? value.toLocaleString() : value} gold
+                    </span>
+                  )}
+                />
+              }
+            />
+            <Legend />
+            {referenceAreas}
+            <Line
+              type="monotone"
+              dataKey="wood"
+              name="Wood"
+              stroke="#8B4513"
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="potatoes"
+              name="Potatoes"
+              stroke="#DAA520"
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="fish"
+              name="Fish"
+              stroke="#00CED1"
+              strokeWidth={2}
+              dot={false}
+            />
+          </ComposedChart>
+        </ChartContainer>
       </CardContent>
     </Card>
   )
@@ -1852,6 +1992,7 @@ export default function DebugPage() {
         {/* ─── Charts Tab ──────────────────────────────────────── */}
         <TabsContent value="charts" className="space-y-4">
           <PerformanceChart history={history} scenario={scenario} />
+          <MarketPriceChart history={history} />
           <MonteCarloChart history={history} scenario={scenario} />
         </TabsContent>
 
