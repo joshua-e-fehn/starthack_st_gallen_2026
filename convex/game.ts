@@ -104,6 +104,26 @@ export const createScenario = mutation({
   },
 })
 
+/** Delete a scenario */
+export const deleteScenario = mutation({
+  args: { scenarioId: v.id("scenarios") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.scenarioId)
+  },
+})
+
+/** Update an existing scenario */
+export const updateScenario = mutation({
+  args: {
+    scenarioId: v.id("scenarios"),
+    ...scenarioFieldsValidator,
+  },
+  handler: async (ctx, args) => {
+    const { scenarioId, ...fields } = args
+    await ctx.db.patch(scenarioId, fields)
+  },
+})
+
 // ─── Sessions ────────────────────────────────────────────────────
 
 /** Create a new competitive session */
