@@ -178,7 +178,7 @@ This allows players to intuitively understand market sentiment without needing f
 
 ## Random Events
 
-The simulator includes event generators that create uncertainty and replayability. In addition to predefined scenarios, 15% of game steps include an AI-generated event created by Gemini based on current game context.
+The simulator includes random event generators that create uncertainty and replayability.
 
 Examples:
 

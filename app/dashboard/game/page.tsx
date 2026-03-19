@@ -26,6 +26,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
 
 import { GameChatbot } from "@/components/molecules/game-chatbot"
+import { EventPopup } from "@/components/organisms/event-popup"
 import { StoryPlayer } from "@/components/organisms/story-player"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -45,6 +46,7 @@ import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
+import type { GameEvent } from "@/lib/types/events"
 import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
 import type { StorySlide } from "@/lib/types/onboarding"
 import type { StateVector } from "@/lib/types/state_vector"
@@ -812,6 +814,8 @@ function GameContent() {
     return { id: _id, ...rest } as any
   }, [convexScenario])
 
+  const goalProgressImageSrc = scenario?.icon ?? "/farm.webp"
+
   const gameOver = useMemo(() => {
     if (!scenario || !current) return false
     return current.date >= scenario.endYear
@@ -1312,6 +1316,99 @@ function GameContent() {
           </div>
         </div>
       </TooltipProvider>
+
+      {isOnboardingOpen && activeStep ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/55" />
+
+          {highlightRect ? (
+            <div
+              className="pointer-events-none absolute rounded-xl border-2 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all"
+              style={{
+                top: `${highlightRect.top - 8}px`,
+                left: `${highlightRect.left - 8}px`,
+                width: `${highlightRect.width + 16}px`,
+                height: `${highlightRect.height + 16}px`,
+              }}
+            />
+          ) : null}
+
+          <AnimatePresence mode="wait">
+            {isOnboardingTooltipVisible ? (
+              <motion.div
+                key="onboarding-tooltip"
+                className="absolute z-10 w-[min(28rem,calc(100vw-1.5rem))] rounded-xl border bg-card shadow-xl"
+                style={tooltipStyle}
+                initial={{ opacity: 0, scale: 0.7, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 6 }}
+                transition={{ type: "spring", stiffness: 260, damping: 22 }}
+                role="dialog"
+                aria-live="polite"
+              >
+                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:gap-4">
+                  <div
+                    className="h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-primary/40 bg-card/95"
+                    aria-hidden="true"
+                  >
+                    <video
+                      ref={onboardingAssistantVideoRef}
+                      src="/start%20white.webm"
+                      className="h-full w-full object-cover"
+                      autoPlay
+                      muted
+                      playsInline
+                      preload="auto"
+                    />
+                  </div>
+
+                  <div className="flex flex-1 flex-col justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                        {stepProgress}
+                      </p>
+                      <h2 className="mt-1 text-base font-semibold text-foreground">
+                        {activeStep.title}
+                      </h2>
+                      <p className="mt-2 text-sm leading-5 text-muted-foreground">
+                        {activeStep.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={previousOnboardingStep}
+                        disabled={onboardingIndex === 0}
+                      >
+                        Prev
+                      </Button>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => closeOnboarding(true)}
+                        >
+                          Skip
+                        </Button>
+                        <Button type="button" size="sm" onClick={nextOnboardingStep}>
+                          {isLastOnboardingStep ? "Done" : "Next"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
+      ) : null}
+
+      <EventPopup event={eventToShow} open={!!eventToShow} onClose={() => setEventToShow(null)} />
 
       <GameChatbot />
     </main>

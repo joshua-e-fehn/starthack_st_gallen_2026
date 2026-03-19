@@ -81,12 +81,12 @@ export function ScenarioViewer({
           >
             <div className="flex items-center gap-3 min-w-0">
               {scenario.icon && (
-                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg">
+                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted/40">
                   <Image
                     src={scenario.icon}
                     alt={scenario.name}
                     fill
-                    className="object-cover"
+                    className="object-contain p-1"
                     unoptimized
                   />
                 </div>
