@@ -45,7 +45,7 @@ export default function LearnCompletePage() {
           transition={{ type: "spring", stiffness: 180, damping: 14, delay: 0.1 }}
           className="mb-6"
         >
-          <span className="text-8xl">�</span>
+          <span className="text-8xl">&#x1F381;</span>
         </motion.div>
 
         <motion.div
@@ -64,37 +64,6 @@ export default function LearnCompletePage() {
             You completed all {LESSONS.length} lessons and earned the wisdom to buy your farm. But
             the journey does not end here...
           </p>
-        </motion.div>
-
-        {/* Summary */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.5 }}
-          className="mt-10 w-full max-w-md rounded-xl border bg-card p-6 text-left"
-        >
-          <h2 className="mb-4 text-center text-lg font-semibold">What You Learned</h2>
-          <ul className="space-y-3">
-            {LESSONS.map((lesson, i) => (
-              <motion.li
-                key={lesson.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.6 + i * 0.06 }}
-                className="flex items-start gap-3"
-              >
-                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-success/10 text-xs font-bold text-success">
-                  ✓
-                </span>
-                <div>
-                  <p className="font-medium">
-                    {lesson.icon} {lesson.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{lesson.description}</p>
-                </div>
-              </motion.li>
-            ))}
-          </ul>
         </motion.div>
 
         {/* PostFinance voucher surprise */}

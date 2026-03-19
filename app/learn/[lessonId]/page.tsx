@@ -1,10 +1,10 @@
 "use client"
 
 import { AnimatePresence, motion } from "framer-motion"
-import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, SparklesIcon } from "lucide-react"
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { notFound, useParams } from "next/navigation"
+import { notFound, useParams, useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
 import { Line, LineChart, XAxis, YAxis } from "recharts"
 import { PublicHeader } from "@/components/organisms/public-header"
@@ -87,7 +87,8 @@ function SlideLineChart({ chart }: { chart: SlideChart }) {
 
 export default function LessonPage() {
   const params = useParams<{ lessonId: string }>()
-  const { completeLesson, isCompleted, isUnlocked, allCompleted } = useLessonProgress()
+  const router = useRouter()
+  const { completeLesson, isCompleted, isUnlocked, progress } = useLessonProgress()
 
   const lesson = LESSONS.find((l) => l.id === params.lessonId)
   if (!lesson) notFound()
@@ -97,7 +98,6 @@ export default function LessonPage() {
 
   const [currentSlide, setCurrentSlide] = useState(0)
   const [direction, setDirection] = useState(1)
-  const [justCompleted, setJustCompleted] = useState(false)
 
   const totalSlides = lesson.slides.length
   const isLastSlide = currentSlide === totalSlides - 1
@@ -105,14 +105,20 @@ export default function LessonPage() {
 
   const goNext = useCallback(() => {
     if (isLastSlide) {
-      // Complete the lesson
       completeLesson(lesson.id)
-      setJustCompleted(true)
+      // Check if completing this lesson finishes all of them
+      const completedAfter = new Set(progress.completedLessons)
+      completedAfter.add(lesson.id)
+      if (completedAfter.size >= LESSONS.length) {
+        router.push("/learn/complete")
+      } else {
+        router.push("/learn")
+      }
     } else {
       setDirection(1)
       setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1))
     }
-  }, [isLastSlide, completeLesson, lesson.id, totalSlides])
+  }, [isLastSlide, completeLesson, lesson.id, totalSlides, progress.completedLessons, router])
 
   const goPrev = useCallback(() => {
     setDirection(-1)
@@ -136,77 +142,6 @@ export default function LessonPage() {
         </main>
       </div>
     )
-  }
-
-  // Completion state after finishing the lesson
-  if (justCompleted || (completed && currentSlide === 0 && !justCompleted)) {
-    if (justCompleted) {
-      return (
-        <div className="min-h-svh bg-background">
-          <PublicHeader />
-          <main className="mx-auto flex max-w-xl flex-col items-center px-4 py-20 text-center">
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 200, damping: 15 }}
-              className="flex size-20 items-center justify-center rounded-full bg-success/10"
-            >
-              <CheckIcon className="size-10 text-success" />
-            </motion.div>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="mt-6 text-2xl font-bold"
-            >
-              Lesson Complete!
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mt-2 text-muted-foreground"
-            >
-              {lesson.icon} {lesson.title} — well done!
-            </motion.p>
-
-            {allCompleted ? (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="mt-8"
-              >
-                <p className="mb-4 text-lg font-semibold text-primary">
-                  � All lessons complete! A surprise awaits...
-                </p>
-                <Button asChild size="lg">
-                  <Link href="/learn/complete">
-                    <SparklesIcon className="mr-2 size-4" />
-                    See Your Reward
-                  </Link>
-                </Button>
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="mt-8"
-              >
-                <Button asChild>
-                  <Link href="/learn">
-                    Continue Your Journey
-                    <ArrowRightIcon className="ml-1 size-4" />
-                  </Link>
-                </Button>
-              </motion.div>
-            )}
-          </main>
-        </div>
-      )
-    }
   }
 
   return (
@@ -305,7 +240,12 @@ export default function LessonPage() {
                   </motion.h2>
                 </>
               ) : (
-                <h2 className="text-xl font-semibold sm:text-2xl">{slide.title}</h2>
+                <>
+                  {slide.emoji && <span className="text-4xl">{slide.emoji}</span>}
+                  <h2 className={cn("text-xl font-semibold sm:text-2xl", slide.emoji && "mt-1")}>
+                    {slide.title}
+                  </h2>
+                </>
               )}
               {slide.image && (
                 <div
@@ -363,7 +303,7 @@ export default function LessonPage() {
             {isLastSlide ? (
               <>
                 <CheckIcon className="mr-1 size-4" />
-                Complete
+                {lesson.number === LESSONS.length ? "Claim Your Reward" : "Complete"}
               </>
             ) : (
               <>

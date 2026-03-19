@@ -44,6 +44,8 @@ export type LessonSlide = {
   chart?: SlideChart
   /** Optional image path (relative to /public) shown above the content */
   image?: string
+  /** Optional large emoji displayed above the title */
+  emoji?: string
 }
 
 export type Lesson = {
@@ -192,14 +194,25 @@ const DCA_DATA: Record<string, string | number>[] = [
   { month: "Jan", price: 12, avgCost: 8.6 },
 ]
 
-/** Fish-only vs blended (equal-weight wood+potatoes+fish) portfolio over 30 years */
+/** Fish-only trader who goes all-in and gets wiped out in a crash */
+const FISH_CRASH_DATA: Record<string, string | number>[] = [
+  { year: "Yr 0", fish: 100 },
+  { year: "Yr 1", fish: 200 },
+  { year: "Yr 2", fish: 140 },
+  { year: "Yr 3", fish: 270 },
+  { year: "Yr 4", fish: 90 },
+  { year: "Yr 5", fish: 40 },
+  { year: "Yr 6", fish: 25 },
+]
+
+/** Fish-only vs blended (equal-weight wood+potatoes+fish) — first 9 years */
 function buildDiversificationChart(): Record<string, string | number>[] {
-  return Array.from({ length: 31 }, (_, i) => ({
+  // Custom fish data with deeper crashes to emphasize volatility
+  const fishDeep = [0, 120, -80, 200, -70, 280, -60, 100, 200, 180]
+  return Array.from({ length: 10 }, (_, i) => ({
     year: `Y${i}`,
-    fishOnly: ILLUSTRATION.fish[i],
-    blended: Math.round(
-      (ILLUSTRATION.wood[i] + ILLUSTRATION.potatoes[i] + ILLUSTRATION.fish[i]) / 3,
-    ),
+    fishOnly: fishDeep[i],
+    blended: Math.round((ILLUSTRATION.wood[i] + ILLUSTRATION.potatoes[i] + fishDeep[i]) / 3),
   }))
 }
 
@@ -596,48 +609,50 @@ export const LESSONS: Lesson[] = [
       {
         title: "The One-Good Trader",
         content:
-          "A trader put all his coins into fish. When the catch was good, he was the richest man around. But when storms came, he lost nearly everything.",
+          "A trader put all his coins into fish. At first it soared — he felt like a genius. Then the storm hit.",
         chart: {
           xKey: "year",
-          ySuffix: "%",
-          yDomain: [-100, 950],
-          xInterval: 10,
-          lines: [{ key: "asset", label: "Fish only", color: "#1E90FF" }],
-          data: buildSingleAssetChart("fish"),
+          ySuffix: "",
+          yDomain: [0, 300],
+          lines: [{ key: "fish", label: "Fish-only portfolio", color: "#1E90FF" }],
+          data: FISH_CRASH_DATA,
         },
+        tip: "He sold in panic at Year 6. His 100 coins had become 25.",
       },
       {
         title: "The Balanced Trader",
         content:
-          "Another trader split his coins equally between wood, potatoes, and fish. Smoother ride, still strong growth.",
+          "Another trader split his coins equally between wood, potatoes, and fish. Compare the smooth green line to the wild blue one.",
         chart: {
           xKey: "year",
           ySuffix: "%",
-          yDomain: [-100, 950],
-          xInterval: 10,
+          yDomain: [-80, 450],
+          xInterval: 5,
           lines: [
             { key: "fishOnly", label: "Fish only", color: "#1E90FF", dashed: true },
             { key: "blended", label: "Blended (1/3 each)", color: "#16a34a" },
           ],
           data: buildDiversificationChart(),
         },
-        tip: "Diversification is the only 'free lunch' in investing — it reduces risk without necessarily reducing returns.",
+        tip: "Diversification reduces risk without necessarily reducing returns.",
       },
       {
         title: "Managing Your Risk",
+        emoji: "⚖️",
         content:
-          "Risk management is not about avoiding risk — it is about choosing how much risk you can live with. A young farmer with decades ahead can afford more fish. An older farmer close to buying the farm might want mostly wood and potatoes.",
-        tip: "A common rule: the younger you are, the more risk you can take — because you have time to recover from downturns.",
+          "It is not about avoiding risk — it is about choosing how much you can live with. Young farmer? More fish. Close to buying the farm? Mostly wood and potatoes.",
+        tip: "The younger you are, the more risk you can take — you have time to recover from downturns.",
       },
       {
-        title: "The 'Sleep at Night' Test",
+        title: "The Sleep Test",
+        emoji: "🛏️",
         content:
-          "Ask yourself: if your portfolio dropped 30% tomorrow, would you sleep soundly knowing it will recover? Or would you lie awake in panic? Your answer tells you whether you need more safe wood or whether you can handle some stormy fish.",
+          "If your portfolio dropped 30% tomorrow, would you sleep soundly? Or lie awake in panic? Your answer tells you whether you need more safe wood or stormy fish.",
       },
       {
         title: "Lesson Learned",
         content:
-          "Diversification means spreading investments across different asset types so that no single disaster can wipe you out. Combine it with a risk level that matches your timeline and temperament. A well-diversified portfolio is the strongest shield on the road to your farm.",
+          "Spread your investments so no single disaster can wipe you out. Match your risk to your timeline and temperament. A diversified portfolio is the strongest shield on the road to your farm.",
       },
     ],
   },
@@ -653,31 +668,40 @@ export const LESSONS: Lesson[] = [
     icon: "🏡",
     slides: [
       {
-        title: "The Journey So Far",
+        title: "You Have Come a Long Way",
+        emoji: "🏡",
         content:
-          "You started as a humble worker with a dream. Along the way, you learned that inflation steals idle coins, that even small investments grow, that different goods carry different risks, and that patience and diversification are your strongest allies.",
+          "You started as a humble worker with a dream — and now you are ready to buy your farm. Here is what you learned along the way.",
       },
       {
-        title: "Your Strategy Toolkit",
+        title: "🪙 Coins Under the Mattress",
         content:
-          "You now understand the core pillars of smart investing: set clear goals, start early (even small), know your asset classes, expect volatility without panicking, think long-term, and diversify your holdings. These are the same principles used by the world's best investors.",
+          "Saving alone is not enough. Inflation silently eats away at idle coins — your purchasing power shrinks every year. To reach your dream, you need to put your money to work.",
       },
       {
-        title: "From Medieval Coins to Real Money",
+        title: "💰 Every Coin Counts",
         content:
-          "In our game, wood represents safe ETFs, potatoes represent stocks, and fish represents crypto. The principles are identical in the real world: balance risk, stay patient, diversify, and keep investing consistently — no matter how small the amount.",
-        tip: "You do not need to be a finance expert. Understanding these basics already puts you ahead of most people.",
+          "You do not need to be rich to start investing. Small, regular contributions grow into serious wealth thanks to compounding. Even 20 coins a month can become a fortune.",
       },
       {
-        title: "The Farm Is Yours!",
+        title: "🧺 Wood, Potatoes & Fish",
         content:
-          "Congratulations — you have earned the wisdom to buy your farm! But this is not the end of your story. It is the beginning. Because the knowledge you just gained is not just for a game...",
+          "Not all investments are alike. Safe assets grow slowly but steadily, medium-risk assets offer more upside with more swings, and speculative assets can soar or sink. Knowing the difference is key.",
       },
       {
-        title: "A Real Surprise Awaits",
+        title: "🌊 Calm Seas & Stormy Waters",
         content:
-          "You have proven you understand the fundamentals of investing. Now it is time to put that knowledge into practice — for real. Complete this lesson to discover a special reward waiting for you.",
-        tip: "This is not a drill. Something real is waiting on the other side.",
+          "Big price swings are a natural part of markets. The key is expecting volatility, understanding it, and never letting it push you into panic selling.",
+      },
+      {
+        title: "🌱 The Patient Farmer",
+        content:
+          "Trade less, invest regularly, and think in decades. Buy-and-hold beats frequent trading, and dollar-cost averaging removes the stress of timing the market.",
+      },
+      {
+        title: "🧺 Don't Put All Eggs in One Basket",
+        content:
+          "Spread your investments so no single disaster can wipe you out. A diversified portfolio matched to your risk tolerance is the strongest shield on the road to your farm.",
       },
     ],
   },

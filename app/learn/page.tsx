@@ -197,7 +197,7 @@ export default function LearnPage() {
                     {completed ? (
                       <CheckIcon className="size-7" strokeWidth={3} />
                     ) : isFarm ? (
-                      <span className="text-2xl">🏰</span>
+                      <span className="text-2xl">{"\uD83C\uDFC6"}</span>
                     ) : !unlocked ? (
                       <LockIcon className="size-5 opacity-50" />
                     ) : (
