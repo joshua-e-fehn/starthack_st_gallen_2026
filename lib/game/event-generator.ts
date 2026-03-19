@@ -1,8 +1,35 @@
-import { getGeminiClient } from "../ai/gemini-client"
 import type { TradableAsset } from "../types/assets"
 import { TRADABLE_ASSET_KEYS } from "../types/assets"
 import type { GameEvent } from "../types/events"
 import { BASE_EVENTS, type BaseEventDefinition, sampleRange } from "./base-events"
+
+/**
+ * Fallback descriptions for events when AI generation fails
+ */
+const FALLBACK_DESCRIPTIONS: Record<string, string> = {
+  forest_fire:
+    "A devastating fire tears through the forest, destroying timber reserves and driving prices up.",
+  timber_shortage: "A severe shortage of timber has struck the region, causing prices to soar.",
+  woodworm_infestation:
+    "Woodworms have infested the timber stores, damaging the wood and affecting its value.",
+  fishing_ban: "The lord has declared a fishing ban to protect dwindling fish stocks.",
+  ice_house_failure: "The ice house has failed, spoiling much of the stored fish.",
+  abundant_catch: "Fishermen return with an abundant catch, flooding the market with fish.",
+  mice_infestation:
+    "Mice have ravaged the potato stores, destroying a significant portion of the harvest.",
+  crop_blight: "A terrible blight has struck the potato fields, decimating the crop.",
+  bumper_crop: "The potato harvest is exceptional this year, yielding far more than expected.",
+  thieves: "Thieves struck in the night, stealing gold and goods from your stores.",
+  barn_collapse: "Your barn has collapsed, destroying stored goods and requiring costly repairs.",
+  tax_collection: "The tax collector arrives, demanding payment to the crown.",
+  inheritance: "You receive an unexpected inheritance from a distant relative.",
+  merchant_gift: "A grateful merchant gifts you additional goods as thanks for past dealings.",
+  economic_crisis: "An economic crisis grips the land, causing all prices to plummet.",
+  war_outbreak: "War breaks out in the region, driving up prices as goods are requisitioned.",
+  plague: "A plague spreads through the land, disrupting trade and affecting all goods.",
+  severe_drought: "A severe drought strikes, devastating crops and timber.",
+  kings_prosperity: "The king declares a time of prosperity, and the economy flourishes.",
+}
 
 /**
  * A resolved event with concrete effect values (sampled from ranges)
@@ -103,99 +130,18 @@ export async function generateEvents(): Promise<ResolvedEvent[]> {
 }
 
 /**
- * Use LLM to generate a contextual title and description for an event.
- * The LLM is given the base event type and the actual sampled effects.
+ * Get event title and description.
+ * Uses predefined descriptions for consistent, medieval-themed text.
  */
 async function generateEventDescription(
   baseEvent: BaseEventDefinition,
-  effects: ResolvedEvent["effects"],
+  _effects: ResolvedEvent["effects"],
 ): Promise<{ name: string; description: string }> {
-  try {
-    const ai = getGeminiClient()
-
-    const systemPrompt = `
-You are a medieval storyteller narrating events in a finance simulation game set in the Middle Ages.
-
-The player is a farmer/merchant trying to build wealth by trading goods:
-- Wood = safe investment (low risk)
-- Potatoes = medium risk (moderate volatility)
-- Fish = high risk (very volatile)
-
-Your job: Given an event type and its effects, create a dramatic, authentic medieval title and description.
-
-Rules:
-- Use medieval language and imagery
-- Keep the title short (2-5 words)
-- Keep the description vivid but concise (1-2 sentences)
-- Match the tone to the severity of the effect (small effect = minor tone, large effect = dramatic tone)
-- Respond ONLY with valid JSON: { "name": "...", "description": "..." }
-`.trim()
-
-    const userPrompt = buildEventPrompt(baseEvent, effects)
-
-    const response = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
-      contents: userPrompt,
-      config: {
-        systemInstruction: systemPrompt,
-        temperature: 0.9,
-        responseMimeType: "application/json",
-        maxOutputTokens: 200,
-      },
-    })
-
-    const parsed = JSON.parse(response.text?.trim() || "{}")
-
-    return {
-      name: parsed.name || baseEvent.name,
-      description: parsed.description || `An event has occurred: ${baseEvent.name}`,
-    }
-  } catch (error) {
-    console.error("Failed to generate event description:", error)
-    // Fallback to base name
-    return {
-      name: baseEvent.name,
-      description: `An event has occurred: ${baseEvent.name}`,
-    }
+  // Use predefined descriptions for consistent experience
+  return {
+    name: baseEvent.name,
+    description: FALLBACK_DESCRIPTIONS[baseEvent.id] || baseEvent.name,
   }
-}
-
-/**
- * Build the prompt for the LLM describing the event type and effects
- */
-function buildEventPrompt(
-  baseEvent: BaseEventDefinition,
-  effects: ResolvedEvent["effects"],
-): string {
-  const parts: string[] = []
-
-  parts.push(`Event Type: ${baseEvent.name}`)
-  parts.push(`Category: ${baseEvent.category}`)
-
-  if (effects.targetAsset) {
-    parts.push(`Affected Asset: ${effects.targetAsset}`)
-  }
-
-  if (effects.quantityMultiplier !== undefined) {
-    const percentChange = ((effects.quantityMultiplier - 1) * 100).toFixed(0)
-    const sign = effects.quantityMultiplier > 1 ? "+" : ""
-    parts.push(`Quantity Impact: ${sign}${percentChange}%`)
-  }
-
-  if (effects.goldDelta !== undefined) {
-    const sign = effects.goldDelta > 0 ? "+" : ""
-    parts.push(`Gold Impact: ${sign}${effects.goldDelta}`)
-  }
-
-  if (effects.priceMultiplier !== undefined) {
-    const percentChange = ((effects.priceMultiplier - 1) * 100).toFixed(0)
-    const sign = effects.priceMultiplier > 1 ? "+" : ""
-    parts.push(`Price Impact: ${sign}${percentChange}%`)
-  }
-
-  parts.push("\nGenerate a medieval title and description for this event.")
-
-  return parts.join("\n")
 }
 
 /**
@@ -203,11 +149,10 @@ function buildEventPrompt(
  */
 export function toGameEvent(resolved: ResolvedEvent): GameEvent {
   return {
-    type: "base_event" as const,
+    type: resolved.baseEventId, // Use the event ID as the type
     name: resolved.name,
     description: resolved.description,
     targetAsset: resolved.effects.targetAsset,
-    baseEventId: resolved.baseEventId,
     effects: {
       quantityMultiplier: resolved.effects.quantityMultiplier,
       goldDelta: resolved.effects.goldDelta,

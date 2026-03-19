@@ -79,13 +79,12 @@ export type AssetEventConfig = {
 
 /** A resolved event that actually fired during a step */
 export type GameEvent = {
-  type: "base_event"
+  /** Event type/ID (e.g. "forest_fire", "mice_infestation") */
+  type: string
   name: string
   description: string
   /** Which asset was affected (undefined = global) */
   targetAsset?: TradableAsset | undefined
-  /** Base event ID for image/icon lookup */
-  baseEventId?: string
   /** Actual effects that were applied (for UI display) */
   effects?: {
     quantityMultiplier?: number

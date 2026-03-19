@@ -34,14 +34,13 @@ export const playerActionValidator = v.object({
 // ─── Event validators ────────────────────────────────────────────
 
 /**
- * All events now use the unified base event system.
+ * Event validator - type field contains the event ID (e.g. "forest_fire", "mice_infestation")
  */
 export const gameEventValidator = v.object({
-  type: v.literal("base_event"),
+  type: v.string(),
   name: v.string(),
   description: v.string(),
   targetAsset: v.optional(v.union(v.literal("wood"), v.literal("potatoes"), v.literal("fish"))),
-  baseEventId: v.optional(v.string()),
   effects: v.optional(
     v.object({
       quantityMultiplier: v.optional(v.number()),

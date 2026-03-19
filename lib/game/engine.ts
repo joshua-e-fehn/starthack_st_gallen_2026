@@ -6,6 +6,7 @@ import type { AssetMarketPrice, MarketState } from "../types/market"
 import { buyPrice, sellPrice } from "../types/market"
 import type { PrecomputedStep, Scenario } from "../types/scenario"
 import type { StateVector } from "../types/state_vector"
+import { generateEvents, toGameEvent } from "./event-generator"
 
 // ─── Random helpers ──────────────────────────────────────────────
 
@@ -103,9 +104,6 @@ export async function resolveEvents(
   portfolio: Portfolio
   prices: Record<TradableAsset, AssetMarketPrice>
 }> {
-  // Import dynamically to avoid circular dependency
-  const { generateEvents, toGameEvent } = await import("./event-generator")
-
   const resolvedEvents = await generateEvents()
   const firedEvents: GameEvent[] = []
   const updatedPortfolio = { ...portfolio }

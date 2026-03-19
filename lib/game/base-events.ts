@@ -136,20 +136,20 @@ export const BASE_EVENTS: BaseEventDefinition[] = [
     id: "thieves",
     category: "personal",
     name: "Thieves in the Night",
-    probability: 0.03,
+    probability: 0.02, // Reduced from 0.03
     effects: {
-      goldDelta: { min: -400, max: -50, base: -220 },
-      quantityMultiplier: { min: 0.8, max: 0.97, base: 0.88 }, // -20% to -3% all goods
+      goldDelta: { min: -300, max: -50, base: -175 }, // Reduced loss
+      quantityMultiplier: { min: 0.85, max: 0.97, base: 0.91 }, // -15% to -3% all goods (softened)
     },
   },
   {
     id: "barn_collapse",
     category: "personal",
     name: "Barn Collapse",
-    probability: 0.02,
+    probability: 0.01, // Reduced from 0.02
     effects: {
-      quantityMultiplier: { min: 0.65, max: 0.9, base: 0.78 }, // -35% to -10% all goods
-      goldDelta: { min: -150, max: -50, base: -100 }, // Repair cost
+      quantityMultiplier: { min: 0.8, max: 0.95, base: 0.88 }, // -20% to -5% all goods (softened)
+      goldDelta: { min: -120, max: -40, base: -80 }, // Repair cost (reduced)
     },
   },
   {
@@ -195,19 +195,19 @@ export const BASE_EVENTS: BaseEventDefinition[] = [
     id: "war_outbreak",
     category: "global",
     name: "War Outbreak",
-    probability: 0.015,
+    probability: 0.01, // Reduced from 0.015
     effects: {
       priceMultiplier: { min: 1.1, max: 1.35, base: 1.22 }, // +10% to +35%
-      quantityMultiplier: { min: 0.75, max: 0.95, base: 0.85 }, // -25% to -5% (requisition)
+      quantityMultiplier: { min: 0.85, max: 0.95, base: 0.9 }, // -15% to -5% (requisition, softened)
     },
   },
   {
     id: "plague",
     category: "global",
     name: "Plague",
-    probability: 0.01,
+    probability: 0.008, // Reduced from 0.01
     effects: {
-      quantityMultiplier: { min: 0.7, max: 0.92, base: 0.82 }, // -30% to -8%
+      quantityMultiplier: { min: 0.82, max: 0.95, base: 0.88 }, // -18% to -5% (softened)
       priceMultiplier: { min: 0.85, max: 1.2, base: 1.02 }, // -15% to +20% (volatile)
     },
   },
