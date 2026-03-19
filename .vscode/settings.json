@@ -1,6 +1,7 @@
 {
   "chat.tools.terminal.autoApprove": {
-    "bunx": true
+    "bunx": true,
+    "bun": true
   },
 
   // Biome as default formatter
