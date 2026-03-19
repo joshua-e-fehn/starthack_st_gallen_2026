@@ -1,7 +1,7 @@
 "use client"
 
 import { useMutation, useQuery } from "convex/react"
-import { Info, LayoutGrid, PlusCircle, Trash2 } from "lucide-react"
+import { ArrowLeft, Info, LayoutGrid, PlusCircle, Trash2 } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
@@ -35,10 +35,16 @@ export default function ScenariosPage() {
           <h1 className="text-3xl font-bold tracking-tight">Scenario Configuration</h1>
           <p className="text-muted-foreground">Manage your game templates and world rules.</p>
         </div>
-        <Button onClick={() => router.push("/dashboard/scenarios/create")}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          New Scenario
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => router.push("/dashboard/sessions/create")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Session Creation
+          </Button>
+          <Button onClick={() => router.push("/dashboard/scenarios/create")}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            New Scenario
+          </Button>
+        </div>
       </div>
 
       {!scenarios ? (

@@ -445,8 +445,8 @@ function DashboardContent() {
                       </div>
                     ))
                   )}
-                  <Button variant="outline" className="w-full h-8 text-xs" asChild>
-                    <Link href="/dashboard/scenarios">Browse Scenarios</Link>
+                  <Button variant="default" className="w-full h-10 shadow-sm" asChild>
+                    <Link href="/dashboard/scenarios">Manage Scenarios</Link>
                   </Button>
                 </CardContent>
               </Card>

@@ -5,7 +5,6 @@ import { motion } from "framer-motion"
 import {
   ActivityIcon,
   ArrowRightIcon,
-  ImageIcon,
   InfoIcon,
   Loader2Icon,
   PlayIcon,
