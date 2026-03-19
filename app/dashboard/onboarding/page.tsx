@@ -51,7 +51,6 @@ export default function OnboardingPage() {
       <StoryPlayer
         slides={onboardingStorySlides}
         autoAdvanceMs={7000}
-        loop
         previousAtStartLabel="Back"
         completeLabel="Start Main Game"
         onPreviousAtStart={() => router.push("/dashboard")}

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion"
 import Image from "next/image"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { StoryNavigation } from "@/components/molecules/story-navigation"
 import { StoryProgressBars } from "@/components/molecules/story-progress-bars"
@@ -28,9 +28,14 @@ export function StoryPlayer({
   onPreviousAtStart,
   onComplete,
 }: StoryPlayerProps) {
+  const LONG_PRESS_MS = 260
   const [currentIndex, setCurrentIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
+
+  const activePressZoneRef = useRef<"left" | "middle" | "right" | null>(null)
+  const longPressTimeoutRef = useRef<number | null>(null)
+  const isLongPressRef = useRef(false)
 
   const hasSlides = slides.length > 0
   const safeIndex = hasSlides ? Math.min(currentIndex, slides.length - 1) : 0
@@ -106,6 +111,67 @@ export function StoryPlayer({
     setCurrentIndex((index) => Math.min(index + 1, slides.length - 1))
   }
 
+  const clearLongPressTimeout = useCallback(() => {
+    if (longPressTimeoutRef.current !== null) {
+      window.clearTimeout(longPressTimeoutRef.current)
+      longPressTimeoutRef.current = null
+    }
+  }, [])
+
+  const startPress = (zone: "left" | "middle" | "right") => {
+    activePressZoneRef.current = zone
+    isLongPressRef.current = false
+    clearLongPressTimeout()
+
+    if (zone === "middle") {
+      setIsPaused(true)
+    }
+
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      isLongPressRef.current = true
+      setIsPaused(true)
+    }, LONG_PRESS_MS)
+  }
+
+  const endPress = (zone: "left" | "middle" | "right") => {
+    const zoneChanged = activePressZoneRef.current !== zone
+    const wasLongPress = isLongPressRef.current
+
+    clearLongPressTimeout()
+    activePressZoneRef.current = null
+
+    if (zone === "middle") {
+      setIsPaused(false)
+      isLongPressRef.current = false
+      return
+    }
+
+    if (wasLongPress) {
+      setIsPaused(false)
+      isLongPressRef.current = false
+      return
+    }
+
+    if (zoneChanged) {
+      return
+    }
+
+    if (zone === "left") {
+      goPrevious()
+      return
+    }
+
+    if (zone === "right") {
+      goNext()
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      clearLongPressTimeout()
+    }
+  }, [clearLongPressTimeout])
+
   if (!currentSlide) {
     return (
       <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-xl flex-col rounded-3xl border border-primary/30 bg-card/90 p-4 shadow-2xl backdrop-blur sm:min-h-[calc(100vh-4rem)] sm:p-6">
@@ -122,14 +188,8 @@ export function StoryPlayer({
     <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-xl flex-col rounded-3xl border border-primary/30 bg-card/90 p-4 shadow-2xl backdrop-blur sm:min-h-[calc(100vh-4rem)] sm:p-6">
       <StoryProgressBars slides={slides} currentIndex={safeIndex} progress={progress} />
 
-      <Card
-        className="flex-1 overflow-hidden border-border/70 bg-background py-0"
-        onPointerDown={() => setIsPaused(true)}
-        onPointerUp={() => setIsPaused(false)}
-        onPointerCancel={() => setIsPaused(false)}
-        onPointerLeave={() => setIsPaused(false)}
-      >
-        <CardContent className="flex h-full flex-col gap-0 p-0">
+      <Card className="flex-1 overflow-hidden border-border/70 bg-background py-0">
+        <CardContent className="relative flex h-full flex-col gap-0 p-0">
           <AnimatePresence mode="wait">
             <motion.section
               key={currentSlide.id}
@@ -161,13 +221,69 @@ export function StoryPlayer({
                   {currentSlide.body}
                 </p>
                 <p className="mt-auto pt-4 text-xs text-muted-foreground">
-                  {isPaused
-                    ? "Paused while you hold the card"
-                    : "Auto-advancing. Press and hold anywhere on the story card to pause."}
+                  {isLast
+                    ? "You reached the final chapter. Press Start Main Game when you're ready."
+                    : isPaused
+                      ? "Paused while holding. Release to continue."
+                      : "Tap left/right side for previous/next. Press and hold middle or long-press anywhere to pause."}
                 </p>
               </div>
             </motion.section>
           </AnimatePresence>
+
+          <div className="pointer-events-none absolute inset-0 z-20 grid grid-cols-3">
+            <button
+              type="button"
+              aria-label="Previous slide"
+              className="pointer-events-auto h-full w-full"
+              onPointerDown={() => startPress("left")}
+              onPointerUp={() => endPress("left")}
+              onPointerCancel={() => {
+                clearLongPressTimeout()
+                activePressZoneRef.current = null
+                setIsPaused(false)
+              }}
+              onPointerLeave={() => {
+                clearLongPressTimeout()
+                activePressZoneRef.current = null
+                setIsPaused(false)
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Pause story"
+              className="pointer-events-auto h-full w-full"
+              onPointerDown={() => startPress("middle")}
+              onPointerUp={() => endPress("middle")}
+              onPointerCancel={() => {
+                clearLongPressTimeout()
+                activePressZoneRef.current = null
+                setIsPaused(false)
+              }}
+              onPointerLeave={() => {
+                clearLongPressTimeout()
+                activePressZoneRef.current = null
+                setIsPaused(false)
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Next slide"
+              className="pointer-events-auto h-full w-full"
+              onPointerDown={() => startPress("right")}
+              onPointerUp={() => endPress("right")}
+              onPointerCancel={() => {
+                clearLongPressTimeout()
+                activePressZoneRef.current = null
+                setIsPaused(false)
+              }}
+              onPointerLeave={() => {
+                clearLongPressTimeout()
+                activePressZoneRef.current = null
+                setIsPaused(false)
+              }}
+            />
+          </div>
         </CardContent>
       </Card>
 
