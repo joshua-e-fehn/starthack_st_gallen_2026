@@ -35,6 +35,7 @@ import type { PrecomputedStep, Scenario } from "@/lib/types/scenario"
 import { cn } from "@/lib/utils"
 
 const SCENARIO_ICONS = [
+  "/farm.webp",
   "/onboarding/story1.webp",
   "/onboarding/story2.webp",
   "/onboarding/story3.webp",
@@ -374,7 +375,7 @@ export function ScenarioForm({
                         src={icon}
                         alt="Scenario Icon"
                         fill
-                        className="object-cover"
+                        className="object-contain p-1"
                         unoptimized
                       />
                       {formData.icon === icon && (
@@ -386,12 +387,12 @@ export function ScenarioForm({
                   ))}
 
                   {isCustomIcon && (
-                    <div className="relative size-16 overflow-hidden rounded-md ring-2 ring-primary">
+                    <div className="relative size-16 overflow-hidden rounded-md bg-muted/30 ring-2 ring-primary">
                       <Image
                         src={formData.icon}
                         alt="Custom Icon"
                         fill
-                        className="object-cover"
+                        className="object-contain p-1"
                         unoptimized
                       />
                       <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
