@@ -3,12 +3,12 @@
 import { motion } from "framer-motion"
 import { ArrowRightIcon, CrownIcon, ImageIcon, Loader2Icon } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
-  fetchLandingQuote,
+  fetchLandingQuoteStream,
   getLeaderboardMock,
   type LeaderboardEntry,
   startGameMock,
@@ -30,6 +30,11 @@ export default function HomePage() {
   const [quote, setQuote] = useState("")
   const [quoteError, setQuoteError] = useState("")
   const [isQuoteLoading, setIsQuoteLoading] = useState(true)
+  const [isTypingQuote, setIsTypingQuote] = useState(false)
+
+  const quoteQueueRef = useRef("")
+  const typewriterIntervalRef = useRef<number | null>(null)
+  const isQuoteLoadingRef = useRef(true)
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(true)
@@ -37,13 +42,54 @@ export default function HomePage() {
   useEffect(() => {
     let ignore = false
 
+    function stopTypewriter() {
+      if (typewriterIntervalRef.current !== null) {
+        window.clearInterval(typewriterIntervalRef.current)
+        typewriterIntervalRef.current = null
+      }
+      setIsTypingQuote(false)
+    }
+
+    function startTypewriter() {
+      if (typewriterIntervalRef.current !== null) {
+        return
+      }
+
+      setIsTypingQuote(true)
+      typewriterIntervalRef.current = window.setInterval(() => {
+        const queue = quoteQueueRef.current
+
+        if (!queue) {
+          if (!isQuoteLoadingRef.current) {
+            stopTypewriter()
+          }
+          return
+        }
+
+        const nextCharacter = queue.slice(0, 1)
+        quoteQueueRef.current = queue.slice(1)
+        setQuote((previous) => previous + nextCharacter)
+      }, 18)
+    }
+
     async function loadLandingContent() {
+      setQuote("")
+      setQuoteError("")
       setIsQuoteLoading(true)
+      isQuoteLoadingRef.current = true
       setIsLeaderboardLoading(true)
+      quoteQueueRef.current = ""
 
       try {
-        const [quoteResult, leaderboardResult] = await Promise.all([
-          fetchLandingQuote(quoteTopic),
+        const [, leaderboardResult] = await Promise.all([
+          fetchLandingQuoteStream(quoteTopic, (chunk) => {
+            if (ignore) {
+              return
+            }
+
+            quoteQueueRef.current += chunk
+            startTypewriter()
+          }),
           getLeaderboardMock(),
         ])
 
@@ -51,7 +97,6 @@ export default function HomePage() {
           return
         }
 
-        setQuote(quoteResult)
         setLeaderboard(leaderboardResult)
       } catch (error) {
         if (ignore) {
@@ -61,6 +106,8 @@ export default function HomePage() {
         const message = error instanceof Error ? error.message : "Failed to load landing content"
         setQuoteError(message)
         setQuote("Plant patience before dawn, and your barn will outlast the storm.")
+        quoteQueueRef.current = ""
+        stopTypewriter()
         setLeaderboard([
           { rank: 1, playerName: "Aldric", yearsPlayed: 12, netWorth: 28450 },
           { rank: 2, playerName: "Matilda", yearsPlayed: 10, netWorth: 24510 },
@@ -69,7 +116,12 @@ export default function HomePage() {
       } finally {
         if (!ignore) {
           setIsQuoteLoading(false)
+          isQuoteLoadingRef.current = false
           setIsLeaderboardLoading(false)
+
+          if (quoteQueueRef.current.length === 0) {
+            stopTypewriter()
+          }
         }
       }
     }
@@ -78,6 +130,10 @@ export default function HomePage() {
 
     return () => {
       ignore = true
+
+      if (typewriterIntervalRef.current !== null) {
+        window.clearInterval(typewriterIntervalRef.current)
+      }
     }
   }, [])
 
@@ -136,7 +192,14 @@ export default function HomePage() {
 
               <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
                 {isQuoteLoading ? (
-                  <p className="text-sm text-muted-foreground">Summoning a wise farmer quote...</p>
+                  <>
+                    <p className="text-base leading-relaxed italic">{quote}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {isTypingQuote
+                        ? "Scribing wisdom from the oracle..."
+                        : "Summoning a wise farmer quote..."}
+                    </p>
+                  </>
                 ) : (
                   <>
                     <p className="text-base leading-relaxed italic">{quote}</p>

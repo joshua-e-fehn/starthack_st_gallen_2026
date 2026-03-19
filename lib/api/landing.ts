@@ -42,6 +42,55 @@ export async function fetchLandingQuote(topic: string): Promise<string> {
   return data.quote
 }
 
+export async function fetchLandingQuoteStream(
+  topic: string,
+  onChunk: (chunk: string) => void,
+): Promise<void> {
+  const response = await fetch(`/api/quote/stream?topic=${encodeURIComponent(topic)}`)
+
+  if (!response.ok || !response.body) {
+    const errorText = await response.text()
+    throw new Error(`Failed to stream quote: ${response.status} ${errorText}`)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) {
+      break
+    }
+
+    buffer += decoder.decode(value, { stream: true })
+    const events = buffer.split("\n\n")
+    buffer = events.pop() ?? ""
+
+    for (const event of events) {
+      const dataLine = event.split("\n").find((line) => line.startsWith("data: "))
+
+      if (!dataLine) {
+        continue
+      }
+
+      const payload = JSON.parse(dataLine.slice(6)) as {
+        type?: "chunk" | "done" | "error"
+        chunk?: string
+        error?: string
+      }
+
+      if (payload.type === "chunk" && payload.chunk) {
+        onChunk(payload.chunk)
+      }
+
+      if (payload.type === "error") {
+        throw new Error(payload.error ?? "Unknown streaming error")
+      }
+    }
+  }
+}
+
 export async function getLeaderboardMock(): Promise<LeaderboardEntry[]> {
   // Convex guidance:
   // Replace with useQuery(api.game.getLeaderboard, { limit: 10 }) in a hook.

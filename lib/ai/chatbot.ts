@@ -57,6 +57,37 @@ export async function generateGeminiResponse({
   throw new Error("LLM returned no text output")
 }
 
+export async function* generateGeminiResponseStream({
+  message,
+  systemPrompt,
+  temperature = 0.7,
+}: {
+  message: string
+  systemPrompt?: string
+  temperature?: number
+}): AsyncGenerator<string> {
+  const ai = getGeminiClient()
+  const model = process.env.GEMINI_MODEL ?? "gemini-flash-latest"
+
+  const response = await ai.models.generateContentStream({
+    model,
+    contents: message,
+    config: {
+      systemInstruction: systemPrompt ?? getSystemPrompt(),
+      temperature,
+      responseMimeType: "text/plain",
+      maxOutputTokens: 160,
+    },
+  })
+
+  for await (const chunk of response) {
+    const text = chunk.text?.trim()
+    if (text) {
+      yield text
+    }
+  }
+}
+
 export async function generateChatbotResponse(message: string): Promise<string> {
   return generateGeminiResponse({ message })
 }
