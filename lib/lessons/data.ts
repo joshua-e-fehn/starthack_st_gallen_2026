@@ -458,14 +458,14 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Patient Farmer",
         content:
-          "Meanwhile, a quiet farmer bought wood and potatoes years ago and simply held them. Through times of peace and times of war, the value of her holdings grew steadily. Time was her greatest ally.",
+          "Meanwhile, a quiet farmer bought wood and potatoes years ago and simply held them. Through good kings and bad kings — peace times and war times — the value of her holdings grew steadily. Time was her greatest ally.",
 
         tip: "Historically, major stock indices have always recovered from crashes — given enough time.",
       },
       {
-        title: "Peace & War",
+        title: "The Good King & The Bad King",
         content:
-          "In Peace Time, trade flourishes and prices rise. But times change — War Time brings higher taxes and frightens merchants. Prices fall. Panic spreads. Those who sell during War Time lock in their losses forever. Those who wait almost always see Peace return.",
+          "Under the Good King, trade flourishes and prices rise. But kings change — the Bad King raises taxes and frightens merchants. Prices fall. Panic spreads. Those who sell during the Bad King's reign lock in their losses forever. Those who wait almost always see a new Good King rise.",
       },
       {
         title: "Keeping Your Nerves",
