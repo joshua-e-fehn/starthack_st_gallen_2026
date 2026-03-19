@@ -520,25 +520,25 @@ function GameContent() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between sm:justify-end gap-8 bg-muted/30 p-3 pr-6 rounded-2xl border border-primary/5">
-              <div className="flex items-center gap-4 pl-3">
+            <div className="flex items-center justify-between lg:justify-end gap-10 bg-muted/40 p-5 px-8 rounded-3xl border border-primary/10 shadow-inner">
+              <div className="flex items-center gap-6">
                 {goodsMeta.map((meta) => (
                   <Tooltip key={meta.key}>
                     <TooltipTrigger asChild>
-                      <div className="flex items-center gap-2 group cursor-help">
+                      <div className="flex items-center gap-2.5 group cursor-help">
                         <div
-                          className="p-1.5 rounded-lg shadow-xs group-hover:scale-110 transition-all duration-300"
+                          className="p-2 rounded-xl shadow-sm group-hover:scale-110 transition-all duration-300"
                           style={{ backgroundColor: lineConfig[meta.key].color }}
                         >
                           <Image
                             src={meta.icon}
                             alt={meta.name}
-                            width={20}
-                            height={20}
+                            width={24}
+                            height={24}
                             className="object-contain"
                           />
                         </div>
-                        <span className="font-mono text-base font-black tabular-nums">
+                        <span className="font-mono text-lg font-black tabular-nums">
                           {meta.key === "taler"
                             ? Math.round(projectedPortfolio.gold)
                             : projectedPortfolio[meta.key as TradableAsset]}
@@ -555,12 +555,12 @@ function GameContent() {
                 ))}
               </div>
 
-              <div className="h-16 w-px bg-border/50 hidden sm:block" />
+              <div className="h-16 w-px bg-border/60 hidden sm:block" />
 
               {/* Larger Allocation Chart in Header */}
-              <div className="flex flex-col items-center">
-                <span className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">
-                  Portfolio Spread
+              <div className="hidden sm:flex flex-col items-center">
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">
+                  Spread
                 </span>
                 <div className="h-20 w-20 relative">
                   <PieChart width={80} height={80}>
@@ -580,7 +580,6 @@ function GameContent() {
                       ))}
                     </Pie>
                   </PieChart>
-                  {/* Small center hole text or icon could go here */}
                 </div>
               </div>
             </div>
