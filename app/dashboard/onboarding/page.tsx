@@ -47,7 +47,7 @@ export default function OnboardingPage() {
   const router = useRouter()
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-linear-to-b from-slate-950 via-slate-900 to-zinc-950 p-4 text-foreground sm:p-8">
+    <main className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
       <StoryPlayer
         slides={onboardingStorySlides}
         autoAdvanceMs={7000}
