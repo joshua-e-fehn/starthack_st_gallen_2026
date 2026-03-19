@@ -26,6 +26,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
 
 import { GameChatbot } from "@/components/molecules/game-chatbot"
+import { EventPopup } from "@/components/organisms/event-popup"
 import { StoryPlayer } from "@/components/organisms/story-player"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -45,6 +46,7 @@ import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
 import { TRADABLE_ASSET_KEYS } from "@/lib/types/assets"
+import type { GameEvent } from "@/lib/types/events"
 import { buyPrice, nominalPrice, sellPrice } from "@/lib/types/market"
 import type { StorySlide } from "@/lib/types/onboarding"
 import type { StateVector } from "@/lib/types/state_vector"
@@ -811,6 +813,8 @@ function GameContent() {
     // biome-ignore lint/suspicious/noExplicitAny: shape match
     return { id: _id, ...rest } as any
   }, [convexScenario])
+
+  const goalProgressImageSrc = scenario?.icon ?? "/farm.webp"
 
   const gameOver = useMemo(() => {
     if (!scenario || !current) return false

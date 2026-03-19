@@ -1,4 +1,4 @@
-# UI/UX Design System — Wealth Manager Arena: The Investing Game
+# UI/UX Design System — Trade Tales: The Investing Game
 
 > **This file is the single source of truth for all frontend design decisions.**
 > It is referenced any time UI code is created or modified.
@@ -101,7 +101,7 @@ Gildi is a living, anthropomorphized Swiss Goldvreneli coin:
 
 | Property        | Value                                                                                     |
 | --------------- | ----------------------------------------------------------------------------------------- |
-| **App Name**    | Wealth Manager Arena: The Investing Game                                                  |
+| **App Name**    | Trade Tales: The Investing Game                                                  |
 | **Mascot**      | Gildi the Goldvreneli                                                                     |
 | **Tagline**     | _Learn to invest. Play to understand._                                                    |
 | **Tone**        | Friendly, approachable, encouraging, professionally credible                              |

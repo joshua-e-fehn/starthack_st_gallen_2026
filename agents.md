@@ -1,4 +1,4 @@
-# MunichMinds — Project Reference
+# TradeTales — Project Reference
 
 ## Tech Stack
 
@@ -398,7 +398,7 @@ Manual prod deploy: `bunx convex deploy` (or push to GitHub for auto-deploy).
 All frontend design decisions are governed by **`DESIGN.md`** in the project root. The design language blends **professional financial credibility** with **playful gamification**, centered around the mascot **Gildi the Goldvreneli** (an anthropomorphized Swiss gold coin). This file defines:
 
 - **Mascot guide** — Gildi the Goldvreneli: roles, animation states, design rules, and scale guidelines
-- **Branding** — "Wealth Manager Arena: The Investing Game" with gold-primary, Alpine blue secondary palette
+- **Branding** — "Trade Tales: The Investing Game" with gold-primary, Alpine blue secondary palette
 - **Color palette** — Gold (`#FFD700`) as primary, Alpine Blue (`#B3E5FC`) as secondary, Success Green, Alert Red (maps to CSS tokens in `globals.css`)
 - **Typography** — Montserrat for all text; monospace for financial data
 - **Iconography** — Flat/soft shadow style with Lucide React; Gildi integrated into graphs, cards, and notifications
@@ -421,7 +421,7 @@ Product vision, user journey, simulation rules, and educational framing are gove
 - **Simulation mapping** — wood, potatoes, and fish as metaphors for asset classes
 - **Economic systems** — inflation, market phases, and random events
 - **Product constraints** — clarity over realism, strategy over complexity, asynchronous multiplayer
-- **AI integration** — Gemini powers dynamic content generation throughout the game
+- **AI integration** — Gemini powers chatbot assistance and landing page quotes
 
 > **Rule:** Any time gameplay, content, progression, onboarding flow, or economic logic is created or modified, `STORY.md` must be consulted and followed.
 
