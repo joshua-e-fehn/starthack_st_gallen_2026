@@ -1,6 +1,8 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useMutation, useQuery } from "convex/react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import {
   Area,
   CartesianGrid,
@@ -32,9 +34,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
 import { DEBUG_SCENARIO } from "@/lib/game/debug-scenario"
 import {
-  advanceYear,
   applyActions,
   gameStep,
   initializeGame,
@@ -669,9 +672,44 @@ function computeStrategyActions(
   return actions
 }
 
-export default function DebugPage() {
+export default function DebugPageWrapper() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading engine...</div>}>
+      <DebugPage />
+    </Suspense>
+  )
+}
+
+function DebugPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const gameId = searchParams.get("gameId") as Id<"games"> | null
+
+  // ─── Convex state ───────────────────────────────────────────
+  const convexHistory = useQuery(api.game.getGameTimeSeries, gameId ? { gameId } : "skip")
+  const convexGame = useQuery(api.game.getGame, gameId ? { gameId } : "skip")
+  const convexScenario = useQuery(
+    api.game.getScenario,
+    convexGame?.scenarioId ? { scenarioId: convexGame.scenarioId } : "skip",
+  )
+  const submitStepMutation = useMutation(api.game.submitStep)
+
   const [scenario, setScenario] = useState<Scenario>(() => structuredClone(DEBUG_SCENARIO))
   const [history, setHistory] = useState<StateVector[]>(() => [initializeGame(scenario)])
+
+  // Sync convex data into local state
+  useEffect(() => {
+    if (convexHistory && convexHistory.length > 0) {
+      // biome-ignore lint/suspicious/noExplicitAny: debug-only
+      setHistory(convexHistory as any)
+    }
+    if (convexScenario) {
+      const { _id, _creationTime, ...rest } = convexScenario
+      // biome-ignore lint/suspicious/noExplicitAny: debug-only
+      setScenario({ id: _id, ...rest } as any)
+    }
+  }, [convexHistory, convexScenario])
+
   const [actionInputs, setActionInputs] = useState<
     Record<TradableAsset, { buyQty: string; sellQty: string }>
   >({
@@ -688,6 +726,24 @@ export default function DebugPage() {
 
   const current = history[history.length - 1]
   const gameOver = isGameOver(scenario, current)
+
+  const handleSubmitStep = useCallback(
+    async (actions: PlayerAction[]) => {
+      if (gameOver) return
+      if (gameId) {
+        try {
+          await submitStepMutation({ gameId, actions })
+        } catch (e) {
+          console.error("Mutation failed:", e)
+        }
+        // History will be updated via useQuery sync
+      } else {
+        const newState = gameStep(scenario, current, actions)
+        setHistory((prev) => [...prev, newState])
+      }
+    },
+    [current, gameId, gameOver, scenario, submitStepMutation],
+  )
 
   // Working portfolio is either the in-progress trade state or the committed state
   const activePortfolio = phaseState.workingPortfolio ?? current.portfolio
@@ -796,27 +852,17 @@ export default function DebugPage() {
   }, [current, phaseState.pricesAfterEvents, phaseState.portfolioAfterEvents, scenario])
 
   /** Phase 3: Advance to next year — commit the completed step to history */
-  const handleNextYear = useCallback(() => {
+  const handleNextYear = useCallback(async () => {
     if (!phaseState.finalPortfolio || !phaseState.newMarket) return
 
-    const newState: StateVector = {
-      step: current.step + 1,
-      date: advanceYear(current.date),
-      portfolio: phaseState.finalPortfolio,
-      market: phaseState.newMarket,
-      events: phaseState.firedEvents ?? [],
-      actions: phaseState.executedActions ?? [],
-      goal: phaseState.newGoal ?? current.goal,
-      goalReached: phaseState.goalReached ?? current.goalReached,
-    }
-
-    setHistory((prev) => [...prev, newState])
+    const actions = phaseState.executedActions ?? []
+    await handleSubmitStep(actions)
     setPhaseState({ phase: "trade" })
-  }, [current, phaseState])
+  }, [phaseState, handleSubmitStep])
 
   // ─── Old full-step handlers (auto-run, skip) ────────────────
 
-  const handleStep = useCallback(() => {
+  const handleStep = useCallback(async () => {
     if (gameOver) return
     const actions: PlayerAction[] = []
     for (const asset of TRADABLE_ASSET_KEYS) {
@@ -826,21 +872,19 @@ export default function DebugPage() {
       if (buyQty > 0) actions.push({ type: "buy", asset, quantity: buyQty })
       if (sellQty > 0) actions.push({ type: "sell", asset, quantity: sellQty })
     }
-    const newState = gameStep(scenario, current, actions)
-    setHistory((prev) => [...prev, newState])
+    await handleSubmitStep(actions)
     setActionInputs({
       wood: { buyQty: "", sellQty: "" },
       potatoes: { buyQty: "", sellQty: "" },
       fish: { buyQty: "", sellQty: "" },
     })
-  }, [actionInputs, current, gameOver, scenario])
+  }, [actionInputs, gameOver, handleSubmitStep])
 
-  const handleSkip = useCallback(() => {
+  const handleSkip = useCallback(async () => {
     if (gameOver) return
-    const newState = gameStep(scenario, current, [])
-    setHistory((prev) => [...prev, newState])
+    await handleSubmitStep([])
     setPhaseState({ phase: "trade" })
-  }, [current, gameOver, scenario])
+  }, [gameOver, handleSubmitStep])
 
   const handleReset = useCallback(() => {
     setHistory([initializeGame(scenario)])
@@ -886,35 +930,57 @@ export default function DebugPage() {
   }, [])
 
   const handleAutoRun = useCallback(
-    (steps: number) => {
-      let state = current
-      const newHistory = [...history]
-      for (let i = 0; i < steps; i++) {
-        if (isGameOver(scenario, state)) break
-        state = gameStep(scenario, state, [])
-        newHistory.push(state)
+    async (steps: number) => {
+      if (gameId) {
+        // Run steps one-by-one to persist them
+        for (let i = 0; i < steps; i++) {
+          const currentLatest = history[history.length - 1]
+          if (isGameOver(scenario, currentLatest)) break
+          await submitStepMutation({ gameId, actions: [] })
+        }
+      } else {
+        let state = current
+        const newHistory = [...history]
+        for (let i = 0; i < steps; i++) {
+          if (isGameOver(scenario, state)) break
+          state = gameStep(scenario, state, [])
+          newHistory.push(state)
+        }
+        setHistory(newHistory)
       }
-      setHistory(newHistory)
       setPhaseState({ phase: "trade" })
     },
-    [current, history, scenario],
+    [current, history, scenario, gameId, submitStepMutation],
   )
 
   /** Auto-run with target allocation strategy (buy-only rebalancing) */
   const handleAutoRunStrategy = useCallback(
-    (steps: number) => {
-      let state = current
-      const newHistory = [...history]
-      for (let i = 0; i < steps; i++) {
-        if (isGameOver(scenario, state)) break
-        const actions = computeStrategyActions(state.portfolio, state.market, strategyAlloc)
-        state = gameStep(scenario, state, actions)
-        newHistory.push(state)
+    async (steps: number) => {
+      if (gameId) {
+        for (let i = 0; i < steps; i++) {
+          const currentLatest = history[history.length - 1]
+          if (isGameOver(scenario, currentLatest)) break
+          const actions = computeStrategyActions(
+            currentLatest.portfolio,
+            currentLatest.market,
+            strategyAlloc,
+          )
+          await submitStepMutation({ gameId, actions })
+        }
+      } else {
+        let state = current
+        const newHistory = [...history]
+        for (let i = 0; i < steps; i++) {
+          if (isGameOver(scenario, state)) break
+          const actions = computeStrategyActions(state.portfolio, state.market, strategyAlloc)
+          state = gameStep(scenario, state, actions)
+          newHistory.push(state)
+        }
+        setHistory(newHistory)
       }
-      setHistory(newHistory)
       setPhaseState({ phase: "trade" })
     },
-    [current, history, scenario, strategyAlloc],
+    [current, history, scenario, strategyAlloc, gameId, submitStepMutation],
   )
 
   const fmt = (n: number) => n.toFixed(2)
@@ -922,28 +988,42 @@ export default function DebugPage() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Game Engine Debug</h1>
-          <p className="text-muted-foreground text-sm">
-            Step {current.step} · {current.date} · Regime:{" "}
-            <Badge variant={current.market.regime === "bull" ? "default" : "destructive"}>
-              {current.market.regime.toUpperCase()}
-            </Badge>{" "}
-            · Goal: {fmt(current.goal)} /{" "}
-            <span className={totalValue >= current.goal ? "text-green-600 font-bold" : ""}>
-              {fmt(totalValue)}
-            </span>
-            {current.goalReached && (
-              <Badge variant="default" className="ml-2 bg-green-600">
-                GOAL REACHED
-              </Badge>
-            )}
-            {gameOver && (
-              <Badge variant="outline" className="ml-2">
-                GAME OVER
-              </Badge>
-            )}
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">
+              {convexGame?.playerName ? `${convexGame.playerName}'s Game` : "Game Engine Debug"}
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Step {current.step} · {current.date} · Regime:{" "}
+              <Badge variant={current.market.regime === "bull" ? "default" : "destructive"}>
+                {current.market.regime.toUpperCase()}
+              </Badge>{" "}
+              · Goal: {fmt(current.goal)} /{" "}
+              <span className={totalValue >= current.goal ? "text-green-600 font-bold" : ""}>
+                {fmt(totalValue)}
+              </span>
+              {current.goalReached && (
+                <Badge variant="default" className="ml-2 bg-green-600">
+                  GOAL REACHED
+                </Badge>
+              )}
+              {gameOver && (
+                <Badge variant="outline" className="ml-2">
+                  GAME OVER
+                </Badge>
+              )}
+            </p>
+          </div>
+          {convexGame?.sessionId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className={gameOver ? "animate-bounce border-primary" : ""}
+              onClick={() => router.push(`/debug/sessions/${convexGame.sessionId}`)}
+            >
+              ← Back to Session Leaderboard
+            </Button>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleReset}>
@@ -1174,6 +1254,7 @@ export default function DebugPage() {
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {phaseState.executedActions.map((a, i) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: debug-only
                         <Badge key={`${a.type}-${a.asset}-${i}`} variant="outline">
                           {a.type.toUpperCase()} {a.quantity}× {a.asset}
                         </Badge>
@@ -1325,6 +1406,7 @@ export default function DebugPage() {
                     <SectionTitle>Trades Executed</SectionTitle>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {phaseState.executedActions.map((a, i) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: debug-only
                         <Badge key={`${a.type}-${a.asset}-${i}`} variant="outline">
                           {a.type.toUpperCase()} {a.quantity}× {a.asset}
                         </Badge>
@@ -1390,6 +1472,7 @@ export default function DebugPage() {
                   <div className="space-y-3">
                     {phaseState.firedEvents.map((ev, i) => (
                       <div
+                        // biome-ignore lint/suspicious/noArrayIndexKey: debug-only
                         key={`${ev.type}-${i}`}
                         className="bg-destructive/10 border-destructive/20 rounded-lg border p-3"
                       >
@@ -1581,6 +1664,7 @@ export default function DebugPage() {
                       <span className="text-muted-foreground text-xs">Trades:</span>
                       {phaseState.executedActions.map((a, i) => (
                         <Badge
+                          // biome-ignore lint/suspicious/noArrayIndexKey: debug-only
                           key={`${a.type}-${a.asset}-${i}`}
                           variant="outline"
                           className="text-xs"
@@ -1594,7 +1678,12 @@ export default function DebugPage() {
                     <>
                       <span className="text-muted-foreground text-xs">Events:</span>
                       {phaseState.firedEvents.map((ev, i) => (
-                        <Badge key={`${ev.type}-${i}`} variant="secondary" className="text-xs">
+                        <Badge
+                          // biome-ignore lint/suspicious/noArrayIndexKey: debug-only
+                          key={`${ev.type}-${i}`}
+                          variant="secondary"
+                          className="text-xs"
+                        >
                           {ev.name}
                           {ev.targetAsset ? ` → ${ev.targetAsset}` : ""}
                         </Badge>
@@ -1809,6 +1898,7 @@ export default function DebugPage() {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {current.events.map((ev, i) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: debug-only
                     <Badge key={`${ev.type}-${i}`} variant="secondary">
                       {ev.name}
                       {ev.targetAsset ? ` → ${ev.targetAsset}` : " (global)"}
@@ -1830,6 +1920,7 @@ export default function DebugPage() {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {current.actions.map((a, i) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: debug-only
                     <Badge key={`${a.type}-${a.asset}-${i}`} variant="outline">
                       {a.type.toUpperCase()} {a.quantity}× {a.asset}
                     </Badge>

@@ -30,7 +30,7 @@ export default async function RootLayout({
       suppressHydrationWarning
       className={cn("antialiased", fontMono.variable, "font-sans", fontSans.variable)}
     >
-      <body>
+      <body suppressHydrationWarning>
         <ConvexClientProvider initialToken={token}>
           <QueryProvider>
             <ThemeProvider>{children}</ThemeProvider>
