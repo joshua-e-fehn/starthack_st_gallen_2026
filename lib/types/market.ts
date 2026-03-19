@@ -1,6 +1,6 @@
 import type { TradableAsset } from "./assets"
 
-export type MarketRegime = "peace" | "war" | "bull" | "bear"
+export type MarketRegime = "peace" | "war"
 
 /**
  * Price info for a single tradable asset at a given timestep.

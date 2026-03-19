@@ -9,7 +9,7 @@ export const assetMarketPriceValidator = v.object({
 })
 
 export const marketStateValidator = v.object({
-  regime: v.union(v.literal("peace"), v.literal("war"), v.literal("bull"), v.literal("bear")),
+  regime: v.union(v.literal("peace"), v.literal("war")),
   inflation: v.number(),
   prices: v.object({
     wood: assetMarketPriceValidator,
@@ -80,20 +80,12 @@ export const assetPricingValidator = v.object({
 })
 
 export const marketParamsValidator = v.object({
-  // Current naming (peace/war)
-  warToPeaceProbability: v.optional(v.number()),
-  peaceToWarProbability: v.optional(v.number()),
-  peaceReturn: v.optional(v.number()),
-  warReturn: v.optional(v.number()),
-  peaceVolatility: v.optional(v.number()),
-  warVolatility: v.optional(v.number()),
-  // Legacy naming (bull/bear)
-  bullToBearProbability: v.optional(v.number()),
-  bearToBullProbability: v.optional(v.number()),
-  bullReturn: v.optional(v.number()),
-  bearReturn: v.optional(v.number()),
-  bullVolatility: v.optional(v.number()),
-  bearVolatility: v.optional(v.number()),
+  warToPeaceProbability: v.number(),
+  peaceToWarProbability: v.number(),
+  peaceReturn: v.number(),
+  warReturn: v.number(),
+  peaceVolatility: v.number(),
+  warVolatility: v.number(),
 })
 
 export const precomputedStepValidator = v.object({

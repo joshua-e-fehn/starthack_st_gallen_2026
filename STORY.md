@@ -238,7 +238,7 @@ The player should discover insights naturally, for example:
 
 - "Holding only gold made me lose purchasing power."
 - "Fish gave high returns once, but also crashed badly."
-- "Wood felt safer during bad king years."
+- "Wood felt safer during war years."
 - "Diversifying helped me survive crises."
 
 ## Possible Core State Model
@@ -252,7 +252,7 @@ A game state may include:
 - current holdings of wood, potatoes, and fish
 - current prices of all assets
 - inflation rate
-- current king and market phase
+- current market phase
 - active or recent event
 - farm purchase price
 - net worth
@@ -264,7 +264,7 @@ A reasonable yearly simulation order could be:
 
 1. start of year state is shown
 2. salary or regular income is added
-3. current king or market phase is determined or updated
+3. current market phase is determined or updated
 4. inflation is applied
 5. prices for wood, potatoes, and fish are updated
 6. a random event may occur

@@ -16,20 +16,12 @@ export type AssetPricingMap = Record<TradableAsset, AssetPricing>
 
 /** Market-regime transition & return parameters */
 export type MarketParams = {
-  // Current naming (peace/war)
-  warToPeaceProbability?: number
-  peaceToWarProbability?: number
-  peaceReturn?: number
-  warReturn?: number
-  peaceVolatility?: number
-  warVolatility?: number
-  // Legacy naming (bull/bear)
-  bullToBearProbability?: number
-  bearToBullProbability?: number
-  bullReturn?: number
-  bearReturn?: number
-  bullVolatility?: number
-  bearVolatility?: number
+  warToPeaceProbability: number
+  peaceToWarProbability: number
+  peaceReturn: number
+  warReturn: number
+  peaceVolatility: number
+  warVolatility: number
 }
 
 /** A single precomputed step containing the market state and events that fired */
