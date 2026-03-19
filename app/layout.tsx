@@ -1,7 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
-import { AuthGuard } from "@/components/providers/auth-guard"
 import { ConvexClientProvider } from "@/components/providers/convex-client-provider"
 import { QueryProvider } from "@/components/providers/query-provider"
 import { ThemeProvider } from "@/components/providers/theme-provider"
