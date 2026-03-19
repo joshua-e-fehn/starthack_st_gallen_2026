@@ -158,7 +158,7 @@ function LeaderboardContent() {
                   minimumFractionDigits: 0,
                   maximumFractionDigits: 0,
                 })}{" "}
-                gold
+                taler
               </span>
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -172,7 +172,7 @@ function LeaderboardContent() {
                   <span>Goal Progress</span>
                   <span className="font-mono tabular-nums">
                     {myEntry.score.toLocaleString(undefined, { maximumFractionDigits: 0 })} /{" "}
-                    {myEntry.goal.toLocaleString(undefined, { maximumFractionDigits: 0 })} gold
+                    {myEntry.goal.toLocaleString(undefined, { maximumFractionDigits: 0 })} taler
                   </span>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
@@ -272,7 +272,7 @@ function LeaderboardContent() {
                           maximumFractionDigits: 0,
                         })}
                       </p>
-                      <p className="text-[10px] uppercase text-muted-foreground">gold</p>
+                      <p className="text-[10px] uppercase text-muted-foreground">taler</p>
                     </div>
                   </div>
 

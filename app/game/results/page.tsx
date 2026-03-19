@@ -708,7 +708,7 @@ function MonteCarloChart({
                       return null
                     return (
                       <span className="font-mono tabular-nums">
-                        {typeof value === "number" ? formatTaler(value) : value} gold
+                        {typeof value === "number" ? formatTaler(value) : value} taler
                       </span>
                     )
                   }}
