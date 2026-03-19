@@ -1,16 +1,14 @@
 "use client"
 
-import { Minus, Plus } from "lucide-react"
+import { Minus, Plus, RotateCcw } from "lucide-react"
 import Image from "next/image"
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerDescription,
-  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer"
@@ -307,17 +305,22 @@ export default function Game() {
     setDraftTradeValue(mapYToTrade(y, rect.height, maxBuy, maxSell))
   }
 
-  function applyDraftTrade() {
+  useEffect(() => {
     if (!selectedAsset) {
       return
     }
 
-    setTradePlan((previous) => ({
-      ...previous,
-      [selectedAsset]: clamp(draftTradeValue, -maxSell, maxBuy),
-    }))
-    closeTradeModal()
-  }
+    setTradePlan((previous) => {
+      if (previous[selectedAsset] === currentTradeClamp) {
+        return previous
+      }
+
+      return {
+        ...previous,
+        [selectedAsset]: currentTradeClamp,
+      }
+    })
+  }, [currentTradeClamp, selectedAsset])
 
   function rollNextTimeframe() {
     let nextTaler = taler
@@ -484,11 +487,24 @@ export default function Game() {
       <Drawer open={selectedAsset !== null} onOpenChange={(open) => !open && closeTradeModal()}>
         <DrawerContent className="mx-auto w-full max-w-2xl rounded-t-2xl">
           <DrawerHeader>
-            <DrawerTitle>
-              {selectedAsset
-                ? `Trade ${selectedAsset[0].toUpperCase()}${selectedAsset.slice(1)}`
-                : "Trade"}
-            </DrawerTitle>
+            <div className="flex items-center justify-between gap-3">
+              <DrawerTitle>
+                {selectedAsset
+                  ? `Trade ${selectedAsset[0].toUpperCase()}${selectedAsset.slice(1)}`
+                  : "Trade"}
+              </DrawerTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setDraftTradeValue(0)
+                }}
+                aria-label="Reset trade to no change"
+              >
+                <RotateCcw className="size-4" />
+              </Button>
+            </div>
             <DrawerDescription>
               Interactive trade bar: middle is no change, up buys, down sells.
             </DrawerDescription>
@@ -675,17 +691,6 @@ export default function Game() {
               </button>
             </div>
           </div>
-
-          <DrawerFooter>
-            <DrawerClose asChild>
-              <Button type="button" variant="outline" onClick={closeTradeModal}>
-                Cancel
-              </Button>
-            </DrawerClose>
-            <Button type="button" onClick={applyDraftTrade}>
-              Apply Trade
-            </Button>
-          </DrawerFooter>
         </DrawerContent>
       </Drawer>
     </main>
