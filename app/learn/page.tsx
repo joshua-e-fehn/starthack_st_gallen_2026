@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { CheckIcon, LockIcon, SparklesIcon } from "lucide-react"
+import { ArrowRight, CheckIcon, LockIcon, SparklesIcon } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useRef } from "react"
@@ -80,7 +80,8 @@ export default function LearnPage() {
           <p className="mt-1 text-sm text-muted-foreground sm:text-base">
             Complete all 7 lessons to claim your reward!
           </p>
-          <div className="mx-auto mt-4 max-w-xs">
+
+          <div className="mx-auto mt-8 max-w-xs">
             <div className="relative h-4 overflow-hidden rounded-full bg-muted">
               <motion.div
                 className="h-full rounded-full bg-gradient-to-r from-primary via-primary/90 to-primary"
@@ -222,6 +223,43 @@ export default function LearnPage() {
             )
           })}
         </div>
+
+        {/* Dojo Trainingscamp */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5, duration: 0.4 }}
+          className="mx-auto mt-12 max-w-sm"
+        >
+          <Link href="/game?mode=training">
+            <div className="group relative overflow-hidden rounded-2xl border-4 border-amber-900/20 bg-linear-to-br from-amber-50 to-orange-100 p-6 shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]">
+              {/* Background Pattern */}
+              <div className="absolute -right-4 -top-4 opacity-10 transition-transform group-hover:rotate-12 group-hover:scale-110">
+                <span className="text-8xl">{"\uD83C\uDFEF"}</span>
+              </div>
+
+              <div className="relative z-10 flex items-center gap-5">
+                <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-amber-900/10 text-4xl shadow-inner">
+                  {"\uD83C\uDFEF"}
+                </div>
+                <div className="text-left">
+                  <h2 className="text-xl font-black tracking-tight text-amber-900">
+                    Dojo Trainingscamp
+                  </h2>
+                  <p className="text-sm font-medium text-amber-800/70">
+                    Practice investing like a master. No competition, pure practice.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-end">
+                <span className="flex items-center gap-2 rounded-full bg-amber-900 px-4 py-1.5 text-xs font-bold text-amber-50 shadow-md transition-colors group-hover:bg-amber-800">
+                  Enter Dojo <ArrowRight className="size-3" />
+                </span>
+              </div>
+            </div>
+          </Link>
+        </motion.div>
       </main>
 
       {/* Floating "Back to Game" button when player has an active session */}
@@ -237,7 +275,7 @@ export default function LearnPage() {
               size="lg"
               className="gap-2.5 rounded-full px-7 py-3 text-base font-bold shadow-[0_4px_20px_oklch(0.75_0.18_90/0.45)] hover:shadow-[0_6px_28px_oklch(0.75_0.18_90/0.55)] transition-shadow"
             >
-              {"\u2694\uFE0F"} Back to Arena
+              {"\uD83C\uDFEF"} Back to Arena
             </Button>
           </Link>
         </motion.div>

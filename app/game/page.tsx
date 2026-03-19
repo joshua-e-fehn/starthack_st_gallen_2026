@@ -38,7 +38,8 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { portfolioValue } from "@/lib/game/engine"
+import { DEBUG_SCENARIO } from "@/lib/game/debug-scenario"
+import { gameStep, initializeGame, portfolioValue } from "@/lib/game/engine"
 import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
@@ -732,6 +733,16 @@ function GameContent() {
   const startGameMutation = useMutation(api.game.startGame)
   const submitStepMutation = useMutation(api.game.submitStep)
 
+  const isTraining = searchParams.get("mode") === "training"
+  const [localHistory, setLocalHistory] = useState<StateVector[]>([])
+
+  useEffect(() => {
+    if (isTraining && localHistory.length === 0) {
+      const initial = initializeGame(DEBUG_SCENARIO)
+      setLocalHistory([initial])
+    }
+  }, [isTraining, localHistory])
+
   const [gameId, setGameId] = useState<Id<"games"> | null>(gameIdParam)
   const [isStarting, setIsStarting] = useState(false)
 
@@ -796,19 +807,21 @@ function GameContent() {
   ])
 
   const history: StateVector[] = useMemo(() => {
+    if (isTraining) return localHistory
     if (!convexHistory?.length) return []
     // biome-ignore lint/suspicious/noExplicitAny: shape match
     return convexHistory as any
-  }, [convexHistory])
+  }, [convexHistory, isTraining, localHistory])
 
   const current = history.length > 0 ? history[history.length - 1] : null
 
   const scenario = useMemo(() => {
+    if (isTraining) return DEBUG_SCENARIO
     if (!convexScenario) return null
     const { _id, _creationTime, ...rest } = convexScenario
     // biome-ignore lint/suspicious/noExplicitAny: shape match
     return { id: _id, ...rest } as any
-  }, [convexScenario])
+  }, [convexScenario, isTraining])
 
   const gameOver = useMemo(() => {
     if (!scenario || !current) return false
@@ -1004,7 +1017,7 @@ function GameContent() {
   }, [current, eventSeenStorageKey, markEventStepSeen])
 
   const handleSubmitTrades = useCallback(async () => {
-    if (!gameId || isSubmitting || gameOver) return
+    if ((!isTraining && !gameId) || isSubmitting || gameOver) return
 
     const actions: PlayerAction[] = []
     for (const asset of TRADABLE_ASSET_KEYS) {
@@ -1014,6 +1027,19 @@ function GameContent() {
     }
 
     setIsSubmitting(true)
+
+    if (isTraining && current) {
+      try {
+        const nextState = await gameStep(DEBUG_SCENARIO, current, actions)
+        setLocalHistory((prev) => [...prev, nextState])
+        setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
+      } catch (e) {
+        console.error("Local step failed:", e)
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
 
     if (sessionId && current) {
       const nextStep = current.step + 1
@@ -1047,6 +1073,7 @@ function GameContent() {
     scenario,
     router,
     guestId,
+    isTraining,
   ])
 
   const prevGoalReached = useRef<boolean | null>(null)
@@ -1088,7 +1115,7 @@ function GameContent() {
     )
   }
 
-  if (!gameId || !current || !market) {
+  if ((!isTraining && !gameId) || !current || !market) {
     return (
       <main className="mx-auto flex min-h-[60vh] w-full max-w-4xl items-center justify-center px-4 py-6">
         <div className="flex flex-col items-center gap-4 text-center">
@@ -1424,14 +1451,18 @@ function GameContent() {
                 <Button
                   type="button"
                   className="relative h-16 sm:h-20 w-full rounded-2xl bg-green-600 text-xl sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:bg-green-700 hover:scale-[1.02]"
-                  onClick={() =>
-                    router.push(
-                      `/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
-                    )
-                  }
+                  onClick={() => {
+                    if (isTraining) {
+                      router.push("/learn")
+                    } else {
+                      router.push(
+                        `/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
+                      )
+                    }
+                  }}
                 >
                   <Trophy className="mr-4 size-6 sm:size-8" />
-                  RESULTS
+                  {isTraining ? "BACK TO TRAINING" : "RESULTS"}
                 </Button>
               ) : (
                 <Button
