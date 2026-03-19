@@ -826,7 +826,17 @@ function GameContent() {
     } finally {
       setIsSubmitting(false)
     }
-  }, [gameId, isSubmitting, gameOver, tradePlan, submitStepMutation, sessionId, current, router, guestId])
+  }, [
+    gameId,
+    isSubmitting,
+    gameOver,
+    tradePlan,
+    submitStepMutation,
+    sessionId,
+    current,
+    router,
+    guestId,
+  ])
 
   const indicatorY = mapTradeToY(currentTradeClamp, 220, maxBuy, maxSell)
 
@@ -947,11 +957,59 @@ function GameContent() {
         </div>
 
         {/* Goal progress bar */}
-        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className={`h-full rounded-full transition-all ${totalValue >= current.goal ? "bg-green-500" : "bg-primary"}`}
-            style={{ width: `${Math.min(100, (totalValue / current.goal) * 100)}%` }}
-          />
+        <div className="relative group">
+          <div className="h-10 w-full overflow-hidden rounded-xl border border-primary/20 bg-muted/30 shadow-inner backdrop-blur-sm">
+            <div className="flex h-full w-full">
+              {/* Taler segment */}
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(totalAssetValue.taler / current.goal) * 100}%` }}
+                className="h-full transition-all duration-500 ease-out"
+                style={{ backgroundColor: lineConfig.taler.color }}
+              />
+              {/* Wood segment */}
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(totalAssetValue.wood / current.goal) * 100}%` }}
+                className="h-full transition-all duration-500 ease-out border-l border-white/10"
+                style={{ backgroundColor: lineConfig.wood.color }}
+              />
+              {/* Potatoes segment */}
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(totalAssetValue.potatoes / current.goal) * 100}%` }}
+                className="h-full transition-all duration-500 ease-out border-l border-white/10"
+                style={{ backgroundColor: lineConfig.potatoes.color }}
+              />
+              {/* Fish segment */}
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(totalAssetValue.fish / current.goal) * 100}%` }}
+                className="h-full transition-all duration-500 ease-out border-l border-white/10"
+                style={{ backgroundColor: lineConfig.fish.color }}
+              />
+            </div>
+
+            {/* Shine effect if goal is reached */}
+            {totalValue >= current.goal && (
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: "200%" }}
+                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg]"
+              />
+            )}
+          </div>
+
+          {/* Goal indicator line at 100% */}
+          <div className="absolute top-0 bottom-0 right-0 w-1 border-r-2 border-dashed border-primary/40 z-20 pointer-events-none" />
+
+          {/* Label inside bar */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+              {((totalValue / current.goal) * 100).toFixed(0)}% to Independence
+            </span>
+          </div>
         </div>
 
         {/* Asset cards */}
