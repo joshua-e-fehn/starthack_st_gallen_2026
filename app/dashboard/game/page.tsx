@@ -542,6 +542,8 @@ function GameContent() {
     return { id: _id, ...rest } as any
   }, [convexScenario])
 
+  const goalProgressImageSrc = scenario?.icon ?? "/farm.webp"
+
   const gameOver = useMemo(() => {
     if (!scenario || !current) return false
     return current.date >= scenario.endYear
@@ -1004,9 +1006,6 @@ function GameContent() {
             </Button>
           </div>
           <div className="text-right">
-            <p className="text-sm font-medium">
-              {formatTaler(totalValue)} / {formatTaler(current.goal)} taler
-            </p>
             <AnimatePresence mode="wait">
               {current.goalReached ? (
                 <motion.div
@@ -1049,15 +1048,40 @@ function GameContent() {
           </div>
         </div>
 
-        {/* Goal progress bar */}
+        {/* Goal progress image */}
         <div
-          className="h-2 w-full overflow-hidden rounded-full bg-muted"
+          className="relative h-48 w-full overflow-hidden rounded-xl bg-muted/40"
           data-onboarding-id="goal-progress"
         >
-          <div
-            className={`h-full rounded-full transition-all ${totalValue >= current.goal ? "bg-green-500" : "bg-primary"}`}
-            style={{ width: `${Math.min(100, (totalValue / current.goal) * 100)}%` }}
+          {/* Grayscale background image */}
+          <Image
+            src={goalProgressImageSrc}
+            alt="Goal progress"
+            fill
+            className="absolute inset-0 object-contain object-center"
+            unoptimized
+            style={{ filter: "grayscale(100%)" }}
           />
+
+          {/* Colorized overlay from bottom to top */}
+          <Image
+            src={goalProgressImageSrc}
+            alt="Goal progress fill"
+            fill
+            className="absolute inset-0 object-contain object-center"
+            unoptimized
+            style={{
+              clipPath: `inset(${Math.max(0, 100 - (totalValue / current.goal) * 100)}% 0 0 0)`,
+              transition: "clip-path 0.3s ease-out",
+            }}
+          />
+
+          {/* Taler display at bottom center */}
+          <div className="absolute inset-x-0 bottom-0 flex items-center justify-center bg-linear-to-t from-black/60 to-transparent py-3">
+            <p className="font-mono text-sm font-bold text-white drop-shadow-md">
+              {formatTaler(totalValue)} / {formatTaler(current.goal)} taler
+            </p>
+          </div>
         </div>
 
         {/* Asset cards */}
