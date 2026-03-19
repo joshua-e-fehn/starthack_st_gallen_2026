@@ -2,15 +2,37 @@
 
 import { useMutation } from "convex/react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useMemo, useState } from "react"
+import { CartesianGrid, ComposedChart, Legend, Line, XAxis, YAxis } from "recharts"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/convex/_generated/api"
 import { DEBUG_SCENARIO } from "@/lib/game/debug-scenario"
+import { generateTrajectories } from "@/lib/game/engine"
+import { nominalPrice } from "@/lib/types/market"
+
+const marketPriceChartConfig = {
+  wood: { label: "Wood", color: "#8B4513" },
+  potatoes: { label: "Potatoes", color: "#DAA520" },
+  fish: { label: "Fish", color: "#00CED1" },
+} satisfies ChartConfig
 
 export default function CreateScenarioPage() {
   const router = useRouter()
@@ -20,9 +42,30 @@ export default function CreateScenarioPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { id, ...initialFields } = DEBUG_SCENARIO
   // biome-ignore lint/suspicious/noExplicitAny: debug-only
-  const [form, setForm] = useState<any>(initialFields)
+  const [form, setForm] = useState<any>({ ...initialFields, mode: "live" })
+
+  const handleGenerateTrajectories = () => {
+    const trajectories = generateTrajectories(form)
+    setForm({ ...form, precomputedTrajectories: trajectories })
+  }
+
+  // Build chart data for preview
+  const chartData = useMemo(() => {
+    if (!form.precomputedTrajectories) return []
+    return form.precomputedTrajectories.map((step: any, i: number) => ({
+      year: form.startYear + i + 1,
+      wood: Math.round(nominalPrice(step.market.prices.wood, step.market.inflation) * 100) / 100,
+      potatoes:
+        Math.round(nominalPrice(step.market.prices.potatoes, step.market.inflation) * 100) / 100,
+      fish: Math.round(nominalPrice(step.market.prices.fish, step.market.inflation) * 100) / 100,
+    }))
+  }, [form.precomputedTrajectories, form.startYear])
 
   const handleSave = async () => {
+    if (form.mode === "precomputed" && !form.precomputedTrajectories) {
+      alert("Please generate trajectories first for precomputed mode.")
+      return
+    }
     try {
       const scenarioId = await createScenario(form)
       alert(`Scenario created! ID: ${scenarioId}`)
@@ -69,6 +112,7 @@ export default function CreateScenarioPage() {
           <TabsTrigger value="market">Market & Regime</TabsTrigger>
           <TabsTrigger value="economy">Global Economy</TabsTrigger>
           <TabsTrigger value="assets">Assets & Risk</TabsTrigger>
+          {form.mode === "precomputed" && <TabsTrigger value="preview">Price Preview</TabsTrigger>}
         </TabsList>
 
         {/* ─── Basic Info ────────────────────────────────────────── */}
@@ -76,7 +120,7 @@ export default function CreateScenarioPage() {
           <Card>
             <CardHeader>
               <CardTitle>Core Settings</CardTitle>
-              <CardDescription>Identity and time horizon.</CardDescription>
+              <CardDescription>Identity, mode, and time horizon.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -88,12 +132,29 @@ export default function CreateScenarioPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Input
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  />
+                  <Label>Scenario Mode</Label>
+                  <Select
+                    value={form.mode}
+                    onValueChange={(v) =>
+                      setForm({ ...form, mode: v, precomputedTrajectories: undefined })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="live">Live (Random for each player)</SelectItem>
+                      <SelectItem value="precomputed">Precomputed (Same for everyone)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
               </div>
               <div className="grid grid-cols-4 gap-4">
                 <div className="space-y-2">
@@ -129,6 +190,25 @@ export default function CreateScenarioPage() {
                   />
                 </div>
               </div>
+
+              {form.mode === "precomputed" && (
+                <div className="pt-4">
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={handleGenerateTrajectories}
+                  >
+                    {form.precomputedTrajectories
+                      ? "Regenerate Trajectories"
+                      : "Generate Deterministic Trajectories"}
+                  </Button>
+                  {form.precomputedTrajectories && (
+                    <p className="text-center text-xs text-green-600 mt-2 font-medium">
+                      ✓ {form.precomputedTrajectories.length} years of data generated.
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -334,6 +414,72 @@ export default function CreateScenarioPage() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        {/* ─── Price Preview (Precomputed only) ────────────────────── */}
+        <TabsContent value="preview">
+          <Card>
+            <CardHeader>
+              <CardTitle>Price Evolution Preview</CardTitle>
+              <CardDescription>
+                Deterministic price path for this scenario. Every player will see exactly these
+                prices.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {chartData.length > 0 ? (
+                <ChartContainer config={marketPriceChartConfig} className="h-[400px] w-full">
+                  <ComposedChart
+                    data={chartData}
+                    margin={{ top: 5, right: 20, bottom: 5, left: 10 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="year"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v: number) => String(v)}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v: number) => String(Math.round(v))}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="wood"
+                      name="Wood"
+                      stroke="#8B4513"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="potatoes"
+                      name="Potatoes"
+                      stroke="#DAA520"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="fish"
+                      name="Fish"
+                      stroke="#00CED1"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </ComposedChart>
+                </ChartContainer>
+              ) : (
+                <div className="py-20 text-center text-muted-foreground">
+                  Click &quot;Generate Trajectories&quot; in the Basic Info tab to see the preview.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

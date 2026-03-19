@@ -100,9 +100,16 @@ export const marketParamsValidator = v.object({
   bearVolatility: v.number(),
 })
 
+export const precomputedStepValidator = v.object({
+  market: marketStateValidator,
+  events: v.array(gameEventValidator),
+})
+
 export const scenarioFieldsValidator = {
   name: v.string(),
   description: v.string(),
+  mode: v.optional(v.union(v.literal("live"), v.literal("precomputed"))),
+  precomputedTrajectories: v.optional(v.array(precomputedStepValidator)),
   startCapital: v.number(),
   recurringRevenue: v.number(),
   startYear: v.number(),

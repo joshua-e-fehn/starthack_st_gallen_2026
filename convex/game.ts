@@ -197,11 +197,21 @@ export const getSessionWithLeaderboard = query({
 export const listSessions = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
+    const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .order("desc")
       .collect()
+
+    return await Promise.all(
+      sessions.map(async (s) => {
+        const scenario = await ctx.db.get(s.scenarioId)
+        return {
+          ...s,
+          mode: scenario?.mode ?? "live",
+        }
+      }),
+    )
   },
 })
 
