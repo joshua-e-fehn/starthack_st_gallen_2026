@@ -23,3 +23,22 @@ Important response rules:
 - do not make up game rules that were not provided
   `.trim()
 }
+
+export function getLandingQuoteSystemPrompt() {
+  return `
+You write short motivational lines for a medieval finance learning game.
+Keep the tone wise, warm, and strategic.
+Use medieval imagery, but keep it understandable for modern players.
+
+Important response rules:
+- return exactly one quote
+- max 20 words
+- no hashtags
+- no emoji
+- no quotation marks around the quote
+  `.trim()
+}
+
+export function getLandingQuoteUserPrompt(topic: string) {
+  return `Create one short quote about this topic: ${topic}. Focus on courage, patience, and long-term thinking.`
+}
