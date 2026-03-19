@@ -213,7 +213,8 @@ export const LESSONS: Lesson[] = [
       {
         title: "The Patient Farmer",
         content:
-          "Meanwhile, a quiet farmer bought wood and potatoes years ago and simply held them. Through good kings and bad kings — bull markets and bear markets — the value of her holdings grew steadily. Time was her greatest ally.",
+          "Meanwhile, a quiet farmer bought wood and potatoes years ago and simply held them. Through good kings and bad kings — peace times and war times — the value of her holdings grew steadily. Time was her greatest ally.",
+
         tip: "Historically, major stock indices have always recovered from crashes — given enough time.",
       },
       {

@@ -32,7 +32,7 @@ export function initializeMarket(scenario: Scenario): MarketState {
     }
   }
 
-  return { regime: "bull", inflation: 1, prices }
+  return { regime: "peace", inflation: 1, prices }
 }
 
 /** Create the initial state vector (step 0) for a new game */
@@ -222,19 +222,19 @@ export async function resolveEvents(
  *   nominal price     = basePrice × inflation   (computed at display/trade time)
  *
  * Steps:
- * 1. Regime transition (bull ↔ bear) with configured probabilities
+ * 1. Regime transition (peace ↔ war) with configured probabilities
  * 2. Draw r_inflation — update cumulative inflation factor
- * 3. Draw r_market    — regime-dependent (bull μ/σ or bear μ/σ)
+ * 3. Draw r_market    — regime-dependent (peace μ/σ or war μ/σ)
  * 4. Per-asset: draw r_asset, compute new real basePrice via multiplicative model
  * 5. Carry forward buy/sell factors
  */
 export function stepMarket(scenario: Scenario, prev: MarketState): MarketState {
   // 1. Regime transition
   let regime = prev.regime
-  if (regime === "bull" && Math.random() < scenario.market.bullToBearProbability) {
-    regime = "bear"
-  } else if (regime === "bear" && Math.random() < scenario.market.bearToBullProbability) {
-    regime = "bull"
+  if (regime === "peace" && Math.random() < scenario.market.peaceToWarProbability) {
+    regime = "war"
+  } else if (regime === "war" && Math.random() < scenario.market.warToPeaceProbability) {
+    regime = "peace"
   }
 
   // 2. Inflation: r_inflation ~ N(μ_inflation, σ_inflation²)
@@ -243,9 +243,9 @@ export function stepMarket(scenario: Scenario, prev: MarketState): MarketState {
 
   // 3. Market regime return: r_market ~ N(μ_regime, σ_regime²)  — same for all assets
   const rMarket =
-    regime === "bull"
-      ? scenario.market.bullReturn + scenario.market.bullVolatility * randomNormal()
-      : scenario.market.bearReturn + scenario.market.bearVolatility * randomNormal()
+    regime === "peace"
+      ? scenario.market.peaceReturn + scenario.market.peaceVolatility * randomNormal()
+      : scenario.market.warReturn + scenario.market.warVolatility * randomNormal()
 
   // 4. Per-asset real price evolution (multiplicative)
   const prices = {} as Record<TradableAsset, AssetMarketPrice>

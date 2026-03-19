@@ -84,14 +84,14 @@ export function ScenarioForm({
     // Advanced settings - Market
     inflationReturn: initialData?.inflationReturn ?? DEBUG_SCENARIO.inflationReturn,
     inflationVolatility: initialData?.inflationVolatility ?? DEBUG_SCENARIO.inflationVolatility,
-    bearToBullProbability:
-      initialData?.market?.bearToBullProbability ?? DEBUG_SCENARIO.market.bearToBullProbability,
-    bullToBearProbability:
-      initialData?.market?.bullToBearProbability ?? DEBUG_SCENARIO.market.bullToBearProbability,
-    bullReturn: initialData?.market?.bullReturn ?? DEBUG_SCENARIO.market.bullReturn,
-    bearReturn: initialData?.market?.bearReturn ?? DEBUG_SCENARIO.market.bearReturn,
-    bullVolatility: initialData?.market?.bullVolatility ?? DEBUG_SCENARIO.market.bullVolatility,
-    bearVolatility: initialData?.market?.bearVolatility ?? DEBUG_SCENARIO.market.bearVolatility,
+    warToPeaceProbability:
+      initialData?.market?.warToPeaceProbability ?? DEBUG_SCENARIO.market.warToPeaceProbability,
+    peaceToWarProbability:
+      initialData?.market?.peaceToWarProbability ?? DEBUG_SCENARIO.market.peaceToWarProbability,
+    peaceReturn: initialData?.market?.peaceReturn ?? DEBUG_SCENARIO.market.peaceReturn,
+    warReturn: initialData?.market?.warReturn ?? DEBUG_SCENARIO.market.warReturn,
+    peaceVolatility: initialData?.market?.peaceVolatility ?? DEBUG_SCENARIO.market.peaceVolatility,
+    warVolatility: initialData?.market?.warVolatility ?? DEBUG_SCENARIO.market.warVolatility,
 
     // Advanced settings - Assets
     woodStartPrice: initialData?.assets?.wood?.startPrice ?? DEBUG_SCENARIO.assets.wood.startPrice,
@@ -143,12 +143,12 @@ export function ScenarioForm({
       inflationReturn: formData.inflationReturn,
       inflationVolatility: formData.inflationVolatility,
       market: {
-        bearToBullProbability: formData.bearToBullProbability,
-        bullToBearProbability: formData.bullToBearProbability,
-        bullReturn: formData.bullReturn,
-        bearReturn: formData.bearReturn,
-        bullVolatility: formData.bullVolatility,
-        bearVolatility: formData.bearVolatility,
+        warToPeaceProbability: formData.warToPeaceProbability,
+        peaceToWarProbability: formData.peaceToWarProbability,
+        peaceReturn: formData.peaceReturn,
+        warReturn: formData.warReturn,
+        peaceVolatility: formData.peaceVolatility,
+        warVolatility: formData.warVolatility,
       },
       assets: {
         wood: {
@@ -239,12 +239,12 @@ export function ScenarioForm({
       inflationReturn: formData.inflationReturn,
       inflationVolatility: formData.inflationVolatility,
       market: {
-        bearToBullProbability: formData.bearToBullProbability,
-        bullToBearProbability: formData.bullToBearProbability,
-        bullReturn: formData.bullReturn,
-        bearReturn: formData.bearReturn,
-        bullVolatility: formData.bullVolatility,
-        bearVolatility: formData.bearVolatility,
+        warToPeaceProbability: formData.warToPeaceProbability,
+        peaceToWarProbability: formData.peaceToWarProbability,
+        peaceReturn: formData.peaceReturn,
+        warReturn: formData.warReturn,
+        peaceVolatility: formData.peaceVolatility,
+        warVolatility: formData.warVolatility,
       },
       assets: {
         wood: {
@@ -511,7 +511,7 @@ export function ScenarioForm({
                             x1={area.x1}
                             x2={area.x2}
                             fill={
-                              area.regime === "bull"
+                              area.regime === "peace"
                                 ? "rgba(34, 197, 94, 0.1)"
                                 : "rgba(239, 68, 68, 0.1)"
                             }
@@ -737,38 +737,38 @@ export function ScenarioForm({
                     </h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-[10px] text-primary">Bull Market</Label>
+                        <Label className="text-[10px] text-primary">Peace Time</Label>
                         <div className="grid gap-2">
                           <div className="space-y-1">
-                            <Label htmlFor="bullReturn" className="text-[9px]">
+                            <Label htmlFor="peaceReturn" className="text-[9px]">
                               Return Rate
                             </Label>
                             <Input
-                              id="bullReturn"
+                              id="peaceReturn"
                               type="number"
                               step="0.01"
-                              value={formData.bullReturn}
+                              value={formData.peaceReturn}
                               onChange={(e) =>
                                 setFormData((prev) => ({
                                   ...prev,
-                                  bullReturn: parseFloat(e.target.value),
+                                  peaceReturn: parseFloat(e.target.value),
                                 }))
                               }
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label htmlFor="bullVolatility" className="text-[9px]">
+                            <Label htmlFor="peaceVolatility" className="text-[9px]">
                               Volatility
                             </Label>
                             <Input
-                              id="bullVolatility"
+                              id="peaceVolatility"
                               type="number"
                               step="0.01"
-                              value={formData.bullVolatility}
+                              value={formData.peaceVolatility}
                               onChange={(e) =>
                                 setFormData((prev) => ({
                                   ...prev,
-                                  bullVolatility: parseFloat(e.target.value),
+                                  peaceVolatility: parseFloat(e.target.value),
                                 }))
                               }
                             />
@@ -776,38 +776,38 @@ export function ScenarioForm({
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] text-destructive">Bear Market</Label>
+                        <Label className="text-[10px] text-destructive">War Time</Label>
                         <div className="grid gap-2">
                           <div className="space-y-1">
-                            <Label htmlFor="bearReturn" className="text-[9px]">
+                            <Label htmlFor="warReturn" className="text-[9px]">
                               Return Rate
                             </Label>
                             <Input
-                              id="bearReturn"
+                              id="warReturn"
                               type="number"
                               step="0.01"
-                              value={formData.bearReturn}
+                              value={formData.warReturn}
                               onChange={(e) =>
                                 setFormData((prev) => ({
                                   ...prev,
-                                  bearReturn: parseFloat(e.target.value),
+                                  warReturn: parseFloat(e.target.value),
                                 }))
                               }
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label htmlFor="bearVolatility" className="text-[9px]">
+                            <Label htmlFor="warVolatility" className="text-[9px]">
                               Volatility
                             </Label>
                             <Input
-                              id="bearVolatility"
+                              id="warVolatility"
                               type="number"
                               step="0.01"
-                              value={formData.bearVolatility}
+                              value={formData.warVolatility}
                               onChange={(e) =>
                                 setFormData((prev) => ({
                                   ...prev,
-                                  bearVolatility: parseFloat(e.target.value),
+                                  warVolatility: parseFloat(e.target.value),
                                 }))
                               }
                             />
@@ -824,35 +824,35 @@ export function ScenarioForm({
                     </h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <Label htmlFor="bearToBullProbability" className="text-[10px]">
-                          Bear → Bull Prob.
+                        <Label htmlFor="warToPeaceProbability" className="text-[10px]">
+                          War → Peace Prob.
                         </Label>
                         <Input
-                          id="bearToBullProbability"
+                          id="warToPeaceProbability"
                           type="number"
                           step="0.01"
-                          value={formData.bearToBullProbability}
+                          value={formData.warToPeaceProbability}
                           onChange={(e) =>
                             setFormData((prev) => ({
                               ...prev,
-                              bearToBullProbability: parseFloat(e.target.value),
+                              warToPeaceProbability: parseFloat(e.target.value),
                             }))
                           }
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor="bullToBearProbability" className="text-[10px]">
-                          Bull → Bear Prob.
+                        <Label htmlFor="peaceToWarProbability" className="text-[10px]">
+                          Peace → War Prob.
                         </Label>
                         <Input
-                          id="bullToBearProbability"
+                          id="peaceToWarProbability"
                           type="number"
                           step="0.01"
-                          value={formData.bullToBearProbability}
+                          value={formData.peaceToWarProbability}
                           onChange={(e) =>
                             setFormData((prev) => ({
                               ...prev,
-                              bullToBearProbability: parseFloat(e.target.value),
+                              peaceToWarProbability: parseFloat(e.target.value),
                             }))
                           }
                         />

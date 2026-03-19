@@ -18,12 +18,12 @@ export const DEBUG_SCENARIO: Scenario = {
   inflationReturn: 0.02, // 2% per year
   inflationVolatility: 0.01,
   market: {
-    bearToBullProbability: 0.25,
-    bullToBearProbability: 0.1,
-    bullReturn: 0.08, // 8% per year in bull
-    bearReturn: -0.06, // -6% per year in bear
-    bullVolatility: 0.05,
-    bearVolatility: 0.05,
+    warToPeaceProbability: 0.25,
+    peaceToWarProbability: 0.1,
+    peaceReturn: 0.08, // 8% per year in peace
+    warReturn: -0.06, // -6% per year in war
+    peaceVolatility: 0.05,
+    warVolatility: 0.05,
   },
   assets: {
     wood: {

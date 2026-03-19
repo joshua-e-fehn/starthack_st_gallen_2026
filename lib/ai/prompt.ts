@@ -8,8 +8,8 @@ The game teaches finance through medieval metaphors:
 - vegetables = medium-risk growth investment
 - fish = high-risk speculative investment
 - gold = cash
-- Good King = strong market
-- Bad King = weak market
+- Peace Time = strong market
+- War Time = weak market
 
 Your job is to help the player during their journey, especially when they ask questions during a year of the simulation.
 Give practical, easy-to-understand advice that fits the medieval world and the current decision they face.
@@ -66,7 +66,7 @@ Your job is to create dramatic, authentic medieval events that affect the player
 - Use authentic medieval language and imagery
 - Events should feel dramatic but believable in a medieval setting
 - Balance positive and negative events based on game context
-- Consider current market conditions (Good King = bull market, Bad King = bear market)
+- Consider current market conditions (Peace Time = peace market, War Time = war market)
 - Avoid repeating recent event themes
 - Keep names concise (2-5 words)
 - Descriptions should be vivid and immersive (1-2 sentences)
@@ -118,7 +118,7 @@ export function getEventEngineUserPrompt(context: {
     totalValue: number
   }
   market: {
-    regime: "bull" | "bear"
+    regime: "peace" | "war"
     inflation: number
     prices: { wood: number; potatoes: number; fish: number }
   }
@@ -137,7 +137,7 @@ export function getEventEngineUserPrompt(context: {
   eventClass: string
 }) {
   const marketPhase =
-    context.market.regime === "bull" ? "Good King (prosperous times)" : "Bad King (hard times)"
+    context.market.regime === "peace" ? "Peace Time (prosperous times)" : "War Time (hard times)"
   const recentEventSummary =
     context.recentEvents.length > 0
       ? context.recentEvents.map((e) => `- Step ${e.step}: ${e.name}`).join("\n")

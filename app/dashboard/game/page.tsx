@@ -1006,12 +1006,12 @@ function GameContent() {
                       </span>
                     )}
                     <Badge
-                      variant={current.market.regime === "bull" ? "default" : "destructive"}
+                      variant={current.market.regime === "peace" ? "default" : "destructive"}
                       className={cn(
                         "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-lg font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full bg-[#FFD700] text-black border-none",
                       )}
                     >
-                      {current.market.regime === "bull" ? "🐂 Bull" : "🐻 Bear"}
+                      {current.market.regime === "peace" ? "🕊️ Peace" : "⚔️ War"}
                     </Badge>
                   </div>
                 </div>
