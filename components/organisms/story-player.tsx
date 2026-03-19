@@ -29,6 +29,10 @@ export function StoryPlayer({
   onComplete,
 }: StoryPlayerProps) {
   const LONG_PRESS_MS = 260
+  const playerShellClassName =
+    "mx-auto flex h-[calc(100svh-2rem)] w-full max-w-[430px] flex-col rounded-3xl border border-primary/30 bg-card/90 p-4 shadow-2xl backdrop-blur sm:h-[calc(100svh-4rem)] sm:p-6"
+  const storyCardClassName = "flex-1 overflow-hidden border-border/70 bg-background py-0"
+  const storyImageClassName = "h-full w-full object-cover object-center"
   const [currentIndex, setCurrentIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
@@ -174,8 +178,8 @@ export function StoryPlayer({
 
   if (!currentSlide) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-xl flex-col rounded-3xl border border-primary/30 bg-card/90 p-4 shadow-2xl backdrop-blur sm:min-h-[calc(100vh-4rem)] sm:p-6">
-        <Card className="flex-1 overflow-hidden border-border/70 bg-background">
+      <div className={playerShellClassName}>
+        <Card className={storyCardClassName}>
           <CardContent className="flex h-full items-center justify-center p-6 text-center text-muted-foreground">
             No stories available yet.
           </CardContent>
@@ -185,10 +189,10 @@ export function StoryPlayer({
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-xl flex-col rounded-3xl border border-primary/30 bg-card/90 p-4 shadow-2xl backdrop-blur sm:min-h-[calc(100vh-4rem)] sm:p-6">
+    <div className={playerShellClassName}>
       <StoryProgressBars slides={slides} currentIndex={safeIndex} progress={progress} />
 
-      <Card className="flex-1 overflow-hidden border-border/70 bg-background py-0">
+      <Card className={storyCardClassName}>
         <CardContent className="relative flex h-full flex-col gap-0 p-0">
           <AnimatePresence mode="wait">
             <motion.section
@@ -199,7 +203,7 @@ export function StoryPlayer({
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
             >
-              <div className="w-full shrink-0 overflow-hidden">
+              <div className="h-[38%] min-h-[220px] w-full shrink-0 overflow-hidden sm:h-[40%]">
                 {currentSlide.imageSrc ? (
                   <Image
                     src={currentSlide.imageSrc}
@@ -207,20 +211,22 @@ export function StoryPlayer({
                     width={1600}
                     height={900}
                     sizes="(max-width: 640px) 100vw, 560px"
-                    className="h-auto w-full"
+                    className={storyImageClassName}
                     priority={safeIndex === 0}
                   />
                 ) : null}
               </div>
 
-              <div className="flex flex-1 flex-col bg-secondary/20 p-5 sm:p-6">
-                <h1 className="mb-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              <div className="flex min-h-0 flex-1 flex-col bg-secondary/20 px-4 py-4 sm:px-5 sm:py-5">
+                <h1 className="mb-2 text-xl leading-tight font-bold tracking-tight text-foreground sm:text-2xl">
                   {safeIndex + 1}. {currentSlide.title}
                 </h1>
-                <p className="text-base leading-relaxed text-foreground/85 sm:text-lg">
-                  {currentSlide.body}
-                </p>
-                <p className="mt-auto pt-4 text-xs text-muted-foreground">
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  <p className="text-sm leading-6 text-foreground/85 sm:text-[15px]">
+                    {currentSlide.body}
+                  </p>
+                </div>
+                <p className="shrink-0 pt-3 text-[11px] leading-4 text-muted-foreground sm:text-xs">
                   {isLast
                     ? "You reached the final chapter. Press Start Main Game when you're ready."
                     : isPaused
