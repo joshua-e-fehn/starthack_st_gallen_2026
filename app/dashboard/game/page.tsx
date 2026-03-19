@@ -556,10 +556,12 @@ function GameContent() {
   const [draftTradeValue, setDraftTradeValue] = useState(0)
   const [isDraggingTradeBar, setIsDraggingTradeBar] = useState(false)
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
+  const [isOnboardingTooltipVisible, setIsOnboardingTooltipVisible] = useState(false)
   const [onboardingIndex, setOnboardingIndex] = useState(0)
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
+  const onboardingAssistantVideoRef = useRef<HTMLVideoElement | null>(null)
 
   // ─── Derived values ─────────────────────────────────────────
   const portfolio = current?.portfolio ?? { gold: 0, wood: 0, potatoes: 0, fish: 0 }
@@ -692,6 +694,7 @@ function GameContent() {
 
   function closeOnboarding(markComplete: boolean) {
     setIsOnboardingOpen(false)
+    setIsOnboardingTooltipVisible(false)
 
     if (markComplete && typeof window !== "undefined") {
       window.localStorage.setItem(onboardingStorageKey, "true")
@@ -751,6 +754,59 @@ function GameContent() {
       left: `${constrainedLeft}px`,
     }
   }, [highlightRect])
+
+  const freezeOnboardingAssistantAtLastFrame = useCallback(() => {
+    const video = onboardingAssistantVideoRef.current
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return
+
+    const freezeAt = Math.max(video.duration - 0.033, 0)
+    video.currentTime = freezeAt
+    video.pause()
+  }, [])
+
+  useEffect(() => {
+    if (!isOnboardingOpen) return
+
+    const video = onboardingAssistantVideoRef.current
+    if (!video) {
+      setIsOnboardingTooltipVisible(true)
+      return
+    }
+
+    setIsOnboardingTooltipVisible(false)
+
+    video.currentTime = 0
+
+    const revealTooltip = () => {
+      freezeOnboardingAssistantAtLastFrame()
+      setIsOnboardingTooltipVisible(true)
+    }
+
+    const fallbackTimeout = window.setTimeout(() => {
+      revealTooltip()
+    }, 1800)
+
+    const playPromise = video.play()
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {
+        // On autoplay failure, show tooltip immediately and keep onboarding usable.
+        window.clearTimeout(fallbackTimeout)
+        setIsOnboardingTooltipVisible(true)
+      })
+    }
+
+    const onEnded = () => {
+      window.clearTimeout(fallbackTimeout)
+      revealTooltip()
+    }
+
+    video.addEventListener("ended", onEnded)
+
+    return () => {
+      window.clearTimeout(fallbackTimeout)
+      video.removeEventListener("ended", onEnded)
+    }
+  }, [isOnboardingOpen, freezeOnboardingAssistantAtLastFrame])
 
   const projectedHolding = useMemo(() => {
     if (!selectedAsset) return 0
@@ -1325,44 +1381,78 @@ function GameContent() {
             />
           ) : null}
 
-          <div
-            className="absolute z-10 w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border bg-card p-4 shadow-xl"
-            style={tooltipStyle}
-            role="dialog"
-            aria-live="polite"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-              {stepProgress}
-            </p>
-            <h2 className="mt-1 text-base font-semibold text-foreground">{activeStep.title}</h2>
-            <p className="mt-2 text-sm leading-5 text-muted-foreground">{activeStep.description}</p>
-
-            <div className="mt-4 flex items-center justify-between gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={previousOnboardingStep}
-                disabled={onboardingIndex === 0}
+          <AnimatePresence mode="wait">
+            {isOnboardingTooltipVisible ? (
+              <motion.div
+                key="onboarding-tooltip"
+                className="absolute z-10 w-[min(28rem,calc(100vw-1.5rem))] rounded-xl border bg-card shadow-xl"
+                style={tooltipStyle}
+                initial={{ opacity: 0, scale: 0.7, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 6 }}
+                transition={{ type: "spring", stiffness: 260, damping: 22 }}
+                role="dialog"
+                aria-live="polite"
               >
-                Prev
-              </Button>
+                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:gap-4">
+                  <div
+                    className="h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-primary/40 bg-card/95"
+                    aria-hidden="true"
+                  >
+                    <video
+                      ref={onboardingAssistantVideoRef}
+                      src="/start%20white.webm"
+                      className="h-full w-full object-cover"
+                      autoPlay
+                      muted
+                      playsInline
+                      preload="auto"
+                    />
+                  </div>
 
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => closeOnboarding(true)}
-                >
-                  Skip
-                </Button>
-                <Button type="button" size="sm" onClick={nextOnboardingStep}>
-                  {isLastOnboardingStep ? "Done" : "Next"}
-                </Button>
-              </div>
-            </div>
-          </div>
+                  <div className="flex flex-1 flex-col justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                        {stepProgress}
+                      </p>
+                      <h2 className="mt-1 text-base font-semibold text-foreground">
+                        {activeStep.title}
+                      </h2>
+                      <p className="mt-2 text-sm leading-5 text-muted-foreground">
+                        {activeStep.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={previousOnboardingStep}
+                        disabled={onboardingIndex === 0}
+                      >
+                        Prev
+                      </Button>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => closeOnboarding(true)}
+                        >
+                          Skip
+                        </Button>
+                        <Button type="button" size="sm" onClick={nextOnboardingStep}>
+                          {isLastOnboardingStep ? "Done" : "Next"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
       ) : null}
 
