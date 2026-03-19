@@ -16,8 +16,8 @@ import {
 
 const quoteTopic = "wise farmer strategy for long-term wealth"
 
-function formatGold(value: number) {
-  return `${new Intl.NumberFormat("de-CH").format(value)} gold`
+function formatTaler(value: number) {
+  return `${new Intl.NumberFormat("de-CH").format(value)} taler`
 }
 
 export default function HomePage() {
@@ -312,7 +312,7 @@ export default function HomePage() {
                         </p>
                       </div>
                       <p className="font-mono text-sm font-semibold">
-                        {formatGold(entry.netWorth)}
+                        {formatTaler(entry.netWorth)}
                       </p>
                     </li>
                   ))}
