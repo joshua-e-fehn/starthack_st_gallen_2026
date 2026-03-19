@@ -51,20 +51,25 @@ export function StoryNavigation({
           {isLast ? (
             <>
               <motion.span
-                className="pointer-events-none absolute -inset-y-6 -left-1/2 w-1/2 rotate-14 bg-linear-to-r from-transparent via-white/85 to-transparent blur-xs"
-                initial={{ x: "-180%", opacity: 0.35 }}
-                animate={{ x: ["-180%", "420%"], opacity: [0.2, 0.9, 0.2] }}
+                className="pointer-events-none absolute -inset-y-5 -left-1/2 w-1/2 rotate-12 bg-linear-to-r from-transparent via-white/85 to-transparent blur-xs"
+                initial={{ x: "-220%", opacity: 0.72 }}
+                animate={{ x: ["-220%", "360%"] }}
                 transition={{
-                  duration: 1.85,
-                  ease: [0.22, 1, 0.36, 1],
+                  duration: 2.2,
+                  ease: "linear",
                   repeat: Number.POSITIVE_INFINITY,
-                  repeatDelay: 1.4,
                 }}
               />
               <motion.span
-                className="pointer-events-none absolute inset-0 rounded-xl border border-white/45"
-                animate={{ opacity: [0.35, 0.8, 0.35] }}
-                transition={{ duration: 2.2, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+                className="pointer-events-none absolute -inset-y-5 -left-1/2 w-1/2 rotate-12 bg-linear-to-r from-transparent via-white/55 to-transparent blur-sm"
+                initial={{ x: "-220%", opacity: 0.5 }}
+                animate={{ x: ["-220%", "360%"] }}
+                transition={{
+                  duration: 2.2,
+                  ease: "linear",
+                  repeat: Number.POSITIVE_INFINITY,
+                  delay: 1.1,
+                }}
               />
             </>
           ) : null}
