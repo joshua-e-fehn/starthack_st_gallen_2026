@@ -230,12 +230,42 @@ function HomeContent() {
                     <Loader2Icon className="size-8 animate-spin text-primary" />
                   ) : (
                     <>
-                      <ImageIcon className="size-7 text-primary" />
+                      {isLoaded && sessionData.session.scenarioIcon ? (
+                        <div className="relative">
+                          <div className="size-20 overflow-hidden rounded-xl border-2 border-primary/20 shadow-inner bg-background">
+                            <Image
+                              src={sessionData.session.scenarioIcon}
+                              alt={sessionData.session.scenarioName || "Scenario Icon"}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                          <Badge className="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-5 h-5 flex items-center justify-center bg-primary text-primary-foreground border-2 border-background shadow-sm text-[10px] font-black">
+                            <UsersIcon className="size-2.5 mr-1" />
+                            {sessionData.session.playerCount}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <ImageIcon className="size-7 text-primary" />
+                          {isLoaded && (
+                            <Badge className="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-5 h-5 flex items-center justify-center bg-primary text-primary-foreground border-2 border-background shadow-sm text-[10px] font-black">
+                              {sessionData.session.playerCount}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                       <p className="text-base font-medium">
                         {isLoaded && sessionData
-                          ? sessionData.session.name
+                          ? `${sessionData.session.name}`
                           : "Game screenshot preview"}
                       </p>
+                      {isLoaded && (
+                        <p className="text-sm font-bold text-primary px-8">
+                          Scenario: {sessionData.session.scenarioName}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground px-8">
                         {isLoaded
                           ? "A multiplayer competition is ready for you. Click start to begin your journey."
@@ -243,7 +273,7 @@ function HomeContent() {
                       </p>
                     </>
                   )}
-                </div>
+                </div>{" "}
               </div>
 
               <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
@@ -290,19 +320,42 @@ function HomeContent() {
               <div className="flex flex-col">
                 <div className="bg-primary/10 px-6 py-4 border-b border-primary/10">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-bold text-primary">
-                        Session: {sessionData.session.name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground px-0">
-                        Join code:{" "}
-                        <span className="font-mono font-bold">{sessionData.session.joinCode}</span>
-                      </p>
+                    <div className="flex items-center gap-3">
+                      {sessionData.session.scenarioIcon && (
+                        <div className="relative size-10 overflow-hidden rounded-lg border border-primary/20 bg-background shadow-sm">
+                          <Image
+                            src={sessionData.session.scenarioIcon}
+                            alt={sessionData.session.scenarioName || "Scenario Icon"}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-bold text-primary leading-tight">
+                          {sessionData.session.name}
+                        </h3>
+                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">
+                          Scenario: {sessionData.session.scenarioName}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Join code:{" "}
+                          <span className="font-mono font-bold text-foreground">
+                            {sessionData.session.joinCode}
+                          </span>
+                        </p>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="bg-background/50">
-                      <UsersIcon className="mr-1 size-3" />
-                      {sessionData.leaderboard.length}
-                    </Badge>
+                    <div className="text-right flex flex-col items-end gap-1">
+                      <Badge
+                        variant="outline"
+                        className="bg-background/50 border-primary/20 text-primary font-bold"
+                      >
+                        <UsersIcon className="mr-1.5 size-3" />
+                        {sessionData.session.playerCount} Joined
+                      </Badge>
+                    </div>
                   </div>
                 </div>
                 <CardContent className="pt-6 space-y-4">
