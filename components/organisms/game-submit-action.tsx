@@ -14,6 +14,7 @@ export function GameSubmitAction({
   submitButtonRef,
   onViewResults,
   onSubmit,
+  currentYear,
 }: {
   gameOver: boolean
   gameId: string
@@ -24,6 +25,7 @@ export function GameSubmitAction({
   submitButtonRef: React.RefObject<HTMLButtonElement | null>
   onViewResults: (path: string) => void
   onSubmit: () => void
+  currentYear: number
 }) {
   if (gameOver) {
     return (
@@ -75,7 +77,7 @@ export function GameSubmitAction({
             Processing...
           </>
         ) : (
-          "Done trading & roll events"
+          `Switch to year ${currentYear + 1}`
         )}
       </motion.span>
       {isSubmitGuideStep ? (

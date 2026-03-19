@@ -311,22 +311,23 @@ function GameContent() {
     [isGuideSeen, markGuideSeen],
   )
 
-  const handleGuideFarmTap = useCallback(() => {
-    if (!isFarmGuideStep) return
-    setGuideStep(GUIDE_ASSET_SEQUENCE[0])
-  }, [isFarmGuideStep])
-
   const handleGoalProgressTap = useCallback(() => {
+    // Advance guide to next step if farm guide is active
     if (isFarmGuideStep) {
-      handleGuideFarmTap()
-      return
+      setGuideStep(GUIDE_ASSET_SEQUENCE[0])
     }
+    // Open leaderboard
     setIsLeaderboardPopupOpen(true)
-  }, [handleGuideFarmTap, isFarmGuideStep])
+  }, [isFarmGuideStep])
 
   function closeTradeModal() {
     setSelectedAsset(null)
     setIsDraggingTradeBar(false)
+  }
+
+  function handleCancelTrade() {
+    if (!selectedAsset) return
+    setDraftTradeValue(tradePlan[selectedAsset])
   }
 
   function handleAssetCardClick(asset: TradableAsset) {
@@ -507,6 +508,7 @@ function GameContent() {
           prefersReducedMotion={Boolean(prefersReducedMotion)}
           submitButtonRef={submitButtonRef}
           onViewResults={router.push}
+          currentYear={current.date}
           onSubmit={() => {
             if (isSubmitGuideStep) stopGuide()
             handleSubmitTrades()
@@ -536,6 +538,7 @@ function GameContent() {
         sellDelta={sellDelta}
         selectedSellPriceVal={selectedSellPriceVal}
         projectedHolding={projectedHolding}
+        onCancel={handleCancelTrade}
       />
 
       <GameLeaderboardPopup
