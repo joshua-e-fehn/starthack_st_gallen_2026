@@ -3,8 +3,17 @@
 import { ArrowDown, ArrowUp, Minus, Plus, RotateCcw } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from "recharts"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
 import {
   Drawer,
   DrawerContent,
@@ -67,6 +76,12 @@ const lineConfig = {
   fish: { color: "oklch(0.78 0.08 236)", label: "Fish" },
 }
 
+const priceChartConfig = {
+  wood: { label: "Wood", color: lineConfig.wood.color },
+  potatoes: { label: "Potatoes", color: lineConfig.potatoes.color },
+  fish: { label: "Fish", color: lineConfig.fish.color },
+} satisfies ChartConfig
+
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n))
 }
@@ -112,71 +127,99 @@ function mapTradeToY(value: number, height: number, maxBuy: number, maxSell: num
 }
 
 function MiniPriceGraph({ data }: { data: PriceSnapshot[] }) {
-  const width = 900
-  const height = 280
-  const pad = 24
-  const keys: AssetKey[] = ["taler", "wood", "potatoes", "fish"]
+  const keys: TradableAsset[] = ["wood", "potatoes", "fish"]
+  const [selectedIndex, setSelectedIndex] = useState(Math.max(0, data.length - 1))
 
-  const allValues = data.flatMap((point) => keys.map((key) => point[key]))
-  const minValue = Math.min(...allValues)
-  const maxValue = Math.max(...allValues)
-  const span = maxValue - minValue || 1
+  useEffect(() => {
+    setSelectedIndex(Math.max(0, data.length - 1))
+  }, [data.length])
 
-  const xForIndex = (index: number) => {
-    if (data.length === 1) {
-      return width / 2
-    }
-    return pad + (index / (data.length - 1)) * (width - pad * 2)
-  }
-
-  const yForValue = (value: number) => {
-    const ratio = (value - minValue) / span
-    return height - pad - ratio * (height - pad * 2)
-  }
+  const safeSelectedIndex = clamp(selectedIndex, 0, Math.max(0, data.length - 1))
+  const selectedPoint = data[safeSelectedIndex]
 
   return (
     <div className="rounded-xl border bg-muted/40 p-3">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full">
-        <line
-          x1={pad}
-          y1={height - pad}
-          x2={width - pad}
-          y2={height - pad}
-          stroke="currentColor"
-          opacity="0.22"
-        />
-        <line x1={pad} y1={pad} x2={pad} y2={height - pad} stroke="currentColor" opacity="0.22" />
+      <ChartContainer config={priceChartConfig} className="h-56 w-full">
+        <AreaChart
+          data={data}
+          onClick={(state) => {
+            const activeIndex = state?.activeTooltipIndex
+            if (typeof activeIndex === "number") {
+              setSelectedIndex(activeIndex)
+            }
+          }}
+          margin={{ top: 12, right: 10, left: -10, bottom: 0 }}
+        >
+          <defs>
+            {keys.map((key) => (
+              <linearGradient key={`fill-${key}`} id={`fill-${key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={lineConfig[key].color} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={lineConfig[key].color} stopOpacity={0.03} />
+              </linearGradient>
+            ))}
+          </defs>
 
-        {keys.map((key) => {
-          const points = data
-            .map((point, index) => `${xForIndex(index)},${yForValue(point[key])}`)
-            .join(" ")
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="step"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            minTickGap={24}
+            tickFormatter={(value) => `Y${value}`}
+          />
+          <YAxis tickLine={false} axisLine={false} tickMargin={8} width={42} />
+          <ChartTooltip
+            cursor={{ strokeDasharray: "5 5" }}
+            content={
+              <ChartTooltipContent
+                indicator="dot"
+                labelFormatter={(_, payload) => {
+                  const step = payload?.[0]?.payload?.step
+                  return `Year ${typeof step === "number" ? step : "-"}`
+                }}
+                formatter={(value, name) => (
+                  <div className="flex w-full items-center justify-between gap-3">
+                    <span className="text-muted-foreground">{name}</span>
+                    <span className="font-mono tabular-nums">
+                      {Number(value).toLocaleString("de-CH")}
+                    </span>
+                  </div>
+                )}
+              />
+            }
+          />
 
-          return (
-            <polyline
+          {selectedPoint ? (
+            <ReferenceLine
+              x={selectedPoint.step}
+              stroke="currentColor"
+              strokeOpacity={0.22}
+              strokeDasharray="5 5"
+            />
+          ) : null}
+
+          {keys.map((key) => (
+            <Area
               key={key}
-              fill="none"
+              type="monotone"
+              dataKey={key}
+              name={lineConfig[key].label}
               stroke={lineConfig[key].color}
-              strokeWidth={3}
-              strokeLinecap="round"
-              points={points}
+              strokeWidth={2.5}
+              fill={`url(#fill-${key})`}
+              activeDot={{ r: 6 }}
+              dot={{
+                r: 2.5,
+                strokeWidth: 1.2,
+                fill: lineConfig[key].color,
+              }}
             />
-          )
-        })}
-      </svg>
+          ))}
 
-      <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-        {keys.map((key) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <span
-              className="size-2.5 rounded-full"
-              style={{ backgroundColor: lineConfig[key].color }}
-              aria-hidden
-            />
-            <span>{lineConfig[key].label}</span>
-          </div>
-        ))}
-      </div>
+          <ChartLegend content={<ChartLegendContent />} />
+        </AreaChart>
+      </ChartContainer>
     </div>
   )
 }
@@ -291,6 +334,7 @@ export default function Game() {
   const selectedAssetColor = selectedAsset
     ? lineConfig[selectedAsset].color
     : "oklch(0.62 0.14 228)"
+  const currentYear = priceHistory.length
 
   function openTradeModal(asset: TradableAsset) {
     setSelectedAsset(asset)
@@ -466,7 +510,7 @@ export default function Game() {
 
         <Card className="bg-muted/50">
           <CardHeader>
-            <CardTitle>Next Timeframe</CardTitle>
+            <CardTitle>Year {currentYear}</CardTitle>
             <CardDescription>
               Combined price development of taler, wood, potatoes, and fish.
             </CardDescription>
@@ -479,23 +523,6 @@ export default function Game() {
         <Button type="button" className="h-12 w-full text-base" onClick={rollNextTimeframe}>
           Done trading &amp; roll events
         </Button>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Event Log</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {eventLog.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No events rolled yet.</p>
-            ) : (
-              <ul className="space-y-1 text-sm">
-                {eventLog.slice(0, 5).map((entry) => (
-                  <li key={entry}>{entry}</li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       <Drawer open={selectedAsset !== null} onOpenChange={(open) => !open && closeTradeModal()}>
