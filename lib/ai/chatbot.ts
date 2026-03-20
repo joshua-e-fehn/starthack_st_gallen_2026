@@ -1,5 +1,5 @@
 import { getGeminiClient } from "@/lib/ai/gemini-client"
-import { getChatbotSystemPrompt, getSystemPrompt } from "@/lib/ai/prompt"
+import { getChatbotSystemPrompt } from "@/lib/ai/prompt"
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -108,7 +108,7 @@ export async function generateGeminiResponse({
   temperature = 0.7,
 }: {
   message: string
-  systemPrompt?: string
+  systemPrompt: string
   temperature?: number
 }): Promise<string> {
   const ai = getGeminiClient()
@@ -118,7 +118,7 @@ export async function generateGeminiResponse({
     model,
     contents: message,
     config: {
-      systemInstruction: systemPrompt ?? getSystemPrompt(),
+      systemInstruction: systemPrompt,
       temperature,
       responseMimeType: "text/plain",
       maxOutputTokens: 160,
@@ -208,7 +208,7 @@ export async function generateChatbotResponse({
       systemInstruction: getChatbotSystemPrompt(),
       temperature: 0.7,
       responseMimeType: "text/plain",
-      maxOutputTokens: 300,
+      maxOutputTokens: 2048,
     },
   })
 

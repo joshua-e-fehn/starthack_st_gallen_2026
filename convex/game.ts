@@ -871,3 +871,42 @@ export const getCompetitionAnalytics = query({
     }
   },
 })
+
+// ─── Chat Messages ───────────────────────────────────────────────
+
+/** Get all chat messages for a game (ordered by creation time) */
+export const getChatMessages = query({
+  args: { gameId: v.id("games"), guestId: v.optional(v.string()) },
+  handler: async (ctx, { gameId, guestId }) => {
+    const identity = await ctx.auth.getUserIdentity()
+    const game = await ctx.db.get(gameId)
+    if (!game || !isOwner(game, identity, guestId)) return []
+    return await ctx.db
+      .query("chatMessages")
+      .withIndex("by_game", (q) => q.eq("gameId", gameId))
+      .collect()
+  },
+})
+
+/** Save a chat message (user or model) */
+export const saveChatMessage = mutation({
+  args: {
+    gameId: v.id("games"),
+    role: v.union(v.literal("user"), v.literal("model")),
+    text: v.string(),
+    guestId: v.optional(v.string()),
+  },
+  handler: async (ctx, { gameId, role, text, guestId }) => {
+    const identity = await ctx.auth.getUserIdentity()
+    const game = await ctx.db.get(gameId)
+    if (!game || !isOwner(game, identity, guestId)) {
+      throw new Error("Not authorized to save messages for this game")
+    }
+    return await ctx.db.insert("chatMessages", {
+      gameId,
+      role,
+      text,
+      createdAt: Date.now(),
+    })
+  },
+})

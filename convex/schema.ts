@@ -63,6 +63,14 @@ const schema = defineSchema({
     .index("by_session_event", ["sessionId", "event"])
     .index("by_session_player_event", ["sessionId", "playerId", "event"]),
 
+  // ─── Chat Messages: per-game advisor chat history ───
+  chatMessages: defineTable({
+    gameId: v.id("games"),
+    role: v.union(v.literal("user"), v.literal("model")),
+    text: v.string(),
+    createdAt: v.number(),
+  }).index("by_game", ["gameId", "createdAt"]),
+
   // ─── Game Steps: time-series of state vectors ───
   gameSteps: defineTable({
     gameId: v.id("games"),

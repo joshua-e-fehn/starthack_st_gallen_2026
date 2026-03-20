@@ -1,19 +1,30 @@
 "use client"
 
-import { Send, X } from "lucide-react"
+import { useMutation, useQuery } from "convex/react"
+import { CornerDownLeftIcon, X } from "lucide-react"
 import Image from "next/image"
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation"
+import { Message, MessageContent } from "@/components/ai-elements/message"
+import {
+  PromptInput,
+  PromptInputSubmit,
+  PromptInputTextarea,
+} from "@/components/ai-elements/prompt-input"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Textarea } from "@/components/ui/textarea"
+import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
 import type { ChatMessage, GameContext } from "@/lib/ai/chatbot"
 import { cn } from "@/lib/utils"
 
-type ChatBubble = ChatMessage & { id: number }
-
 type GameChatbotProps = {
   gameContext?: GameContext
+  gameId?: string
+  guestId?: string
   inlineTrigger?: boolean
   triggerClassName?: string
   floatingClassName?: string
@@ -21,74 +32,83 @@ type GameChatbotProps = {
 
 export function GameChatbot({
   gameContext,
+  gameId,
+  guestId,
   inlineTrigger = false,
   triggerClassName,
   floatingClassName,
 }: GameChatbotProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [message, setMessage] = useState("")
-  const [chatHistory, setChatHistory] = useState<ChatBubble[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const nextId = useRef(0)
-  const bottomRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-    })
-  }, [])
+  // Real-time chat history from Convex
+  const convexMessages = useQuery(
+    api.game.getChatMessages,
+    gameId ? { gameId: gameId as Id<"games">, guestId } : "skip",
+  )
+  const saveChatMessage = useMutation(api.game.saveChatMessage)
+
+  const chatHistory = convexMessages ?? []
 
   const floatingPosition = floatingClassName ?? "bottom-6 right-6"
 
-  async function handleSendMessage() {
-    if (!message.trim() || isLoading) return
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isLoading || !gameId) return
 
-    const userMsg: ChatBubble = { id: nextId.current++, role: "user", text: message.trim() }
-    setChatHistory((prev) => [...prev, userMsg])
-    setMessage("")
-    setIsLoading(true)
-    scrollToBottom()
+      const trimmed = text.trim()
+      setIsLoading(true)
 
-    // Build history for the API (exclude the message we're about to send)
-    const historyForApi: ChatMessage[] = chatHistory.map(({ role, text }) => ({ role, text }))
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMsg.text,
-          gameContext,
-          chatHistory: historyForApi,
-        }),
+      // Save user message to Convex
+      await saveChatMessage({
+        gameId: gameId as Id<"games">,
+        role: "user",
+        text: trimmed,
+        guestId,
       })
 
-      const data = (await res.json()) as { message?: string; error?: string }
-      const responseText = data.error
-        ? `Error: ${data.error}`
-        : (data.message ?? "No response received")
+      // Build history for the API from persisted messages
+      const historyForApi: ChatMessage[] = chatHistory.map(({ role, text: t }) => ({
+        role,
+        text: t,
+      }))
 
-      const modelMsg: ChatBubble = { id: nextId.current++, role: "model", text: responseText }
-      setChatHistory((prev) => [...prev, modelMsg])
-    } catch (error) {
-      const modelMsg: ChatBubble = {
-        id: nextId.current++,
-        role: "model",
-        text: `Failed to reach advisor: ${error instanceof Error ? error.message : "Unknown error"}`,
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: trimmed,
+            gameContext,
+            chatHistory: historyForApi,
+          }),
+        })
+
+        const data = (await res.json()) as { message?: string; error?: string }
+        const responseText = data.error
+          ? `Error: ${data.error}`
+          : (data.message ?? "No response received")
+
+        // Save model response to Convex
+        await saveChatMessage({
+          gameId: gameId as Id<"games">,
+          role: "model",
+          text: responseText,
+          guestId,
+        })
+      } catch (error) {
+        await saveChatMessage({
+          gameId: gameId as Id<"games">,
+          role: "model",
+          text: `Failed to reach advisor: ${error instanceof Error ? error.message : "Unknown error"}`,
+          guestId,
+        })
+      } finally {
+        setIsLoading(false)
       }
-      setChatHistory((prev) => [...prev, modelMsg])
-    } finally {
-      setIsLoading(false)
-      scrollToBottom()
-    }
-  }
-
-  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault()
-      void handleSendMessage()
-    }
-  }
+    },
+    [isLoading, chatHistory, gameContext, gameId, guestId, saveChatMessage],
+  )
 
   if (!isOpen) {
     return (
@@ -115,23 +135,23 @@ export function GameChatbot({
   }
 
   return (
-    <Card
+    <div
       className={cn(
-        "fixed z-50 flex w-[calc(100vw-3rem)] max-h-[70vh] flex-col md:w-105 md:max-h-150 shadow-2xl",
+        "fixed z-50 flex w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-xl border bg-background shadow-2xl md:w-105",
+        "h-[70vh] max-h-150",
         floatingPosition,
       )}
     >
-      <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-0 shrink-0">
+      {/* Header */}
+      <div className="flex shrink-0 items-center gap-3 border-b px-4 py-3">
         <Image
           src="/characters/connie.webp"
           alt="Connie the Coin"
-          width={48}
-          height={48}
-          className="h-12 w-12 object-contain"
+          width={40}
+          height={40}
+          className="h-10 w-10 object-contain"
         />
-        <div className="flex-1">
-          <CardTitle className="text-lg">Hi, I am Connie!</CardTitle>
-        </div>
+        <span className="flex-1 font-semibold text-lg">Hi, I am Connie!</span>
         <Button
           type="button"
           variant="ghost"
@@ -141,13 +161,14 @@ export function GameChatbot({
         >
           <X className="h-4 w-4" />
         </Button>
-      </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 pt-3">
-        {/* Chat history */}
-        <ScrollArea className="flex-1 min-h-0 max-h-[calc(70vh-12rem)] md:max-h-100">
-          <div className="space-y-3 pr-3">
-            {/* Welcome message */}
-            {chatHistory.length === 0 && !isLoading && (
+      </div>
+
+      {/* Messages — auto-scrolling via Conversation */}
+      <Conversation className="min-h-0 flex-1">
+        <ConversationContent className="gap-4 p-4">
+          {/* Welcome message */}
+          {chatHistory.length === 0 && !isLoading && (
+            <Message from="assistant">
               <div className="flex items-start gap-3">
                 <Image
                   src="/characters/connie.webp"
@@ -156,27 +177,28 @@ export function GameChatbot({
                   height={32}
                   className="h-8 w-8 shrink-0 object-contain"
                 />
-                <div className="relative flex-1 rounded-2xl border border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.98)_0%,rgba(255,243,224,0.94)_100%)] px-3 py-2 text-card-foreground shadow-sm">
+                <MessageContent className="rounded-2xl border border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.98)_0%,rgba(255,243,224,0.94)_100%)] px-3 py-2 shadow-sm">
                   <p className="text-sm leading-relaxed text-foreground/90">
                     Greetings, merchant! I can see your trading position. Ask me anything about your
                     portfolio, market conditions, or what to trade next.
                   </p>
-                </div>
+                </MessageContent>
               </div>
-            )}
+            </Message>
+          )}
 
-            {/* Messages */}
-            {chatHistory.map((msg) =>
-              msg.role === "user" ? (
-                <div key={msg.id} className="flex justify-end">
-                  <div className="max-w-[80%] rounded-2xl bg-primary px-3 py-2 text-primary-foreground shadow-sm">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
-                      {msg.text}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div key={msg.id} className="flex items-start gap-3">
+          {chatHistory.map((msg) =>
+            msg.role === "user" ? (
+              <Message key={msg._id} from="user">
+                <MessageContent className="rounded-2xl bg-primary px-3 py-2 text-primary-foreground shadow-sm">
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+                    {msg.text}
+                  </p>
+                </MessageContent>
+              </Message>
+            ) : (
+              <Message key={msg._id} from="assistant">
+                <div className="flex items-start gap-3">
                   <Image
                     src="/characters/connie.webp"
                     alt="Connie the Coin"
@@ -184,17 +206,19 @@ export function GameChatbot({
                     height={32}
                     className="h-8 w-8 shrink-0 object-contain"
                   />
-                  <div className="relative flex-1 rounded-2xl border border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.98)_0%,rgba(255,243,224,0.94)_100%)] px-3 py-2 text-card-foreground shadow-sm">
+                  <MessageContent className="rounded-2xl border border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.98)_0%,rgba(255,243,224,0.94)_100%)] px-3 py-2 shadow-sm">
                     <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap wrap-break-word">
                       {msg.text}
                     </p>
-                  </div>
+                  </MessageContent>
                 </div>
-              ),
-            )}
+              </Message>
+            ),
+          )}
 
-            {/* Loading indicator */}
-            {isLoading && (
+          {/* Loading indicator */}
+          {isLoading && (
+            <Message from="assistant">
               <div className="flex items-start gap-3">
                 <Image
                   src="/characters/connie.webp"
@@ -203,43 +227,34 @@ export function GameChatbot({
                   height={32}
                   className="h-8 w-8 shrink-0 object-contain"
                 />
-                <div className="rounded-2xl border border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.98)_0%,rgba(255,243,224,0.94)_100%)] px-3 py-2 shadow-sm">
+                <MessageContent className="rounded-2xl border border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.98)_0%,rgba(255,243,224,0.94)_100%)] px-3 py-2 shadow-sm">
                   <p className="text-sm text-muted-foreground animate-pulse">Thinking...</p>
-                </div>
+                </MessageContent>
               </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-        </ScrollArea>
+            </Message>
+          )}
+        </ConversationContent>
 
-        {/* Input */}
-        <div className="space-y-2 shrink-0">
-          <Textarea
+        <ConversationScrollButton />
+      </Conversation>
+
+      {/* Input */}
+      <div className="shrink-0 border-t p-3">
+        <PromptInput
+          onSubmit={({ text }) => {
+            void handleSend(text)
+          }}
+        >
+          <PromptInputTextarea
             placeholder="Ask about your portfolio, market, or strategy..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={2}
             disabled={isLoading}
-            className="resize-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="min-h-10 max-h-24"
           />
-          <Button
-            type="button"
-            onClick={() => void handleSendMessage()}
-            disabled={!message.trim() || isLoading}
-            className="w-full"
-          >
-            {isLoading ? (
-              "Thinking..."
-            ) : (
-              <>
-                <Send className="mr-2 h-4 w-4" />
-                Ask Connie
-              </>
-            )}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          <PromptInputSubmit disabled={isLoading}>
+            <CornerDownLeftIcon className="size-4" />
+          </PromptInputSubmit>
+        </PromptInput>
+      </div>
+    </div>
   )
 }

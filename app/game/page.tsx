@@ -1628,6 +1628,9 @@ function GameContent() {
           <div className="sticky bottom-4 z-40 px-4 sm:px-0">
             <div className="flex items-stretch gap-2 sm:gap-3">
               <GameChatbot
+                gameContext={chatbotGameContext}
+                gameId={gameId ?? undefined}
+                guestId={guestId}
                 inlineTrigger
                 triggerClassName="relative z-10 h-14 w-14 sm:h-20 sm:w-20 shrink-0 rounded-2xl border border-border/50 bg-white/95"
                 floatingClassName="bottom-24 right-4 sm:bottom-28 sm:right-6"
@@ -1696,8 +1699,6 @@ function GameContent() {
           if (current) markEventStepSeen(current.step)
         }}
       />
-
-      <GameChatbot gameContext={chatbotGameContext} />
     </main>
   )
 }

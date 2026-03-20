@@ -1,5 +1,4 @@
 import { getGeminiClient } from "@/lib/ai/gemini-client"
-import { getSystemPrompt } from "@/lib/ai/prompt"
 
 export async function* generateGeminiResponseStream({
   message,
@@ -7,7 +6,7 @@ export async function* generateGeminiResponseStream({
   temperature = 0.7,
 }: {
   message: string
-  systemPrompt?: string
+  systemPrompt: string
   temperature?: number
 }): AsyncGenerator<string> {
   const ai = getGeminiClient()
@@ -17,7 +16,7 @@ export async function* generateGeminiResponseStream({
     model,
     contents: message,
     config: {
-      systemInstruction: systemPrompt ?? getSystemPrompt(),
+      systemInstruction: systemPrompt,
       temperature,
       responseMimeType: "text/plain",
     },
