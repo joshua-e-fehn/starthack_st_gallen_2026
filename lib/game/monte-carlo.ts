@@ -161,6 +161,9 @@ export async function runMonteCarloSimulations(
 
   const intents = extractFractionalIntents(history)
 
+  // Force live mode so gameStep uses fresh randomness instead of precomputed trajectories
+  const liveScenario: Scenario = { ...scenario, mode: "live", precomputedTrajectories: undefined }
+
   // Run all simulations — collect net worth per step per sim
   // sims[step][simIndex] = net worth
   const sims: number[][] = Array.from({ length: stepsPlayed + 1 }, () => [])
@@ -179,7 +182,7 @@ export async function runMonteCarloSimulations(
       const actions = materializeActions(intents[step], state)
 
       // Run one step with fresh randomness
-      state = await gameStep(scenario, state, actions)
+      state = await gameStep(liveScenario, state, actions)
 
       sims[step].push(portfolioValue(state.portfolio, state.market))
     }

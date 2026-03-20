@@ -390,7 +390,6 @@ function PortfolioDonut({ state }: { state: StateVector }) {
 
 const worthChartConfig = {
   netWorth: { label: "Net Worth", color: COLORS.total },
-  goal: { label: "Goal", color: COLORS.goal },
   woodPrice: { label: "Wood Price", color: COLORS.wood },
   potatoesPrice: { label: "Potatoes Price", color: COLORS.potatoes },
   fishPrice: { label: "Fish Price", color: COLORS.fish },
@@ -402,7 +401,6 @@ function NetWorthChart({ history }: { history: StateVector[] }) {
     const step0 = history[0]
     // Normalize: divide all values by their respective start values so they start at 1.0 (100%)
     const startNW = portfolioValue(step0.portfolio, step0.market) || 1
-    const startGoal = step0.goal || 1
     const startWood = nominalPrice(step0.market.prices.wood, step0.market.inflation) || 1
     const startPotatoes = nominalPrice(step0.market.prices.potatoes, step0.market.inflation) || 1
     const startFish = nominalPrice(step0.market.prices.fish, step0.market.inflation) || 1
@@ -410,7 +408,6 @@ function NetWorthChart({ history }: { history: StateVector[] }) {
     return history.map((s) => ({
       date: s.date,
       netWorth: roundMoney((portfolioValue(s.portfolio, s.market) / startNW) * 100),
-      goal: roundMoney((s.goal / startGoal) * 100),
       woodPrice: roundMoney(
         (nominalPrice(s.market.prices.wood, s.market.inflation) / startWood) * 100,
       ),
@@ -431,7 +428,7 @@ function NetWorthChart({ history }: { history: StateVector[] }) {
           Performance vs Market
         </CardTitle>
         <CardDescription>
-          Indexed growth (100 = start). Net worth, goal, and asset prices over time.
+          Indexed growth (100 = start). Net worth and asset prices over time.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -475,15 +472,6 @@ function NetWorthChart({ history }: { history: StateVector[] }) {
               name="Net Worth"
               stroke={COLORS.total}
               strokeWidth={3}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="goal"
-              name="Goal"
-              stroke={COLORS.goal}
-              strokeWidth={2}
-              strokeDasharray="6 3"
               dot={false}
             />
             <Line
@@ -595,13 +583,14 @@ function AbsoluteNetWorthChart({ history }: { history: StateVector[] }) {
               strokeWidth={2.5}
               fill="url(#fill-networth)"
             />
-            <Line
+            <Area
               type="monotone"
               dataKey="goal"
               name="Goal"
               stroke={COLORS.goal}
               strokeWidth={2}
               strokeDasharray="6 3"
+              fill="none"
               dot={false}
             />
             <ChartLegend content={<ChartLegendContent />} />
@@ -615,14 +604,14 @@ function AbsoluteNetWorthChart({ history }: { history: StateVector[] }) {
 // ─── Monte Carlo Chart ───────────────────────────────────────────
 
 const mcChartConfig = {
-  p10_p90: { label: "P10–P90 range", color: "var(--chart-4)" },
-  p25_p75: { label: "P25–P75 range", color: "var(--chart-4)" },
-  p50: { label: "Median (P50)", color: "var(--chart-4)" },
+  p10_p90: { label: "P10–P90 range", color: "oklch(0.65 0.15 250)" },
+  p25_p75: { label: "P25–P75 range", color: "oklch(0.7 0.18 200)" },
+  p50: { label: "Median (P50)", color: "oklch(0.55 0.2 260)" },
   actual: { label: "Your Path", color: COLORS.total },
   goal: { label: "Goal", color: COLORS.goal },
 } satisfies ChartConfig
 
-const MC_NUM_SIMS = 100
+const MC_NUM_SIMS = 10_000
 
 function MonteCarloChart({
   history,
@@ -671,7 +660,7 @@ function MonteCarloChart({
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <TrendingUp className="size-4 text-primary" />
-          Monte Carlo Simulation ({MC_NUM_SIMS} runs)
+          Monte Carlo Simulation ({MC_NUM_SIMS.toLocaleString()} runs)
         </CardTitle>
         <CardDescription>
           What could have happened with your same strategy but different market outcomes. Shaded
@@ -747,7 +736,7 @@ function MonteCarloChart({
               dataKey="band_10_25"
               stackId="band"
               fill="var(--color-p10_p90)"
-              fillOpacity={0.1}
+              fillOpacity={0.35}
               stroke="transparent"
               name="band_10_25"
               legendType="none"
@@ -758,7 +747,7 @@ function MonteCarloChart({
               dataKey="band_25_75"
               stackId="band"
               fill="var(--color-p25_p75)"
-              fillOpacity={0.2}
+              fillOpacity={0.5}
               stroke="transparent"
               name="band_25_75"
               legendType="none"
@@ -769,7 +758,7 @@ function MonteCarloChart({
               dataKey="band_75_90"
               stackId="band"
               fill="var(--color-p10_p90)"
-              fillOpacity={0.1}
+              fillOpacity={0.35}
               stroke="transparent"
               name="band_75_90"
               legendType="none"
@@ -781,10 +770,10 @@ function MonteCarloChart({
               dataKey="p50"
               name="p50"
               stroke="var(--color-p50)"
-              strokeWidth={1.5}
+              strokeWidth={2}
               strokeDasharray="4 2"
               dot={false}
-              opacity={0.6}
+              opacity={0.8}
             />
             {/* Actual player path */}
             <Line
@@ -883,7 +872,7 @@ function ResultsContent() {
   }, [goalReached])
 
   // Leaderboard race animation state
-  const [raceComplete, setRaceComplete] = useState(false)
+  const [_raceComplete, setRaceComplete] = useState(false)
   const handleRaceComplete = useCallback(() => setRaceComplete(true), [])
 
   if (!gameId || !current) {
@@ -990,27 +979,25 @@ function ResultsContent() {
           </motion.div>
         )}
 
-        {/* Charts — appear after race completes (or immediately if no race) */}
-        {(raceComplete || !leaderboardHistory || leaderboardHistory.players.length <= 1) && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-6"
-          >
-            {/* Portfolio Donut */}
-            <PortfolioDonut state={current} />
+        {/* Charts — always visible (even during leaderboard animation) */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="space-y-6"
+        >
+          {/* Portfolio Donut */}
+          <PortfolioDonut state={current} />
 
-            {/* Absolute net worth vs goal */}
-            <AbsoluteNetWorthChart history={history} />
+          {/* Absolute net worth vs goal */}
+          <AbsoluteNetWorthChart history={history} />
 
-            {/* Indexed performance vs market */}
-            <NetWorthChart history={history} />
+          {/* Indexed performance vs market */}
+          <NetWorthChart history={history} />
 
-            {/* Monte Carlo */}
-            <MonteCarloChart history={history} scenario={scenario} />
-          </motion.div>
-        )}
+          {/* Monte Carlo */}
+          <MonteCarloChart history={history} scenario={scenario} />
+        </motion.div>
 
         {/* Actions */}
         <motion.div

@@ -1210,16 +1210,29 @@ function GameContent() {
       setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
 
       // Navigate to leaderboard on 5-year checkpoints (session games only)
+      // On game over, skip leaderboard and go directly to results
       if (sessionId && current) {
         const nextStep = current.step + 1
-        const isFiveYearCheckpoint = nextStep % 5 === 0
         const name = localStorage.getItem("debug_playerName") ?? ""
-        if (isFiveYearCheckpoint || result.gameOver) {
+
+        if (result.gameOver) {
+          router.push(`/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`)
+          return
+        }
+
+        const isFiveYearCheckpoint = nextStep % 5 === 0
+        if (isFiveYearCheckpoint) {
           router.push(
             `/game/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
           )
           return
         }
+      }
+
+      // Non-session games: go directly to results on game over
+      if (result.gameOver) {
+        router.push(`/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`)
+        return
       }
     } catch (e) {
       console.error("Submit step failed:", e)
