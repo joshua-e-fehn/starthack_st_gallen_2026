@@ -6,7 +6,6 @@ import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useRef } from "react"
 import { PublicHeader } from "@/components/organisms/public-header"
-import { Button } from "@/components/ui/button"
 import { useGameSession } from "@/hooks/use-game-session"
 import { useLessonProgress } from "@/hooks/use-lesson-progress"
 import { LESSONS } from "@/lib/lessons/data"
@@ -262,21 +261,26 @@ export default function LearnPage() {
         </motion.div>
       </main>
 
-      {/* Floating "Back to Game" button when player has an active session */}
+      {/* Floating "Back to Game" FAB when player has an active session */}
       {hasJoinedEvent && gameSession && (
         <motion.div
-          initial={{ y: 80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.5, type: "spring", stiffness: 200, damping: 22 }}
-          className="fixed inset-x-0 bottom-5 z-50 flex justify-center px-4"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: [1, 1.12, 1], opacity: 1 }}
+          transition={{
+            scale: { duration: 1.2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" },
+            opacity: { duration: 0.3 },
+          }}
+          className="fixed bottom-6 right-6 z-50"
         >
           <Link href={`/?sessionId=${gameSession.sessionId}`}>
-            <Button
-              size="lg"
-              className="gap-2.5 rounded-full px-7 py-3 text-base font-bold shadow-[0_4px_20px_oklch(0.75_0.18_90/0.45)] hover:shadow-[0_6px_28px_oklch(0.75_0.18_90/0.55)] transition-shadow"
+            <div
+              className="flex size-16 items-center justify-center rounded-full border-4 border-primary bg-primary text-2xl ring-[6px] ring-primary/30 transition-transform active:translate-y-1 active:shadow-none hover:brightness-110"
+              style={{
+                boxShadow: `${SHADOW_CURRENT}, 0 4px 20px oklch(0.75 0.18 90 / 0.45)`,
+              }}
             >
-              {"\uD83C\uDFEF"} Back to Arena
-            </Button>
+              ⚔️
+            </div>
           </Link>
         </motion.div>
       )}

@@ -40,7 +40,8 @@ export function PublicHeader() {
 
   return (
     <header className="sticky top-0 z-50 flex h-14 items-center border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-      <div className="mx-auto relative flex w-full max-w-7xl items-center justify-between gap-2 px-3 sm:px-6">
+      <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-3 sm:px-6">
+        {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold">
           <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <GalleryVerticalEndIcon className="size-4" />
@@ -48,57 +49,38 @@ export function PublicHeader() {
           TradeTales
         </Link>
 
-        <div className="pointer-events-none absolute left-1/2 -translate-x-1/2">
-          <div className="pointer-events-auto flex items-center gap-1 sm:gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(navItemClassName, isLearnActive && navItemActiveClassName)}
-              asChild
-            >
-              <Link href="/learn">
-                <BookOpenIcon className="size-4 sm:mr-1" />
-                <span className="hidden sm:inline">Learn</span>
+        {/* Right side — nav + user */}
+        <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <Button variant="ghost" size="sm" className={navItemClassName} asChild>
+            <Link href="/learn">
+              <BookOpenIcon className="size-4 sm:mr-1" />
+              <span className="hidden sm:inline">Learn</span>
+            </Link>
+          </Button>
+
+          {!isPending && session ? (
+            <Button variant="ghost" size="sm" className={navItemClassName} asChild>
+              <Link href="/dashboard">
+                <LayoutDashboardIcon className="size-4 sm:mr-1" />
+                <span className="hidden sm:inline">Dashboard</span>
               </Link>
             </Button>
+          ) : null}
 
-            {!isPending && session ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(navItemClassName, isDashboardActive && navItemActiveClassName)}
-                asChild
-              >
-                <Link href="/dashboard">
-                  <LayoutDashboardIcon className="size-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Dashboard</span>
-                </Link>
-              </Button>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="ml-auto flex items-center gap-1 sm:gap-3">
           {!isPending && session ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className={cn(
-                    navItemClassName,
-                    "max-w-36 justify-start gap-2 rounded-full sm:max-w-44",
-                  )}
+                  size="icon"
+                  className="size-9 rounded-full"
                   aria-label="Open user menu"
                 >
                   <Avatar size="sm">
                     <AvatarImage src={userImage} alt={userName} />
                     <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  <p className="max-w-20 truncate pr-1 text-xs font-semibold sm:max-w-36 sm:text-sm">
-                    {userName}
-                  </p>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-56">
@@ -124,7 +106,12 @@ export function PublicHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button variant="ghost" size="sm" className={navItemClassName} asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(navItemClassName, navItemActiveClassName)}
+              asChild
+            >
               <Link href="/sign-in">Sign in</Link>
             </Button>
           )}
