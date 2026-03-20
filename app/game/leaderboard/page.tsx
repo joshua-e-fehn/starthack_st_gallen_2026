@@ -218,6 +218,7 @@ function LeaderboardContent() {
               const isMe = entry.gameId === gameId
               const visible = isVisible(index)
               const maxScore = leaderboard[0]?.score || 1
+              const latestDate = (entry as typeof entry & { latestDate?: number }).latestDate
 
               if (!visible) return null
 
@@ -267,8 +268,8 @@ function LeaderboardContent() {
                         ) : (
                           <>
                             Year {entry.date}
-                            {entry.latestDate && entry.latestDate > entry.date && (
-                              <span className="opacity-70"> (Now in Year {entry.latestDate})</span>
+                            {latestDate && latestDate > entry.date && (
+                              <span className="opacity-70"> (Now in Year {latestDate})</span>
                             )}
                             <span className="size-1 rounded-full bg-primary/40" />
                             <span className="opacity-60 italic font-medium">Still playing</span>

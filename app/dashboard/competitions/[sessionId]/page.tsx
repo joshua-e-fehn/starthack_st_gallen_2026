@@ -10,6 +10,7 @@ import {
   ChevronDown,
   CopyIcon,
   Loader2,
+  PresentationIcon,
   QrCodeIcon,
   TrophyIcon,
   UsersIcon,
@@ -214,19 +215,18 @@ export default function SessionLobbyPage() {
             Back to Dashboard
           </Button>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{session.name}</h1>
-            <Badge
-              variant="outline"
-              className={cn(
-                "text-xs",
-                session.status === "active"
-                  ? "border-green-500/30 bg-green-500/10 text-green-700"
-                  : "border-muted",
-              )}
-            >
-              {session.status}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => router.push(`/dashboard/slideshow/${sessionId}`)}
+              >
+                <PresentationIcon className="size-4" />
+                Open Slideshow
+              </Button>
+            </div>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage your competition — share the join code and track player progress.
