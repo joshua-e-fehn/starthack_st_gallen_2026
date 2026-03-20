@@ -272,7 +272,7 @@ export default function LearnPage() {
           }}
           className="fixed bottom-6 right-6 z-50"
         >
-          <Link href={`/?sessionId=${gameSession.sessionId}`}>
+          <Link href={`/game/lobby/${gameSession.sessionId}`}>
             <div
               className="flex size-16 items-center justify-center rounded-full border-4 border-primary bg-primary text-2xl ring-[6px] ring-primary/30 transition-transform active:translate-y-1 active:shadow-none hover:brightness-110"
               style={{

@@ -3,6 +3,7 @@ import { gameStep, initializeGame, isGameOver, portfolioValue } from "../lib/gam
 import type { PlayerAction } from "../lib/types/actions"
 import { sellPrice } from "../lib/types/market"
 import type { Scenario } from "../lib/types/scenario"
+import type { Id } from "./_generated/dataModel"
 import { mutation, query } from "./_generated/server"
 import { playerActionValidator, scenarioFieldsValidator } from "./validators"
 
@@ -327,6 +328,88 @@ export const listSessions = query({
         }
       }),
     )
+  },
+})
+
+/** List sessions the current user is hosting */
+export const listMyHostedSessions = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const sessions = await ctx.db.query("sessions").order("desc").collect()
+
+    const hosted = sessions.filter((s) => s.hostId === identity.subject)
+
+    return await Promise.all(
+      hosted.map(async (s) => {
+        const scenario = await ctx.db.get(s.scenarioId)
+        const games = await ctx.db
+          .query("games")
+          .withIndex("by_session", (q) => q.eq("sessionId", s._id))
+          .collect()
+        return {
+          ...s,
+          scenarioName: scenario?.name,
+          scenarioIcon: scenario?.icon,
+          playerCount: games.length,
+        }
+      }),
+    )
+  },
+})
+
+/** List sessions the current user has joined (but is not hosting) */
+export const listMyJoinedSessions = query({
+  args: { guestId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity && !args.guestId) return []
+
+    const ids = allPlayerIds(identity, args.guestId)
+    const results = await Promise.all(
+      ids.map((id) =>
+        ctx.db
+          .query("games")
+          .withIndex("by_user", (q) => q.eq("userId", id))
+          .collect(),
+      ),
+    )
+
+    // Deduplicate games and collect unique session IDs
+    const seen = new Set<string>()
+    const sessionIds = new Set<string>()
+    for (const game of results.flat()) {
+      if (seen.has(game._id)) continue
+      seen.add(game._id)
+      if (game.sessionId) sessionIds.add(game.sessionId)
+    }
+
+    // Fetch sessions and enrich
+    const sessions = await Promise.all(
+      [...sessionIds].map(async (sid) => {
+        const session = await ctx.db.get(sid as Id<"sessions">)
+        if (!session) return null
+        // Exclude sessions the user hosts
+        if (identity && session.hostId === identity.subject) return null
+        const scenario = await ctx.db.get(session.scenarioId)
+        const games = await ctx.db
+          .query("games")
+          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+          .collect()
+        return {
+          ...session,
+          scenarioName: scenario?.name,
+          scenarioIcon: scenario?.icon,
+          playerCount: games.length,
+        }
+      }),
+    )
+
+    return sessions
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+      .sort((a, b) => b.createdAt - a.createdAt)
   },
 })
 

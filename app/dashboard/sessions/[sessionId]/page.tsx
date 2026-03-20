@@ -124,7 +124,7 @@ export default function SessionLobbyPage() {
 
   const joinUrl = useMemo(() => {
     if (typeof window === "undefined") return ""
-    return `${window.location.origin}/?sessionId=${sessionId}`
+    return `${window.location.origin}/game/lobby/${sessionId}`
   }, [sessionId])
 
   const handleCopyCode = useCallback(async () => {
