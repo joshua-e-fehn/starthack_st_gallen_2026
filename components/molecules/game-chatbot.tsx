@@ -4,15 +4,28 @@ import { Send, X } from "lucide-react"
 import Image from "next/image"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 
-export function GameChatbot() {
+type GameChatbotProps = {
+  inlineTrigger?: boolean
+  triggerClassName?: string
+  floatingClassName?: string
+}
+
+export function GameChatbot({
+  inlineTrigger = false,
+  triggerClassName,
+  floatingClassName,
+}: GameChatbotProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [message, setMessage] = useState("")
   const [response, setResponse] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isQuestionLocked, setIsQuestionLocked] = useState(false)
+
+  const floatingPosition = floatingClassName ?? "bottom-6 right-6"
 
   async function handleSendMessage() {
     if (!message.trim() || isLoading) {
@@ -67,7 +80,12 @@ export function GameChatbot() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-lg transition-transform hover:scale-105 active:scale-95"
+        className={cn(
+          inlineTrigger
+            ? "flex items-center justify-center rounded-2xl bg-white shadow-lg transition-transform hover:scale-105 active:scale-95"
+            : "fixed z-50 flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-lg transition-transform hover:scale-105 active:scale-95",
+          inlineTrigger ? triggerClassName : floatingPosition,
+        )}
         aria-label="Open AI assistant"
       >
         <Image
@@ -82,7 +100,12 @@ export function GameChatbot() {
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 z-50 w-[calc(100vw-3rem)] max-h-[70vh] md:w-[420px] md:max-h-[600px] shadow-2xl">
+    <Card
+      className={cn(
+        "fixed z-50 w-[calc(100vw-3rem)] max-h-[70vh] md:w-[420px] md:max-h-[600px] shadow-2xl",
+        floatingPosition,
+      )}
+    >
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-0">
         <Image
           src="/characters/wise_coini.webp"

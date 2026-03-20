@@ -198,7 +198,7 @@ function AssetHistoryGraph({ history, asset }: { history: StateVector[]; asset: 
   )
 
   return (
-    <div className="rounded-lg border bg-muted/10 p-2">
+    <div className="rounded-lg border bg-muted/10 p-2" data-prevent-card-toggle="true">
       <div className="flex items-center gap-2 mb-2">
         <History className="size-3 text-muted-foreground" />
         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -316,6 +316,7 @@ function AssetCard({
 
   const assetColor = lineConfig[assetKey].color
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
+  const toggleAreaRef = useRef<HTMLDivElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const cardBaseClass = cn(
@@ -347,6 +348,16 @@ function AssetCard({
       </>
     ) : null
 
+  const handleCardClick = (event: React.MouseEvent) => {
+    const target = event.target
+    if (!(target instanceof Node)) return
+    if (!toggleAreaRef.current?.contains(target)) return
+    if (tradeBarRef.current?.contains(target)) return
+    if ((target as Element).closest?.('[data-prevent-card-toggle="true"]')) return
+    setExpandedAsset(isExpanded ? null : assetKey)
+    onCardClick?.(assetKey)
+  }
+
   const onPointerUpdate = (clientX: number) => {
     if (!tradeBarRef.current) return
     const rect = tradeBarRef.current.getBoundingClientRect()
@@ -360,11 +371,11 @@ function AssetCard({
       <Card
         className={cardBaseClass}
         style={{ backgroundColor: `${assetColor}15` }}
-        onClick={() => onCardClick?.(assetKey)}
+        onClick={handleCardClick}
       >
         {cardOverlay}
         <CardContent className="p-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3" ref={toggleAreaRef}>
             {/* Left: Icon */}
             <div className="rounded-xl p-2 bg-white shadow-sm shrink-0">
               <Image src={meta.icon} alt="" width={32} height={32} className="object-contain" />
@@ -397,14 +408,22 @@ function AssetCard({
                     ref={tradeBarRef}
                     className="relative h-8 rounded-full border-2 border-white/60 bg-white/40 shadow-inner overflow-hidden touch-none"
                     onPointerDown={(e) => {
+                      e.stopPropagation()
                       setIsDragging(true)
                       onPointerUpdate(e.clientX)
                     }}
                     onPointerMove={(e) => {
+                      e.stopPropagation()
                       if (isDragging) onPointerUpdate(e.clientX)
                     }}
-                    onPointerUp={() => setIsDragging(false)}
-                    onPointerLeave={() => setIsDragging(false)}
+                    onPointerUp={(e) => {
+                      e.stopPropagation()
+                      setIsDragging(false)
+                    }}
+                    onPointerLeave={(e) => {
+                      e.stopPropagation()
+                      setIsDragging(false)
+                    }}
                   >
                     <div className="absolute inset-0 flex">
                       <div className="w-1/2 h-full bg-linear-to-r from-rose-500/10 to-transparent" />
@@ -456,7 +475,10 @@ function AssetCard({
               variant="ghost"
               size="icon"
               className="size-8 rounded-full shrink-0"
-              onClick={() => setExpandedAsset(isExpanded ? null : assetKey)}
+              onClick={(e) => {
+                e.stopPropagation()
+                setExpandedAsset(isExpanded ? null : assetKey)
+              }}
             >
               {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
             </Button>
@@ -542,12 +564,15 @@ function AssetCard({
     <Card
       className={cn(cardBaseClass, "duration-300 hover:shadow-md")}
       style={{ backgroundColor: `${assetColor}20` }}
-      onClick={() => onCardClick?.(assetKey)}
+      onClick={handleCardClick}
     >
       {cardOverlay}
       <CardContent className="p-0">
         <div className="flex flex-col p-4 sm:p-5 gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            ref={toggleAreaRef}
+          >
             <div className="flex items-center gap-5">
               <div className="rounded-2xl p-3 shadow-md bg-white">
                 <Image
@@ -639,7 +664,10 @@ function AssetCard({
                 variant="ghost"
                 size="icon"
                 className={`rounded-full size-10 transition-colors ${isExpanded ? "bg-white/40 text-primary" : "hover:bg-white/20"}`}
-                onClick={() => setExpandedAsset(isExpanded ? null : assetKey)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setExpandedAsset(isExpanded ? null : assetKey)
+                }}
               >
                 {isExpanded ? <ChevronUp className="size-6" /> : <ChevronDown className="size-6" />}
               </Button>
@@ -1566,53 +1594,63 @@ function GameContent() {
 
           {/* Footer Action */}
           <div className="sticky bottom-4 z-40 px-4 sm:px-0">
-            <div className="group relative">
-              <div className="absolute -inset-1 rounded-2xl bg-linear-to-r from-primary to-amber-500 opacity-25 blur-lg transition duration-1000 group-hover:opacity-50 group-hover:duration-200" />
+            <div className="flex items-stretch gap-2 sm:gap-3">
+              <GameChatbot
+                inlineTrigger
+                triggerClassName="relative z-10 h-14 w-14 sm:h-20 sm:w-20 shrink-0 rounded-2xl border border-border/50 bg-white/95"
+                floatingClassName="bottom-24 right-4 sm:bottom-28 sm:right-6"
+              />
 
-              {gameOver ? (
-                <Button
-                  type="button"
-                  className="relative h-16 sm:h-20 w-full rounded-2xl bg-green-600 text-xl sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:bg-green-700 hover:scale-[1.02]"
-                  onClick={() => {
-                    if (isTraining) {
-                      router.push("/learn")
-                    } else {
-                      router.push(
-                        `/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
-                      )
-                    }
-                  }}
-                >
-                  <Trophy className="mr-4 size-6 sm:size-8" />
-                  {isTraining ? "BACK TO TRAINING" : "RESULTS"}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  className="relative h-14 sm:h-20 w-full rounded-2xl text-base sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:scale-[1.02] disabled:opacity-80"
-                  onClick={handleSubmitTrades}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="size-6 sm:size-8 animate-spin" />
-                  ) : (
-                    <div className="flex items-center justify-between w-full px-4 sm:px-8">
-                      <div className="flex items-center gap-2 sm:gap-4">
-                        <Store className="size-5 sm:size-8" />
-                        <span className="text-sm sm:text-xl">DONE</span>
-                      </div>
-                      <div className="h-8 sm:h-10 w-px bg-white/20" />
-                      <div className="flex items-center gap-2 sm:gap-4 leading-none text-right">
-                        <div className="flex flex-col items-end">
-                          <span className="text-[8px] sm:text-[10px] opacity-70 mb-0.5">NEXT</span>
-                          <span className="text-xs sm:text-xl">YEAR {current.date + 1}</span>
+              <div className="group relative flex-1">
+                <div className="absolute -inset-1 rounded-2xl bg-linear-to-r from-primary to-amber-500 opacity-25 blur-lg transition duration-1000 group-hover:opacity-50 group-hover:duration-200" />
+
+                {gameOver ? (
+                  <Button
+                    type="button"
+                    className="relative h-16 sm:h-20 w-full rounded-2xl bg-green-600 text-xl sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:bg-green-700 hover:scale-[1.02]"
+                    onClick={() => {
+                      if (isTraining) {
+                        router.push("/learn")
+                      } else {
+                        router.push(
+                          `/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
+                        )
+                      }
+                    }}
+                  >
+                    <Trophy className="mr-4 size-6 sm:size-8" />
+                    {isTraining ? "BACK TO TRAINING" : "RESULTS"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    className="relative h-14 sm:h-20 w-full rounded-2xl text-base sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:scale-[1.02] disabled:opacity-80"
+                    onClick={handleSubmitTrades}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="size-6 sm:size-8 animate-spin" />
+                    ) : (
+                      <div className="flex items-center justify-between w-full px-4 sm:px-8">
+                        <div className="flex items-center gap-2 sm:gap-4">
+                          <Store className="size-5 sm:size-8" />
+                          <span className="text-sm sm:text-xl">DONE</span>
                         </div>
-                        <ArrowRight className="size-5 sm:size-8 animate-pulse" />
+                        <div className="h-8 sm:h-10 w-px bg-white/20" />
+                        <div className="flex items-center gap-2 sm:gap-4 leading-none text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="text-[8px] sm:text-[10px] opacity-70 mb-0.5">
+                              NEXT
+                            </span>
+                            <span className="text-xs sm:text-xl">YEAR {current.date + 1}</span>
+                          </div>
+                          <ArrowRight className="size-5 sm:size-8 animate-pulse" />
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </Button>
-              )}
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1626,8 +1664,6 @@ function GameContent() {
           if (current) markEventStepSeen(current.step)
         }}
       />
-
-      <GameChatbot />
     </main>
   )
 }
