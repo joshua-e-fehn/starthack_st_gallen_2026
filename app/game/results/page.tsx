@@ -4,6 +4,7 @@ import confetti from "canvas-confetti"
 import { useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import { ArrowLeft, Crown, Loader2, Target, TrendingUp, Trophy } from "lucide-react"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
@@ -920,7 +921,11 @@ function ResultsContent() {
                   transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.2 }}
                   className="text-6xl"
                 >
-                  {goalReached ? "🏆" : "🏰"}
+                  {goalReached ? (
+                    "🏆"
+                  ) : (
+                    <Image src="/lost.gif" alt="Game over" width={120} height={120} unoptimized />
+                  )}
                 </motion.div>
                 <div>
                   <h1 className="text-2xl font-bold">
