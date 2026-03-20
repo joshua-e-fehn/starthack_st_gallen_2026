@@ -834,6 +834,7 @@ function GameContent() {
     fish: 0,
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const isSubmittingRef = useRef(false)
   const [expandedAsset, setExpandedAsset] = useState<TradableAsset | null>(null)
   const [activeEvent, setActiveEvent] = useState<GameEvent | null>(null)
   const [isEventPopupOpen, setIsEventPopupOpen] = useState(false)
@@ -1017,7 +1018,9 @@ function GameContent() {
   }, [current, eventSeenStorageKey, markEventStepSeen])
 
   const handleSubmitTrades = useCallback(async () => {
-    if ((!isTraining && !gameId) || isSubmitting || gameOver) return
+    if ((!isTraining && !gameId) || isSubmittingRef.current || gameOver) return
+    isSubmittingRef.current = true
+    setIsSubmitting(true)
 
     const actions: PlayerAction[] = []
     for (const asset of TRADABLE_ASSET_KEYS) {
@@ -1025,8 +1028,6 @@ function GameContent() {
       if (qty > 0) actions.push({ type: "buy", asset, quantity: qty })
       if (qty < 0) actions.push({ type: "sell", asset, quantity: Math.abs(qty) })
     }
-
-    setIsSubmitting(true)
 
     if (isTraining && current) {
       try {
@@ -1036,41 +1037,41 @@ function GameContent() {
       } catch (e) {
         console.error("Local step failed:", e)
       } finally {
+        isSubmittingRef.current = false
         setIsSubmitting(false)
       }
       return
     }
 
-    if (sessionId && current) {
-      const nextStep = current.step + 1
-      const nextYear = current.date + 1
-      const isFiveYearCheckpoint = nextStep % 5 === 0
-      const isFinalYear = scenario ? nextYear >= scenario.endYear : false
-      const name = localStorage.getItem("debug_playerName") ?? ""
-      if (isFiveYearCheckpoint || isFinalYear) {
-        router.push(
-          `/game/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
-        )
-      }
-    }
-
     try {
-      await submitStepMutation({ gameId, actions, guestId })
+      const result = await submitStepMutation({ gameId, actions, guestId })
       setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
+
+      // Navigate to leaderboard on 5-year checkpoints (session games only)
+      if (sessionId && current) {
+        const nextStep = current.step + 1
+        const isFiveYearCheckpoint = nextStep % 5 === 0
+        const name = localStorage.getItem("debug_playerName") ?? ""
+        if (isFiveYearCheckpoint || result.gameOver) {
+          router.push(
+            `/game/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
+          )
+          return
+        }
+      }
     } catch (e) {
       console.error("Submit step failed:", e)
     } finally {
+      isSubmittingRef.current = false
       setIsSubmitting(false)
     }
   }, [
     gameId,
-    isSubmitting,
     gameOver,
     tradePlan,
     submitStepMutation,
     sessionId,
     current,
-    scenario,
     router,
     guestId,
     isTraining,
