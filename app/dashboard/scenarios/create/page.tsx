@@ -1,9 +1,13 @@
 "use client"
 
 import { useMutation } from "convex/react"
+import { ArrowLeftIcon } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { PublicHeader } from "@/components/organisms/public-header"
 import { ScenarioForm } from "@/components/organisms/scenario-form"
+import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Scenario } from "@/lib/types/scenario"
 
@@ -26,14 +30,27 @@ export default function CreateScenarioPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center p-4 md:p-8">
-      <ScenarioForm
-        onSubmit={handleCreate}
-        isSubmitting={isCreating}
-        title="Create New Scenario"
-        description="Configure the basic parameters for your new world."
-        submitLabel="Create Scenario"
-      />
+    <div className="min-h-dvh bg-background">
+      <PublicHeader />
+
+      <main className="mx-auto max-w-4xl px-4 pb-16 pt-4 sm:px-6">
+        <Button variant="ghost" size="sm" className="-ml-2 mb-6 w-fit" asChild>
+          <Link href="/dashboard">
+            <ArrowLeftIcon className="mr-1 size-4" />
+            Back to Dashboard
+          </Link>
+        </Button>
+
+        <div className="flex flex-col items-center">
+          <ScenarioForm
+            onSubmit={handleCreate}
+            isSubmitting={isCreating}
+            title="Create New Scenario"
+            description="Configure the basic parameters for your new world."
+            submitLabel="Create Scenario"
+          />
+        </div>
+      </main>
     </div>
   )
 }

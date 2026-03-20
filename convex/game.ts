@@ -765,3 +765,94 @@ export const abandonGame = mutation({
     await ctx.db.patch(args.gameId, { status: "abandoned" })
   },
 })
+
+// ─── Analytics ───────────────────────────────────────────────────
+
+/** Track an analytics funnel event (idempotent per player+session+event). */
+export const trackAnalyticsEvent = mutation({
+  args: {
+    sessionId: v.id("sessions"),
+    event: v.union(
+      v.literal("lesson_1_completed"),
+      v.literal("lesson_2_completed"),
+      v.literal("lesson_3_completed"),
+      v.literal("lesson_4_completed"),
+      v.literal("lesson_5_completed"),
+      v.literal("lesson_6_completed"),
+      v.literal("lesson_7_completed"),
+      v.literal("account_created"),
+    ),
+    guestId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity && !args.guestId) throw new Error("Must be authenticated or provide a guestId")
+
+    const playerId = resolvePlayerId(identity, args.guestId)
+
+    // Idempotent: skip if this player already tracked this event for this session
+    const existing = await ctx.db
+      .query("analyticsEvents")
+      .withIndex("by_session_player_event", (q) =>
+        q.eq("sessionId", args.sessionId).eq("playerId", playerId).eq("event", args.event),
+      )
+      .first()
+
+    if (existing) return existing._id
+
+    return await ctx.db.insert("analyticsEvents", {
+      sessionId: args.sessionId,
+      playerId,
+      event: args.event,
+      createdAt: Date.now(),
+    })
+  },
+})
+
+/** Get funnel analytics for a competition session. */
+export const getCompetitionAnalytics = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId)
+    if (!session) return null
+
+    // All games for this session
+    const games = await ctx.db
+      .query("games")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect()
+
+    const joined = games.length
+    const started = games.length // game creation == game start in our flow
+    const finished = games.filter((g) => g.status === "finished").length
+
+    // Fetch ALL analytics events for this session in one query
+    const allEvents = await ctx.db
+      .query("analyticsEvents")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect()
+
+    // Group by event type, counting unique players
+    const countUniquePlayers = (eventType: string) =>
+      new Set(allEvents.filter((e) => e.event === eventType).map((e) => e.playerId)).size
+
+    const lessonCounts = Array.from({ length: 7 }, (_, i) =>
+      countUniquePlayers(`lesson_${i + 1}_completed`),
+    )
+    const accountCreated = countUniquePlayers("account_created")
+
+    return {
+      funnel: [
+        { label: "Joined", count: joined },
+        { label: "Started Game", count: started },
+        { label: "Finished Game", count: finished },
+      ],
+      lessons: lessonCounts.map((count, i) => ({
+        label: `Lesson ${i + 1}`,
+        count,
+      })),
+      accountCreated,
+      total: joined,
+    }
+  },
+})

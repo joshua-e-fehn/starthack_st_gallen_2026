@@ -3,32 +3,24 @@
 import {
   ArrowLeft,
   ArrowRight,
+  ChartLineIcon,
   Check,
+  ChevronDownIcon,
   Database,
-  Eye,
-  EyeOff,
   Loader2,
-  Plus,
+  RefreshCcw,
   RefreshCw,
+  SlidersHorizontalIcon,
   Zap,
 } from "lucide-react"
 import Image from "next/image"
-import { useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { CartesianGrid, Line, LineChart, ReferenceArea, XAxis, YAxis } from "recharts"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { Textarea } from "@/components/ui/textarea"
 import { DEBUG_SCENARIO } from "@/lib/game/debug-scenario"
 import { generateTrajectories } from "@/lib/game/engine"
 import type { PrecomputedStep, Scenario } from "@/lib/types/scenario"
@@ -64,14 +56,11 @@ export function ScenarioForm({
   submitLabel,
 }: ScenarioFormProps) {
   const [step, setStep] = useState(initialData ? 2 : 1)
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [showTrajectories, setShowTrajectories] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
     name: initialData?.name ?? "",
     description: initialData?.description ?? "",
-    icon: initialData?.icon ?? SCENARIO_ICONS[0],
+    icon: initialData?.icon ?? SCENARIO_ICONS[Math.floor(Math.random() * SCENARIO_ICONS.length)],
     mode: initialData?.mode ?? ("" as "live" | "precomputed" | ""),
     precomputedTrajectories: initialData?.precomputedTrajectories ?? ([] as PrecomputedStep[]),
     startCapital: initialData?.startCapital ?? DEBUG_SCENARIO.startCapital,
@@ -114,18 +103,11 @@ export function ScenarioForm({
       initialData?.assets?.fish?.priceVolatility ?? DEBUG_SCENARIO.assets.fish.priceVolatility,
   })
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, icon: reader.result as string }))
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const isCustomIcon = !SCENARIO_ICONS.includes(formData.icon)
+  const rerollIcon = useCallback(() => {
+    const otherIcons = SCENARIO_ICONS.filter((i) => i !== formData.icon)
+    const next = otherIcons[Math.floor(Math.random() * otherIcons.length)]
+    setFormData((prev) => ({ ...prev, icon: next }))
+  }, [formData.icon])
 
   const handleGenerateTrajectories = async () => {
     // Create a temporary scenario object to pass to generateTrajectories
@@ -178,6 +160,18 @@ export function ScenarioForm({
     const trajectories = await generateTrajectories(tempScenario)
     setFormData((prev) => ({ ...prev, precomputedTrajectories: trajectories }))
   }
+
+  // Auto-generate trajectories when entering step 2 with precomputed mode
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally only trigger on step/mode change
+  useEffect(() => {
+    if (
+      step === 2 &&
+      formData.mode === "precomputed" &&
+      formData.precomputedTrajectories.length === 0
+    ) {
+      handleGenerateTrajectories()
+    }
+  }, [step, formData.mode])
 
   const chartData = useMemo(() => {
     if (!formData.precomputedTrajectories.length) return []
@@ -277,13 +271,28 @@ export function ScenarioForm({
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div
-            className={`size-8 rounded-full flex items-center justify-center text-sm font-bold ${step >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+            className={cn(
+              "size-9 rounded-full flex items-center justify-center text-sm font-bold transition-colors",
+              step >= 1
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted text-muted-foreground",
+            )}
           >
             {step > 1 ? <Check className="size-4" /> : "1"}
           </div>
-          <div className={`h-px w-8 ${step > 1 ? "bg-primary" : "bg-muted"}`} />
           <div
-            className={`size-8 rounded-full flex items-center justify-center text-sm font-bold ${step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+            className={cn(
+              "h-0.5 w-10 rounded-full transition-colors",
+              step > 1 ? "bg-primary" : "bg-muted",
+            )}
+          />
+          <div
+            className={cn(
+              "size-9 rounded-full flex items-center justify-center text-sm font-bold transition-colors",
+              step >= 2
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted text-muted-foreground",
+            )}
           >
             2
           </div>
@@ -307,9 +316,14 @@ export function ScenarioForm({
                 setFormData((prev) => ({ ...prev, mode: "live" }))
                 setStep(2)
               }}
-              className={`group relative flex flex-col items-start p-6 text-left border-2 rounded-xl transition-all hover:border-primary/50 hover:bg-primary/5 ${formData.mode === "live" ? "border-primary bg-primary/5" : "border-border bg-card"}`}
+              className={cn(
+                "group relative flex flex-col items-start p-6 text-left rounded-2xl border-2 transition-all hover:border-primary/50 hover:bg-primary/5",
+                formData.mode === "live"
+                  ? "border-primary bg-primary/5 shadow-md"
+                  : "border-border bg-card",
+              )}
             >
-              <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Zap className="size-6 text-primary" />
               </div>
               <h3 className="text-xl font-bold mb-2">Live Computed</h3>
@@ -318,7 +332,7 @@ export function ScenarioForm({
                 is unique.
               </p>
               <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <ArrowRight className="size-5" />
+                <ArrowRight className="size-5 text-primary" />
               </div>
             </button>
 
@@ -328,9 +342,14 @@ export function ScenarioForm({
                 setFormData((prev) => ({ ...prev, mode: "precomputed" }))
                 setStep(2)
               }}
-              className={`group relative flex flex-col items-start p-6 text-left border-2 rounded-xl transition-all hover:border-primary/50 hover:bg-primary/5 ${formData.mode === "precomputed" ? "border-primary bg-primary/5" : "border-border bg-card"}`}
+              className={cn(
+                "group relative flex flex-col items-start p-6 text-left rounded-2xl border-2 transition-all hover:border-primary/50 hover:bg-primary/5",
+                formData.mode === "precomputed"
+                  ? "border-primary bg-primary/5 shadow-md"
+                  : "border-border bg-card",
+              )}
             >
-              <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Database className="size-6 text-primary" />
               </div>
               <h3 className="text-xl font-bold mb-2">Precomputed</h3>
@@ -339,7 +358,7 @@ export function ScenarioForm({
                 everyone sees the same market.
               </p>
               <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <ArrowRight className="size-5" />
+                <ArrowRight className="size-5 text-primary" />
               </div>
             </button>
           </div>
@@ -347,82 +366,57 @@ export function ScenarioForm({
       )}
 
       {step === 2 && (
-        <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>
-              {description} Mode: {formData.mode}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label>Scenario Icon</Label>
-              <ScrollArea className="w-full whitespace-nowrap rounded-xl border bg-muted/30 p-2">
-                <div className="flex w-max space-x-2">
-                  {SCENARIO_ICONS.map((icon) => (
-                    <button
-                      key={icon}
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, icon }))}
-                      className={cn(
-                        "relative size-16 overflow-hidden rounded-md transition-all hover:scale-105",
-                        formData.icon === icon
-                          ? "ring-2 ring-primary"
-                          : "opacity-60 hover:opacity-100",
-                      )}
-                    >
-                      <Image
-                        src={icon}
-                        alt="Scenario Icon"
-                        fill
-                        className="object-contain p-1"
-                        unoptimized
-                      />
-                      {formData.icon === icon && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
-                          <Check className="size-4 text-primary-foreground" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+          {/* Hero banner with background image */}
+          <div className="relative w-full overflow-hidden rounded-2xl bg-muted/30">
+            {/* Background image */}
+            <div className="relative h-48 w-full sm:h-56">
+              <Image
+                src={formData.icon}
+                alt="Scenario Icon"
+                fill
+                className="object-contain"
+                unoptimized
+              />
+              <div className="absolute inset-0 bg-linear-to-t from-background via-background/40 to-transparent" />
 
-                  {isCustomIcon && (
-                    <div className="relative size-16 overflow-hidden rounded-md bg-muted/30 ring-2 ring-primary">
-                      <Image
-                        src={formData.icon}
-                        alt="Custom Icon"
-                        fill
-                        className="object-contain p-1"
-                        unoptimized
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
-                        <Check className="size-4 text-primary-foreground" />
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex size-16 flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-muted-foreground/25 bg-muted/50 transition-all hover:border-primary/50 hover:bg-primary/5"
-                  >
-                    <Plus className="size-4 text-muted-foreground" />
-                    <span className="text-[10px] font-medium text-muted-foreground">Custom</span>
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
+              {/* Action buttons — top right */}
+              <div className="absolute top-3 right-3 flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  onClick={rerollIcon}
+                  className="size-9 rounded-full bg-background/80 shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-background"
+                  title="Re-roll image"
+                >
+                  <RefreshCcw className="size-4 text-foreground" />
+                </Button>
+              </div>
             </div>
 
+            {/* Text overlay at bottom */}
+            <div className="px-5 pb-5 -mt-10 relative z-10">
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
+              <p className="mt-1 text-sm text-muted-foreground max-w-md">{description}</p>
+              <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
+                {formData.mode === "live" ? (
+                  <>
+                    <Zap className="size-3" /> Live Computed
+                  </>
+                ) : (
+                  <>
+                    <Database className="size-3" /> Precomputed
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* Form fields */}
+          <div className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Scenario Name</Label>
               <Input
                 id="name"
                 placeholder="The Golden Age"
@@ -430,122 +424,140 @@ export function ScenarioForm({
                 onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="A time of unprecedented prosperity and trade..."
-                value={formData.description}
-                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-              />
-            </div>
 
             {formData.mode === "precomputed" && (
-              <div className="space-y-4 rounded-lg border p-4 bg-primary/5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold">Market Trajectories</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Generate the price courses for this scenario
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleGenerateTrajectories}
-                    >
-                      <RefreshCw
-                        className={cn(
-                          "mr-2 size-4",
-                          formData.precomputedTrajectories.length === 0 && "animate-pulse",
-                        )}
-                      />
-                      {formData.precomputedTrajectories.length > 0 ? "Re-generate" : "Generate"}
-                    </Button>
-                    {formData.precomputedTrajectories.length > 0 && (
-                      <Button
+              <Collapsible className="rounded-xl border bg-muted/30">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+                        <ChartLineIcon className="size-4 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold">Market Trajectories</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {formData.precomputedTrajectories.length > 0
+                            ? `${formData.precomputedTrajectories.length} years generated`
+                            : "Generating price courses…"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
                         type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setShowTrajectories(!showTrajectories)}
-                        title={showTrajectories ? "Hide Spoilers" : "Show Price Courses"}
+                        className="inline-flex size-8 items-center justify-center rounded-md border border-input bg-background text-muted-foreground shadow-xs hover:bg-accent hover:text-accent-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleGenerateTrajectories()
+                        }}
+                        title="Re-generate trajectories"
                       >
-                        {showTrajectories ? (
-                          <EyeOff className="size-4" />
-                        ) : (
-                          <Eye className="size-4" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                        <RefreshCw className="size-3.5" />
+                      </button>
+                      <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 in-data-[state=open]:rotate-180" />
+                    </div>
+                  </button>
+                </CollapsibleTrigger>
 
-                {showTrajectories && formData.precomputedTrajectories.length > 0 && (
-                  <div className="h-[250px] w-full mt-4 bg-background rounded-md p-2 border overflow-hidden">
-                    <ChartContainer
-                      config={{
-                        wood: { label: "Wood", color: "#78350f" },
-                        potatoes: { label: "Potatoes", color: "#facc15" },
-                        fish: { label: "Fish", color: "#60a5fa" },
-                      }}
-                      className="aspect-auto h-full w-full"
-                    >
-                      <LineChart
-                        data={chartData}
-                        margin={{ top: 10, right: 10, left: 20, bottom: 20 }}
+                <CollapsibleContent>
+                  {formData.precomputedTrajectories.length > 0 ? (
+                    <div className="border-t px-4 pb-4 pt-3">
+                      <ChartContainer
+                        config={{
+                          wood: { label: "Wood", color: "#78350f" },
+                          potatoes: { label: "Potatoes", color: "#B8860B" },
+                          fish: { label: "Fish", color: "#60a5fa" },
+                        }}
+                        className="h-64 w-full"
                       >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />
-                        <YAxis
-                          fontSize={10}
-                          tickLine={false}
-                          axisLine={false}
-                          tickFormatter={(value) => `${value}T`}
-                        />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-
-                        {regimeAreas.map((area) => (
-                          <ReferenceArea
-                            key={area.id}
-                            x1={area.x1}
-                            x2={area.x2}
-                            fill={
-                              area.regime === "peace"
-                                ? "rgba(34, 197, 94, 0.1)"
-                                : "rgba(239, 68, 68, 0.1)"
-                            }
-                            stroke="none"
+                        <LineChart
+                          data={chartData}
+                          margin={{ top: 8, right: 16, left: -6, bottom: 0 }}
+                        >
+                          <CartesianGrid vertical={false} />
+                          <XAxis
+                            dataKey="year"
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={8}
+                            tickFormatter={(v) => `Y${v}`}
                           />
-                        ))}
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={8}
+                            width={52}
+                            tickFormatter={(value) => `${value}T`}
+                          />
+                          <ChartTooltip
+                            cursor={{ strokeDasharray: "5 5" }}
+                            content={
+                              <ChartTooltipContent
+                                indicator="line"
+                                labelFormatter={(_, payload) => {
+                                  const year = payload?.[0]?.payload?.year
+                                  return `Year ${typeof year === "number" ? year : "-"}`
+                                }}
+                                formatter={(value, name) => (
+                                  <span className="font-mono tabular-nums">
+                                    {name}: {Number(value).toFixed(1)}T
+                                  </span>
+                                )}
+                              />
+                            }
+                          />
 
-                        <Line
-                          type="monotone"
-                          dataKey="wood"
-                          stroke="var(--color-wood)"
-                          strokeWidth={2}
-                          dot={false}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="potatoes"
-                          stroke="var(--color-potatoes)"
-                          strokeWidth={2}
-                          dot={false}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="fish"
-                          stroke="var(--color-fish)"
-                          strokeWidth={2}
-                          dot={false}
-                        />
-                      </LineChart>
-                    </ChartContainer>
-                  </div>
-                )}
-              </div>
+                          {regimeAreas.map((area) => (
+                            <ReferenceArea
+                              key={area.id}
+                              x1={area.x1}
+                              x2={area.x2}
+                              fill={
+                                area.regime === "peace"
+                                  ? "rgba(34, 197, 94, 0.08)"
+                                  : "rgba(239, 68, 68, 0.08)"
+                              }
+                              stroke="none"
+                            />
+                          ))}
+
+                          <Line
+                            type="monotone"
+                            dataKey="wood"
+                            name="Wood"
+                            stroke="var(--color-wood)"
+                            strokeWidth={2.5}
+                            dot={false}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="potatoes"
+                            name="Potatoes"
+                            stroke="var(--color-potatoes)"
+                            strokeWidth={2.5}
+                            dot={false}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="fish"
+                            name="Fish"
+                            stroke="var(--color-fish)"
+                            strokeWidth={2.5}
+                            dot={false}
+                          />
+                        </LineChart>
+                      </ChartContainer>
+                    </div>
+                  ) : (
+                    <div className="border-t px-4 py-6 flex items-center justify-center">
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
             )}
 
             <div className="grid grid-cols-2 gap-4">
@@ -573,21 +585,28 @@ export function ScenarioForm({
               </div>
             </div>
 
-            <div className="pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-between"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-              >
-                <span className="text-sm font-semibold">Advanced Economic Settings</span>
-                <span className="text-xs text-muted-foreground">
-                  {showAdvanced ? "Hide" : "Show"}
-                </span>
-              </Button>
-
-              {showAdvanced && (
-                <div className="mt-4 space-y-6 rounded-lg border bg-muted/30 p-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <Collapsible className="rounded-xl border bg-muted/30">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-4 py-3 text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+                      <SlidersHorizontalIcon className="size-4 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold">Advanced Economic Settings</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Fine-tune market dynamics, assets, and regime parameters
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 in-data-[state=open]:rotate-180" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="space-y-6 border-t px-4 pb-4 pt-3">
                   {/* Time & Revenue */}
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -1032,17 +1051,25 @@ export function ScenarioForm({
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between border-t pt-6">
-            <Button variant="ghost" onClick={() => setStep(1)} disabled={initialData !== undefined}>
-              <ArrowLeft className="mr-2 size-4" />
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
+          {/* Footer actions */}
+          <div className="flex items-center justify-between pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setStep(1)}
+              disabled={initialData !== undefined}
+            >
+              <ArrowLeft className="mr-1.5 size-4" />
               Back
             </Button>
             <Button
               onClick={handleSubmit}
-              className="px-8"
+              size="lg"
+              className="px-8 shadow-md"
               disabled={
                 !formData.name ||
                 isSubmitting ||
@@ -1058,8 +1085,8 @@ export function ScenarioForm({
                 submitLabel
               )}
             </Button>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   )

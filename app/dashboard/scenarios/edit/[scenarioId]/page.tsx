@@ -1,10 +1,13 @@
 "use client"
 
 import { useMutation, useQuery } from "convex/react"
-import { Loader2 } from "lucide-react"
+import { ArrowLeftIcon, Loader2 } from "lucide-react"
+import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useState } from "react"
+import { PublicHeader } from "@/components/organisms/public-header"
 import { ScenarioForm } from "@/components/organisms/scenario-form"
+import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import type { Scenario } from "@/lib/types/scenario"
@@ -37,40 +40,59 @@ export default function EditScenarioPage() {
 
   if (scenario === undefined) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="min-h-dvh bg-background">
+        <PublicHeader />
+        <main className="mx-auto max-w-4xl px-4 pb-16 pt-4 sm:px-6">
+          <div className="flex h-60 items-center justify-center">
+            <Loader2 className="size-8 animate-spin text-primary" />
+          </div>
+        </main>
       </div>
     )
   }
 
   if (scenario === null) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-        <h1 className="text-2xl font-bold">Scenario not found</h1>
-        <p className="text-muted-foreground mt-2">
-          The scenario you are trying to edit does not exist.
-        </p>
-        <button
-          type="button"
-          onClick={() => router.push("/dashboard?focus=scenarios")}
-          className="mt-4 text-primary hover:underline"
-        >
-          Back to Scenarios
-        </button>
+      <div className="min-h-dvh bg-background">
+        <PublicHeader />
+        <main className="mx-auto max-w-4xl px-4 pb-16 pt-4 sm:px-6">
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <h1 className="text-2xl font-bold">Scenario not found</h1>
+            <p className="text-muted-foreground mt-2">
+              The scenario you are trying to edit does not exist.
+            </p>
+            <Button variant="outline" size="sm" className="mt-4" asChild>
+              <Link href="/dashboard?focus=scenarios">Back to Scenarios</Link>
+            </Button>
+          </div>
+        </main>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center p-4 md:p-8">
-      <ScenarioForm
-        initialData={scenario}
-        onSubmit={handleUpdate}
-        isSubmitting={isUpdating}
-        title={`Edit ${scenario.name}`}
-        description="Update the parameters for this world."
-        submitLabel="Save Changes"
-      />
+    <div className="min-h-dvh bg-background">
+      <PublicHeader />
+
+      <main className="mx-auto max-w-4xl px-4 pb-16 pt-4 sm:px-6">
+        <Button variant="ghost" size="sm" className="-ml-2 mb-6 w-fit" asChild>
+          <Link href="/dashboard">
+            <ArrowLeftIcon className="mr-1 size-4" />
+            Back to Dashboard
+          </Link>
+        </Button>
+
+        <div className="flex flex-col items-center">
+          <ScenarioForm
+            initialData={scenario}
+            onSubmit={handleUpdate}
+            isSubmitting={isUpdating}
+            title={`Edit ${scenario.name}`}
+            description="Update the parameters for this world."
+            submitLabel="Save Changes"
+          />
+        </div>
+      </main>
     </div>
   )
 }

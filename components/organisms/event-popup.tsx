@@ -3,7 +3,7 @@
 import { ArrowRight } from "lucide-react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import {
   Drawer,
   DrawerContent,
@@ -166,7 +166,11 @@ export function EventPopup({ event, open, onClose }: EventPopupProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">{content}</DialogContent>
+      <DialogContent className="max-w-md">
+        <DialogTitle className="sr-only">{event.name}</DialogTitle>
+        <DialogDescription className="sr-only">{event.description}</DialogDescription>
+        {content}
+      </DialogContent>
     </Dialog>
   )
 }

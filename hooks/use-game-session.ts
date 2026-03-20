@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 
 const STORAGE_KEY = "game-session"
+const ANALYTICS_SESSION_KEY = "analytics-session-id"
 
 export type GameSessionInfo = {
   /** Convex session ID (the "event" the player joined) */
@@ -58,6 +59,10 @@ export function useGameSession() {
     const entry: GameSessionInfo = { ...data, joinedAt: Date.now() }
     save(entry)
     setInfo(entry)
+    // Persist session ID for analytics (survives game session clearing)
+    if (typeof window !== "undefined" && data.sessionId) {
+      localStorage.setItem(ANALYTICS_SESSION_KEY, data.sessionId)
+    }
   }, [])
 
   /** Clear the stored event (e.g. when game ends or user leaves) */
@@ -93,9 +98,25 @@ export function getStoredGameSession(): GameSessionInfo | null {
 /** Store a game session (synchronous) */
 export function storeGameSession(data: Omit<GameSessionInfo, "joinedAt">) {
   save({ ...data, joinedAt: Date.now() })
+  // Persist session ID for analytics (survives game session clearing)
+  if (typeof window !== "undefined" && data.sessionId) {
+    localStorage.setItem(ANALYTICS_SESSION_KEY, data.sessionId)
+  }
 }
 
 /** Clear the stored game session (synchronous) */
 export function clearStoredGameSession() {
   clear()
+}
+
+/**
+ * Get the session ID for analytics tracking.
+ * Returns the current game session ID, or falls back to the last known session.
+ * This persists even after the game session is cleared (e.g. on game results page).
+ */
+export function getAnalyticsSessionId(): string | null {
+  if (typeof window === "undefined") return null
+  const session = load()
+  if (session?.sessionId) return session.sessionId
+  return localStorage.getItem(ANALYTICS_SESSION_KEY)
 }

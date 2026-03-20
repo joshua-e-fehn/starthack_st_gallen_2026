@@ -1,5 +1,6 @@
 "use client"
 
+import { useMutation } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "lucide-react"
 import Image from "next/image"
@@ -10,7 +11,11 @@ import { Line, LineChart, XAxis, YAxis } from "recharts"
 import { PublicHeader } from "@/components/organisms/public-header"
 import { Button } from "@/components/ui/button"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
+import { getAnalyticsSessionId } from "@/hooks/use-game-session"
 import { useLessonProgress } from "@/hooks/use-lesson-progress"
+import { getOrCreateGuestId } from "@/lib/guest"
 import type { SlideChart } from "@/lib/lessons/data"
 import { LESSONS } from "@/lib/lessons/data"
 import { cn } from "@/lib/utils"
@@ -89,12 +94,13 @@ export default function LessonPage() {
   const params = useParams<{ lessonId: string }>()
   const router = useRouter()
   const { completeLesson, isCompleted, isUnlocked, progress } = useLessonProgress()
+  const trackEvent = useMutation(api.game.trackAnalyticsEvent)
 
   const lesson = LESSONS.find((l) => l.id === params.lessonId)
   if (!lesson) notFound()
 
   const unlocked = isUnlocked(lesson.number)
-  const completed = isCompleted(lesson.id)
+  const _completed = isCompleted(lesson.id)
 
   const [currentSlide, setCurrentSlide] = useState(0)
   const [direction, setDirection] = useState(1)
@@ -106,6 +112,26 @@ export default function LessonPage() {
   const goNext = useCallback(() => {
     if (isLastSlide) {
       completeLesson(lesson.id)
+
+      // Track lesson completion analytics
+      const analyticsSessionId = getAnalyticsSessionId()
+      if (analyticsSessionId) {
+        type LessonEvent =
+          | "lesson_1_completed"
+          | "lesson_2_completed"
+          | "lesson_3_completed"
+          | "lesson_4_completed"
+          | "lesson_5_completed"
+          | "lesson_6_completed"
+          | "lesson_7_completed"
+        const eventName = `lesson_${lesson.number}_completed` as LessonEvent
+        trackEvent({
+          sessionId: analyticsSessionId as Id<"sessions">,
+          event: eventName,
+          guestId: getOrCreateGuestId() || undefined,
+        }).catch(() => {}) // fire-and-forget
+      }
+
       // Check if completing this lesson finishes all of them
       const completedAfter = new Set(progress.completedLessons)
       completedAfter.add(lesson.id)
@@ -118,7 +144,16 @@ export default function LessonPage() {
       setDirection(1)
       setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1))
     }
-  }, [isLastSlide, completeLesson, lesson.id, totalSlides, progress.completedLessons, router])
+  }, [
+    isLastSlide,
+    completeLesson,
+    lesson.id,
+    lesson.number,
+    totalSlides,
+    progress.completedLessons,
+    router,
+    trackEvent,
+  ])
 
   const goPrev = useCallback(() => {
     setDirection(-1)

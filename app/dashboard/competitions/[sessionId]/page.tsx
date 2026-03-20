@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import {
   ActivityIcon,
   ArrowLeftIcon,
+  BarChart3Icon,
   CheckIcon,
   ChevronDown,
   CopyIcon,
@@ -18,6 +19,7 @@ import { useParams, useRouter } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
 import { useCallback, useMemo, useState } from "react"
 
+import { PublicHeader } from "@/components/organisms/public-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -147,8 +149,11 @@ export default function SessionLobbyPage() {
 
   if (!sessionData) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
+      <div className="min-h-dvh bg-background">
+        <PublicHeader />
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <Loader2 className="size-8 animate-spin text-primary" />
+        </div>
       </div>
     )
   }
@@ -156,21 +161,24 @@ export default function SessionLobbyPage() {
   const { session, leaderboard } = sessionData
 
   return (
-    <div className="flex flex-1 flex-col items-center p-4 md:p-8">
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
+    <div className="min-h-dvh bg-background">
+      <PublicHeader />
+
+      <main className="mx-auto max-w-5xl px-4 pb-16 pt-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
+          className="mb-6"
         >
-          <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={handleBack}>
+          <Button variant="ghost" size="sm" className="mb-3 -ml-2" onClick={handleBack}>
             <ArrowLeftIcon className="mr-1 size-4" />
-            Back
+            Back to Dashboard
           </Button>
 
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold">{session.name}</h1>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{session.name}</h1>
             <Badge
               variant="outline"
               className={cn(
@@ -183,319 +191,517 @@ export default function SessionLobbyPage() {
               {session.status}
             </Badge>
           </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your competition — share the join code and track player progress.
+          </p>
         </motion.div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="join" className="w-full">
-          <TabsList className="w-full">
-            <TabsTrigger value="join" className="flex-1 gap-1.5">
-              <QrCodeIcon className="size-3.5" />
-              Join Game
-            </TabsTrigger>
-            <TabsTrigger value="leaderboard" className="flex-1 gap-1.5">
-              <TrophyIcon className="size-3.5" />
-              Leaderboard
-              {leaderboard.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-                  {leaderboard.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+        {/* Content — centered max-w-xl for the tabs */}
+        <div className="mx-auto max-w-xl">
+          {/* Tabs */}
+          <Tabs defaultValue="join" className="w-full">
+            <TabsList className="w-full">
+              <TabsTrigger value="join" className="flex-1 gap-1.5">
+                <QrCodeIcon className="size-3.5" />
+                Join Game
+              </TabsTrigger>
+              <TabsTrigger value="leaderboard" className="flex-1 gap-1.5">
+                <TrophyIcon className="size-3.5" />
+                Leaderboard
+                {leaderboard.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                    {leaderboard.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex-1 gap-1.5">
+                <BarChart3Icon className="size-3.5" />
+                Analytics
+              </TabsTrigger>
+            </TabsList>
 
-          {/* ── Tab 1: Join Game ── */}
-          <TabsContent value="join">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Card className="border-primary/20 bg-card/95 shadow-lg backdrop-blur">
-                <CardHeader className="pb-3">
-                  <CardDescription>Share this code or QR for players to join</CardDescription>
-                </CardHeader>
+            {/* ── Tab 1: Join Game ── */}
+            <TabsContent value="join">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="border-primary/20 bg-card/95 shadow-lg backdrop-blur">
+                  <CardHeader className="pb-3">
+                    <CardDescription>Share this code or QR for players to join</CardDescription>
+                  </CardHeader>
 
-                <CardContent className="space-y-6">
-                  {/* QR Code */}
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="rounded-2xl border-2 border-primary/20 bg-white p-4 shadow-sm">
-                      <QRCodeSVG
-                        value={joinUrl}
-                        size={200}
-                        level="M"
-                        marginSize={2}
-                        className="h-auto w-full max-w-50"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <QrCodeIcon className="size-3.5" />
-                      Scan to join instantly
-                    </div>
-                  </div>
-
-                  {/* Join Code */}
-                  <div className="space-y-2">
-                    <p className="block text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                      Or enter this code
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleCopyCode}
-                      className={cn(
-                        "group flex w-full items-center justify-center gap-3 rounded-xl border-2 border-dashed py-4 transition-all duration-200 active:scale-[0.98]",
-                        copied
-                          ? "border-green-500/40 bg-green-500/5"
-                          : "border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10",
-                      )}
-                    >
-                      <span className="font-mono text-4xl font-black tracking-[0.4em] text-primary">
-                        {session.joinCode}
-                      </span>
-                      {copied ? (
-                        <CheckIcon className="size-5 text-green-600" />
-                      ) : (
-                        <CopyIcon className="size-5 text-muted-foreground" />
-                      )}
-                    </button>
-                    {copied && (
-                      <p className="text-center text-xs text-green-600">Copied to clipboard!</p>
-                    )}
-                  </div>
-
-                  {/* Direct link */}
-                  <div className="rounded-lg border bg-muted/40 px-3 py-2">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                      Direct Link
-                    </p>
-                    <p className="mt-1 break-all font-mono text-xs text-foreground/80">{joinUrl}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </TabsContent>
-
-          {/* ── Tab 2: Leaderboard ── */}
-          <TabsContent value="leaderboard">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Card className="border-primary/20 bg-card/95 shadow-lg">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <TrophyIcon className="size-4 text-primary" />
-                    Leaderboard
-                    <Badge variant="secondary" className="ml-auto text-xs">
-                      {leaderboard.length} joined
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription>Live rankings — updates as players trade.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {leaderboard.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 py-12 text-center">
-                      <div className="rounded-full bg-muted p-3">
-                        <UsersIcon className="size-6 text-muted-foreground" />
+                  <CardContent className="space-y-6">
+                    {/* QR Code */}
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="rounded-2xl border-2 border-primary/20 bg-white p-4 shadow-sm">
+                        <QRCodeSVG
+                          value={joinUrl}
+                          size={200}
+                          level="M"
+                          marginSize={2}
+                          className="h-auto w-full max-w-50"
+                        />
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Waiting for players to join...
+
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <QrCodeIcon className="size-3.5" />
+                        Scan to join instantly
+                      </div>
+                    </div>
+
+                    {/* Join Code */}
+                    <div className="space-y-2">
+                      <p className="block text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        Or enter this code
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        Share the QR code or join code on the Join Game tab
+                      <button
+                        type="button"
+                        onClick={handleCopyCode}
+                        className={cn(
+                          "group flex w-full items-center justify-center gap-3 rounded-xl border-2 border-dashed py-4 transition-all duration-200 active:scale-[0.98]",
+                          copied
+                            ? "border-green-500/40 bg-green-500/5"
+                            : "border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10",
+                        )}
+                      >
+                        <span className="font-mono text-4xl font-black tracking-[0.4em] text-primary">
+                          {session.joinCode}
+                        </span>
+                        {copied ? (
+                          <CheckIcon className="size-5 text-green-600" />
+                        ) : (
+                          <CopyIcon className="size-5 text-muted-foreground" />
+                        )}
+                      </button>
+                      {copied && (
+                        <p className="text-center text-xs text-green-600">Copied to clipboard!</p>
+                      )}
+                    </div>
+
+                    {/* Direct link */}
+                    <div className="rounded-lg border bg-muted/40 px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        Direct Link
+                      </p>
+                      <p className="mt-1 break-all font-mono text-xs text-foreground/80">
+                        {joinUrl}
                       </p>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {(() => {
-                        const maxNetWorth = leaderboard[0]?.netWorth || 1
-                        return sliceLeaderboard(leaderboard).map((row, i) => {
-                          if (row.type === "gap") {
-                            return (
-                              <div
-                                key={`gap-${row.hiddenCount}`}
-                                className="flex items-center justify-center gap-2 py-1 text-xs text-muted-foreground"
-                              >
-                                <span className="h-px flex-1 bg-border" />
-                                <span className="font-mono">
-                                  ··· {row.hiddenCount} more player
-                                  {row.hiddenCount !== 1 ? "s" : ""} ···
-                                </span>
-                                <span className="h-px flex-1 bg-border" />
-                              </div>
-                            )
-                          }
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </TabsContent>
 
-                          const { entry, rank } = row
-                          const isGold = rank === 0
-                          const isSilver = rank === 1
-                          const isBronze = rank === 2
-                          const isLast = rank === leaderboard.length - 1 && leaderboard.length > 1
-                          const medianCenter = Math.floor(leaderboard.length / 2)
-                          const isMedian =
-                            leaderboard.length > MAX_VISIBLE &&
-                            rank >= medianCenter - 1 &&
-                            rank <= medianCenter + 1
-                          const fillPct = Math.max(
-                            0,
-                            Math.min(100, (entry.netWorth / maxNetWorth) * 100),
-                          )
-
-                          const isExpanded = expandedGameId === entry.gameId
-                          const breakdown = entry.assetBreakdown
-
-                          return (
-                            <motion.div
-                              key={entry.gameId}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: i * 0.05 }}
-                              className={cn(
-                                "relative overflow-hidden rounded-lg border cursor-pointer transition-colors",
-                                isGold
-                                  ? "border-yellow-500/30"
-                                  : isSilver
-                                    ? "border-slate-400/30"
-                                    : isBronze
-                                      ? "border-amber-700/20"
-                                      : isLast
-                                        ? "border-rose-400/20"
-                                        : "border-border/70",
-                              )}
-                              onClick={() => setExpandedGameId(isExpanded ? null : entry.gameId)}
-                            >
-                              {/* Main row */}
-                              <div className="relative flex items-center justify-between px-3 py-2.5">
-                                {/* Progress fill background */}
+            {/* ── Tab 2: Leaderboard ── */}
+            <TabsContent value="leaderboard">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="border-primary/20 bg-card/95 shadow-lg">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <TrophyIcon className="size-4 text-primary" />
+                      Leaderboard
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {leaderboard.length} joined
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription>Live rankings — updates as players trade.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {leaderboard.length === 0 ? (
+                      <div className="flex flex-col items-center gap-2 py-12 text-center">
+                        <div className="rounded-full bg-muted p-3">
+                          <UsersIcon className="size-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Waiting for players to join...
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Share the QR code or join code on the Join Game tab
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {(() => {
+                          const maxNetWorth = leaderboard[0]?.netWorth || 1
+                          return sliceLeaderboard(leaderboard).map((row, i) => {
+                            if (row.type === "gap") {
+                              return (
                                 <div
-                                  className={cn(
-                                    "pointer-events-none absolute inset-y-0 left-0 rounded-r-sm transition-all duration-500",
-                                    isGold
-                                      ? "bg-yellow-400/25"
-                                      : isSilver
-                                        ? "bg-slate-400/20"
-                                        : isBronze
-                                          ? "bg-amber-600/20"
-                                          : isLast
-                                            ? "bg-rose-400/20"
-                                            : "bg-primary/15",
-                                  )}
-                                  style={{ width: `${fillPct}%` }}
-                                />
-                                <div className="relative z-10 flex items-center gap-3">
-                                  <span
-                                    className={cn(
-                                      "flex size-7 items-center justify-center rounded-full text-xs font-bold",
-                                      isGold
-                                        ? "bg-yellow-500 text-yellow-950"
-                                        : isSilver
-                                          ? "bg-slate-400 text-white"
-                                          : isBronze
-                                            ? "bg-amber-700 text-white"
-                                            : isLast
-                                              ? "bg-rose-400 text-white"
-                                              : "bg-muted text-muted-foreground",
-                                    )}
-                                  >
-                                    {rank + 1}
+                                  key={`gap-${row.hiddenCount}`}
+                                  className="flex items-center justify-center gap-2 py-1 text-xs text-muted-foreground"
+                                >
+                                  <span className="h-px flex-1 bg-border" />
+                                  <span className="font-mono">
+                                    ··· {row.hiddenCount} more player
+                                    {row.hiddenCount !== 1 ? "s" : ""} ···
                                   </span>
-                                  <div>
-                                    <p className="text-sm font-bold">
-                                      {entry.playerName}
-                                      {isMedian && (
-                                        <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
-                                          median
-                                        </span>
+                                  <span className="h-px flex-1 bg-border" />
+                                </div>
+                              )
+                            }
+
+                            const { entry, rank } = row
+                            const isGold = rank === 0
+                            const isSilver = rank === 1
+                            const isBronze = rank === 2
+                            const isLast = rank === leaderboard.length - 1 && leaderboard.length > 1
+                            const medianCenter = Math.floor(leaderboard.length / 2)
+                            const isMedian =
+                              leaderboard.length > MAX_VISIBLE &&
+                              rank >= medianCenter - 1 &&
+                              rank <= medianCenter + 1
+                            const fillPct = Math.max(
+                              0,
+                              Math.min(100, (entry.netWorth / maxNetWorth) * 100),
+                            )
+
+                            const isExpanded = expandedGameId === entry.gameId
+                            const breakdown = entry.assetBreakdown
+
+                            return (
+                              <motion.div
+                                key={entry.gameId}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                                className={cn(
+                                  "relative overflow-hidden rounded-lg border cursor-pointer transition-colors",
+                                  isGold
+                                    ? "border-yellow-500/30"
+                                    : isSilver
+                                      ? "border-slate-400/30"
+                                      : isBronze
+                                        ? "border-amber-700/20"
+                                        : isLast
+                                          ? "border-rose-400/20"
+                                          : "border-border/70",
+                                )}
+                                onClick={() => setExpandedGameId(isExpanded ? null : entry.gameId)}
+                              >
+                                {/* Main row */}
+                                <div className="relative flex items-center justify-between px-3 py-2.5">
+                                  {/* Progress fill background */}
+                                  <div
+                                    className={cn(
+                                      "pointer-events-none absolute inset-y-0 left-0 rounded-r-sm transition-all duration-500",
+                                      isGold
+                                        ? "bg-yellow-400/25"
+                                        : isSilver
+                                          ? "bg-slate-400/20"
+                                          : isBronze
+                                            ? "bg-amber-600/20"
+                                            : isLast
+                                              ? "bg-rose-400/20"
+                                              : "bg-primary/15",
+                                    )}
+                                    style={{ width: `${fillPct}%` }}
+                                  />
+                                  <div className="relative z-10 flex items-center gap-3">
+                                    <span
+                                      className={cn(
+                                        "flex size-7 items-center justify-center rounded-full text-xs font-bold",
+                                        isGold
+                                          ? "bg-yellow-500 text-yellow-950"
+                                          : isSilver
+                                            ? "bg-slate-400 text-white"
+                                            : isBronze
+                                              ? "bg-amber-700 text-white"
+                                              : isLast
+                                                ? "bg-rose-400 text-white"
+                                                : "bg-muted text-muted-foreground",
                                       )}
+                                    >
+                                      {rank + 1}
+                                    </span>
+                                    <div>
+                                      <p className="text-sm font-bold">
+                                        {entry.playerName}
+                                        {isMedian && (
+                                          <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
+                                            median
+                                          </span>
+                                        )}
+                                      </p>
+                                      <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <ActivityIcon className="size-2" />
+                                        {entry.status}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="relative z-10 flex items-center gap-2">
+                                    <p className="font-mono text-sm font-black text-primary">
+                                      {formatTaler(entry.netWorth)}
                                     </p>
-                                    <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                      <ActivityIcon className="size-2" />
-                                      {entry.status}
-                                    </p>
+                                    <ChevronDown
+                                      className={cn(
+                                        "size-4 text-muted-foreground transition-transform duration-200",
+                                        isExpanded && "rotate-180",
+                                      )}
+                                    />
                                   </div>
                                 </div>
-                                <div className="relative z-10 flex items-center gap-2">
-                                  <p className="font-mono text-sm font-black text-primary">
-                                    {formatTaler(entry.netWorth)}
-                                  </p>
-                                  <ChevronDown
-                                    className={cn(
-                                      "size-4 text-muted-foreground transition-transform duration-200",
-                                      isExpanded && "rotate-180",
-                                    )}
-                                  />
-                                </div>
-                              </div>
 
-                              {/* Expanded asset breakdown */}
-                              <AnimatePresence>
-                                {isExpanded && breakdown && (
-                                  <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: "auto", opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="overflow-hidden"
-                                  >
-                                    <div className="border-t border-border/50 bg-muted/30 px-3 py-2.5">
-                                      <div className="grid grid-cols-4 gap-2">
-                                        {ASSET_META.map((asset) => {
-                                          const value = breakdown[asset.key]
-                                          const pct =
-                                            breakdown.total > 0
-                                              ? Math.round((value / breakdown.total) * 100)
-                                              : 0
-                                          return (
-                                            <div
-                                              key={asset.key}
-                                              className="flex flex-col items-center justify-between rounded-lg bg-background/60 px-1.5 py-2"
-                                            >
-                                              <div className="flex h-6 items-center justify-center">
-                                                <Image
-                                                  src={asset.icon}
-                                                  alt={asset.label}
-                                                  width={20}
-                                                  height={20}
-                                                  className="object-contain"
-                                                />
+                                {/* Expanded asset breakdown */}
+                                <AnimatePresence>
+                                  {isExpanded && breakdown && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="border-t border-border/50 bg-muted/30 px-3 py-2.5">
+                                        <div className="grid grid-cols-4 gap-2">
+                                          {ASSET_META.map((asset) => {
+                                            const value = breakdown[asset.key]
+                                            const pct =
+                                              breakdown.total > 0
+                                                ? Math.round((value / breakdown.total) * 100)
+                                                : 0
+                                            return (
+                                              <div
+                                                key={asset.key}
+                                                className="flex flex-col items-center justify-between rounded-lg bg-background/60 px-1.5 py-2"
+                                              >
+                                                <div className="flex h-6 items-center justify-center">
+                                                  <Image
+                                                    src={asset.icon}
+                                                    alt={asset.label}
+                                                    width={20}
+                                                    height={20}
+                                                    className="object-contain"
+                                                  />
+                                                </div>
+                                                <span className="text-[10px] font-bold text-muted-foreground">
+                                                  {asset.label}
+                                                </span>
+                                                <span className="mt-auto font-mono text-xs font-black">
+                                                  {pct}%
+                                                </span>
+                                                {/* Mini bar */}
+                                                <div className="mt-1 h-1 w-full rounded-full bg-muted">
+                                                  <div
+                                                    className="h-full rounded-full transition-all duration-300"
+                                                    style={{
+                                                      width: `${pct}%`,
+                                                      backgroundColor: asset.color,
+                                                    }}
+                                                  />
+                                                </div>
                                               </div>
-                                              <span className="text-[10px] font-bold text-muted-foreground">
-                                                {asset.label}
-                                              </span>
-                                              <span className="mt-auto font-mono text-xs font-black">
-                                                {pct}%
-                                              </span>
-                                              {/* Mini bar */}
-                                              <div className="mt-1 h-1 w-full rounded-full bg-muted">
-                                                <div
-                                                  className="h-full rounded-full transition-all duration-300"
-                                                  style={{
-                                                    width: `${pct}%`,
-                                                    backgroundColor: asset.color,
-                                                  }}
-                                                />
-                                              </div>
-                                            </div>
-                                          )
-                                        })}
+                                            )
+                                          })}
+                                        </div>
                                       </div>
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </motion.div>
-                          )
-                        })
-                      })()}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          </TabsContent>
-        </Tabs>
-      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </motion.div>
+                            )
+                          })
+                        })()}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </TabsContent>
+
+            {/* ── Tab 3: Analytics ── */}
+            <TabsContent value="analytics">
+              <AnalyticsFunnel sessionId={sessionId} />
+            </TabsContent>
+          </Tabs>
+        </div>
+      </main>
     </div>
+  )
+}
+
+// ─── Analytics Funnel Component ──────────────────────────────────
+
+function FunnelBar({
+  label,
+  count,
+  maxCount,
+  index,
+  color,
+  trackColor,
+  prevCount,
+}: {
+  label: string
+  count: number
+  maxCount: number
+  index: number
+  color: string
+  trackColor: string
+  prevCount?: number
+}) {
+  const pct = Math.round((count / maxCount) * 100)
+  const dropoff =
+    prevCount !== undefined && prevCount > 0
+      ? Math.round(((prevCount - count) / prevCount) * 100)
+      : null
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -15 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.06, duration: 0.25 }}
+    >
+      {dropoff !== null && dropoff > 0 && (
+        <div className="mb-1.5 flex items-center gap-2 pl-1">
+          <span className="h-px flex-1 bg-border" />
+          <span className="font-mono text-[10px] text-muted-foreground">−{dropoff}% drop-off</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">
+          {index + 1}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <span className="truncate text-xs font-medium">{label}</span>
+            <span className="shrink-0 font-mono text-sm font-black text-foreground">
+              {count}
+              <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">({pct}%)</span>
+            </span>
+          </div>
+          <div className={cn("h-2.5 w-full overflow-hidden rounded-full", trackColor)}>
+            <motion.div
+              className={cn("h-full rounded-full", color)}
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.max(pct, 2)}%` }}
+              transition={{ delay: index * 0.06 + 0.15, duration: 0.5, ease: "easeOut" }}
+            />
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+function AnalyticsFunnel({ sessionId }: { sessionId: Id<"sessions"> }) {
+  const analytics = useQuery(api.game.getCompetitionAnalytics, { sessionId })
+
+  if (!analytics) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <Card className="border-primary/20 bg-card/95 shadow-lg">
+          <CardContent className="flex items-center justify-center py-16">
+            <Loader2 className="size-6 animate-spin text-primary" />
+          </CardContent>
+        </Card>
+      </motion.div>
+    )
+  }
+
+  const { funnel, lessons, accountCreated, total } = analytics
+  const maxCount = Math.max(total, 1)
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="space-y-4"
+    >
+      {/* Game Funnel */}
+      <Card className="border-primary/20 bg-card/95 shadow-lg">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BarChart3Icon className="size-4 text-primary" />
+            Game Funnel
+          </CardTitle>
+          <CardDescription>
+            How many players joined, started, and finished the game.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {total === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-12 text-center">
+              <div className="rounded-full bg-muted p-3">
+                <BarChart3Icon className="size-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">No data yet</p>
+              <p className="text-xs text-muted-foreground">
+                Analytics will appear once players join
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {funnel.map((stage, i) => (
+                <FunnelBar
+                  key={stage.label}
+                  label={stage.label}
+                  count={stage.count}
+                  maxCount={maxCount}
+                  index={i}
+                  color="bg-blue-500"
+                  trackColor="bg-blue-500/15"
+                  prevCount={i > 0 ? funnel[i - 1].count : undefined}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Lesson Progress */}
+      <Card className="border-primary/20 bg-card/95 shadow-lg">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BarChart3Icon className="size-4 text-amber-500" />
+            Lesson Completion
+          </CardTitle>
+          <CardDescription>How far players progressed through the 7 lessons.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {total === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No data yet</p>
+          ) : (
+            <div className="space-y-3">
+              {lessons.map((lesson, i) => (
+                <FunnelBar
+                  key={lesson.label}
+                  label={lesson.label}
+                  count={lesson.count}
+                  maxCount={maxCount}
+                  index={i}
+                  color="bg-amber-500"
+                  trackColor="bg-amber-500/15"
+                  prevCount={i > 0 ? lessons[i - 1].count : undefined}
+                />
+              ))}
+
+              {/* Account Created — separate from lessons */}
+              <div className="mt-2 border-t border-border/50 pt-3">
+                <FunnelBar
+                  label="Opened Account"
+                  count={accountCreated}
+                  maxCount={maxCount}
+                  index={7}
+                  color="bg-emerald-500"
+                  trackColor="bg-emerald-500/15"
+                  prevCount={lessons[6]?.count}
+                />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
   )
 }

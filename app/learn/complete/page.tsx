@@ -1,14 +1,18 @@
 "use client"
 
+import { useMutation } from "convex/react"
 import { motion } from "framer-motion"
 import { ArrowLeftIcon, ArrowRightIcon, SparklesIcon } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { PublicHeader } from "@/components/organisms/public-header"
 import { Button } from "@/components/ui/button"
-import { useGameSession } from "@/hooks/use-game-session"
+import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
+import { getAnalyticsSessionId, useGameSession } from "@/hooks/use-game-session"
 import { useLessonProgress } from "@/hooks/use-lesson-progress"
+import { getOrCreateGuestId } from "@/lib/guest"
 import { cn } from "@/lib/utils"
 
 const STRATEGIES = [
@@ -43,6 +47,17 @@ export default function LearnCompletePage() {
   const { allCompleted, progress } = useLessonProgress()
   const { hasJoinedEvent, gameSession } = useGameSession()
   const [strategy, setStrategy] = useState<string | null>(null)
+  const trackEvent = useMutation(api.game.trackAnalyticsEvent)
+
+  const handleOpenAccount = useCallback(() => {
+    const analyticsSessionId = getAnalyticsSessionId()
+    if (!analyticsSessionId) return
+    trackEvent({
+      sessionId: analyticsSessionId as Id<"sessions">,
+      event: "account_created",
+      guestId: getOrCreateGuestId() || undefined,
+    }).catch(() => {}) // fire-and-forget
+  }, [trackEvent])
 
   useEffect(() => {
     if (progress.completedLessons.length > 0 && !allCompleted) {
@@ -135,6 +150,7 @@ export default function LearnCompletePage() {
               href="https://www.postfinance.ch"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={handleOpenAccount}
               className={cn(!strategy && "pointer-events-none opacity-50")}
             >
               <SparklesIcon className="mr-2 size-4" />

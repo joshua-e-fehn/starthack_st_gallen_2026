@@ -43,6 +43,26 @@ const schema = defineSchema({
     .index("by_joinCode", ["joinCode"])
     .index("by_status", ["status"]),
 
+  // ─── Analytics Events: funnel tracking per session ───
+  analyticsEvents: defineTable({
+    sessionId: v.id("sessions"),
+    playerId: v.string(),
+    event: v.union(
+      v.literal("lesson_1_completed"),
+      v.literal("lesson_2_completed"),
+      v.literal("lesson_3_completed"),
+      v.literal("lesson_4_completed"),
+      v.literal("lesson_5_completed"),
+      v.literal("lesson_6_completed"),
+      v.literal("lesson_7_completed"),
+      v.literal("account_created"),
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_session_event", ["sessionId", "event"])
+    .index("by_session_player_event", ["sessionId", "playerId", "event"]),
+
   // ─── Game Steps: time-series of state vectors ───
   gameSteps: defineTable({
     gameId: v.id("games"),
