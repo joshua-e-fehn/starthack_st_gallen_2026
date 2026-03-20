@@ -16,10 +16,9 @@ import {
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Suspense, useRef } from "react"
+import { Suspense } from "react"
 import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { PublicHeader } from "@/components/organisms/public-header"
-import { ScenarioViewer } from "@/components/organisms/scenario-viewer"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -68,62 +67,101 @@ function SessionCard({
   }
   isHosted: boolean
 }) {
+  const isActive = session.status === "active"
+  const isCompleted = session.status === "completed"
+
   return (
     <Link
-      href={isHosted ? `/dashboard/sessions/${session._id}` : `/?sessionId=${session._id}`}
+      href={isHosted ? `/dashboard/competitions/${session._id}` : `/?sessionId=${session._id}`}
       className="block group"
     >
-      <Card className="overflow-hidden border-transparent bg-card shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group-hover:border-primary/20">
-        <CardContent className="p-0">
-          {session.scenarioIcon && (
-            <div className="relative h-28 w-full overflow-hidden bg-linear-to-b from-primary/10 to-transparent">
-              <Image
-                src={session.scenarioIcon}
-                alt={session.scenarioName || session.name}
-                fill
-                className="object-cover opacity-90 group-hover:scale-105 transition-transform duration-300"
-                unoptimized
-              />
-              <div className="absolute inset-0 bg-linear-to-t from-card via-transparent to-transparent" />
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-2xl border bg-card transition-all duration-200",
+          "hover:-translate-y-1 hover:shadow-lg group-hover:border-primary/30",
+          isActive && "shadow-sm",
+          isCompleted && "opacity-75 hover:opacity-100",
+        )}
+      >
+        {/* Image banner */}
+        <div className="relative h-36 w-full overflow-hidden bg-muted">
+          {session.scenarioIcon ? (
+            <Image
+              src={session.scenarioIcon}
+              alt={session.scenarioName || session.name}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+              unoptimized
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 to-primary/5">
+              <RocketIcon className="size-10 text-primary/20" />
             </div>
           )}
+          {/* Gradient scrim for readability */}
+          <div className="absolute inset-0 bg-linear-to-t from-black/50 via-black/10 to-transparent" />
 
-          <div className={cn("px-4 pb-4", session.scenarioIcon ? "-mt-4 relative" : "pt-4")}>
-            <h3 className="text-lg font-bold tracking-tight line-clamp-1">{session.name}</h3>
-
-            <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[11px] font-mono font-bold tracking-wider text-primary">
-                {session.joinCode}
-              </span>
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                <UsersIcon className="size-3" />
-                {session.playerCount ?? 0}
-              </span>
-              <Badge
-                variant="outline"
+          {/* Status pill — top right */}
+          <div className="absolute top-2.5 right-2.5">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-md",
+                isActive && "bg-green-500/20 text-green-100",
+                isCompleted && "bg-white/15 text-white/80",
+                !isActive && !isCompleted && "bg-yellow-500/20 text-yellow-100",
+              )}
+            >
+              <span
                 className={cn(
-                  "h-5 text-[10px] capitalize",
-                  session.status === "active" &&
-                    "border-green-500/30 text-green-600 bg-green-500/5",
-                  session.status === "completed" &&
-                    "border-muted text-muted-foreground bg-muted/30",
-                  session.status === "waiting" &&
-                    "border-yellow-500/30 text-yellow-600 bg-yellow-500/5",
+                  "size-1.5 rounded-full",
+                  isActive && "bg-green-400",
+                  isCompleted && "bg-white/60",
+                  !isActive && !isCompleted && "bg-yellow-400",
                 )}
-              >
-                {session.status}
-              </Badge>
-            </div>
-
-            <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-              <span className="truncate">{session.scenarioName ?? "Custom scenario"}</span>
-              <span className="shrink-0 ml-2">
-                {new Date(session.createdAt).toLocaleDateString()}
-              </span>
-            </div>
+              />
+              {session.status}
+            </span>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Player count — top left */}
+          <div className="absolute top-2.5 left-2.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/30 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-md">
+              <UsersIcon className="size-3" />
+              {session.playerCount ?? 0}
+            </span>
+          </div>
+
+          {/* Name overlay on image — bottom */}
+          <div className="absolute inset-x-0 bottom-0 px-4 pb-3">
+            <h3 className="text-lg font-bold leading-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)] line-clamp-1">
+              {session.name}
+            </h3>
+          </div>
+        </div>
+
+        {/* Content area */}
+        <div className="px-4 py-3">
+          {/* Scenario + date row */}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[13px] text-muted-foreground truncate">
+              Scenario: {session.scenarioName ?? "Custom scenario"}
+            </p>
+            <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground/50">
+              {new Date(session.createdAt).toLocaleDateString()}
+            </span>
+          </div>
+
+          {/* Join code bar */}
+          <div className="mt-2.5 flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
+            <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+              Join Code
+            </span>
+            <span className="font-mono text-sm font-black tracking-[0.2em] text-primary">
+              {session.joinCode}
+            </span>
+          </div>
+        </div>
+      </div>
     </Link>
   )
 }
@@ -191,7 +229,7 @@ function SessionDetailView({
           </div>
         </div>
         <Button size="sm" asChild>
-          <Link href={`/dashboard/sessions/${sessionId}`}>
+          <Link href={`/dashboard/competitions/${sessionId}`}>
             <ArrowRightIcon className="mr-1.5 size-4" />
             Full Overview
           </Link>
@@ -265,7 +303,6 @@ function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("sessionId") as Id<"sessions"> | null
-  const scenariosSectionRef = useRef<HTMLDivElement>(null)
 
   const guestId = getOrCreateGuestId()
   const hostedSessions = useQuery(api.game.listMyHostedSessions)
@@ -317,7 +354,7 @@ function DashboardContent() {
                   )}
                 </div>
                 <Button size="sm" variant="outline" asChild>
-                  <Link href="/dashboard/sessions/create">
+                  <Link href="/dashboard/competitions/create">
                     <PlusCircleIcon className="mr-1.5 size-4" />
                     New
                   </Link>
@@ -331,9 +368,9 @@ function DashboardContent() {
                   description="Create your first competition and invite others to play."
                   action={
                     <Button size="sm" asChild>
-                      <Link href="/dashboard/sessions/create">
+                      <Link href="/dashboard/competitions/create">
                         <PlusCircleIcon className="mr-1.5 size-4" />
-                        Create Session
+                        Create Competition
                       </Link>
                     </Button>
                   }
@@ -353,7 +390,7 @@ function DashboardContent() {
 
                   {/* Quick-create card */}
                   <motion.div variants={childFade}>
-                    <Link href="/dashboard/sessions/create" className="block group h-full">
+                    <Link href="/dashboard/competitions/create" className="block group h-full">
                       <div className="flex h-full min-h-36 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-muted-foreground/15 bg-muted/10 p-6 text-center transition-all hover:border-primary/30 hover:bg-primary/5 group-hover:scale-[1.01]">
                         <div className="rounded-full bg-muted p-3 group-hover:bg-primary/10 transition-colors">
                           <PlusCircleIcon className="size-6 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -408,22 +445,6 @@ function DashboardContent() {
                   ))}
                 </motion.div>
               )}
-            </motion.section>
-
-            {/* ─── Scenario Templates ─────────────────────── */}
-            <motion.section
-              {...fadeUp(0.15)}
-              ref={scenariosSectionRef}
-              id="scenarios"
-              className="scroll-mt-24"
-            >
-              <div className="mb-4">
-                <h2 className="text-xl font-bold tracking-tight">Scenario Templates</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Create and manage your game scenarios.
-                </p>
-              </div>
-              <ScenarioViewer editable />
             </motion.section>
           </div>
         )}

@@ -184,11 +184,38 @@ export const listScenarios = query({
   },
 })
 
+/** List scenarios created by the current user */
+export const listMyScenarios = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+    return ctx.db
+      .query("scenarios")
+      .withIndex("by_createdBy", (q) => q.eq("createdBy", identity.subject))
+      .collect()
+  },
+})
+
+/** List global scenarios (no owner / created by others) */
+export const listGlobalScenarios = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    const all = await ctx.db.query("scenarios").collect()
+    return all.filter((s) => !s.createdBy || (identity && s.createdBy !== identity.subject))
+  },
+})
+
 /** Create a new scenario (Debug helper) */
 export const createScenario = mutation({
   args: scenarioFieldsValidator,
   handler: async (ctx, args) => {
-    return await ctx.db.insert("scenarios", args)
+    const identity = await ctx.auth.getUserIdentity()
+    return await ctx.db.insert("scenarios", {
+      ...args,
+      createdBy: identity?.subject,
+    })
   },
 })
 

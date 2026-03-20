@@ -1022,7 +1022,7 @@ function ResultsContent() {
               className="h-12 w-full text-base"
               onClick={() => {
                 clearStoredGameSession()
-                router.push(`/dashboard/sessions/${sessionId}`)
+                router.push(`/dashboard/competitions/${sessionId}`)
               }}
             >
               Back to Session Lobby
