@@ -1043,6 +1043,8 @@ function GameContent() {
       return
     }
 
+    if (!gameId) return
+
     try {
       if (!gameId) return
       const result = await submitStepMutation({ gameId, actions, guestId })
