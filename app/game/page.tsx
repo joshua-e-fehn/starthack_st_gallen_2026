@@ -38,6 +38,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
+import type { GameContext } from "@/lib/ai/chatbot"
 import { DEBUG_SCENARIO } from "@/lib/game/debug-scenario"
 import { gameStep, initializeGame, portfolioValue } from "@/lib/game/engine"
 import { getOrCreateGuestId } from "@/lib/guest"
@@ -1067,6 +1068,37 @@ function GameContent() {
     ].filter((d) => d.value > 0)
   }, [totalAssetValue])
 
+  // ─── Chatbot game context ─────────────────────────────────────
+  const chatbotGameContext: GameContext | undefined = useMemo(() => {
+    if (!current || !scenario) return undefined
+
+    // Collect recent events from the last 5 steps of history
+    const recentEvents = history.slice(-5).flatMap((s) =>
+      s.events.map((e) => ({
+        step: s.step,
+        name: e.name,
+        description: e.description,
+      })),
+    )
+
+    // Gold balance history from all steps
+    const goldHistory = history.map((s) => s.portfolio.gold)
+
+    return {
+      portfolio: current.portfolio,
+      market: current.market,
+      currentStep: current.step,
+      currentYear: current.date,
+      goal: current.goal,
+      goalReached: current.goalReached,
+      totalNetWorth: totalValue,
+      recentEvents,
+      goldHistory,
+      startYear: scenario.startYear,
+      endYear: scenario.endYear,
+    }
+  }, [current, scenario, history, totalValue])
+
   const latestEvent = current?.events?.[0] ?? null
   const marketplaceTargetAsset =
     marketplaceOnboardingStep === null
@@ -1664,6 +1696,8 @@ function GameContent() {
           if (current) markEventStepSeen(current.step)
         }}
       />
+
+      <GameChatbot gameContext={chatbotGameContext} />
     </main>
   )
 }

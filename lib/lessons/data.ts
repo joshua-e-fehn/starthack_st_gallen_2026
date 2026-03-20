@@ -38,7 +38,7 @@ export type SlideChart = {
 export type LessonSlide = {
   title: string
   content: string
-  /** Optional hint text shown below the main content (Gildi tip style) */
+  /** Optional hint text shown below the main content (Connie tip style) */
   tip?: string
   /** Optional line chart rendered below the content */
   chart?: SlideChart
