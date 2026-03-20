@@ -91,7 +91,7 @@ export default function CreateCompetitionPage() {
     <div className="min-h-dvh bg-background">
       <PublicHeader />
 
-      <main className="mx-auto max-w-4xl px-4 pb-16 pt-4 sm:px-6">
+      <main className="mx-auto max-w-5xl px-4 pb-16 pt-4 sm:px-6 lg:px-8">
         {/* Back + Page Header */}
         <motion.div {...fadeUp()} className="mb-8">
           <Button variant="ghost" size="sm" className="-ml-2 mb-3 w-fit" asChild>
@@ -115,7 +115,7 @@ export default function CreateCompetitionPage() {
               </span>
               <h2 className="text-lg font-bold tracking-tight">Competition Name</h2>
             </div>
-            <div className="max-w-lg">
+            <div className="max-w-xl">
               <Input
                 placeholder="e.g. The Great Harvest"
                 value={competitionName}
@@ -173,12 +173,12 @@ export default function CreateCompetitionPage() {
                   <Icon className="size-3.5" />
                   {label}
                   {key === "mine" && myScenarios && (
-                    <span className="ml-0.5 rounded-full bg-primary/10 px-1.5 text-[10px] font-bold text-primary">
+                    <span className="ml-0.5 rounded-full bg-muted px-1.5 text-[10px] font-bold text-muted-foreground">
                       {myScenarios.length}
                     </span>
                   )}
                   {key === "global" && globalScenarios && (
-                    <span className="ml-0.5 rounded-full bg-primary/10 px-1.5 text-[10px] font-bold text-primary">
+                    <span className="ml-0.5 rounded-full bg-muted px-1.5 text-[10px] font-bold text-muted-foreground">
                       {globalScenarios.length}
                     </span>
                   )}
@@ -232,7 +232,7 @@ export default function CreateCompetitionPage() {
                   initial="hidden"
                   animate="show"
                   exit={{ opacity: 0 }}
-                  className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                  className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
                 >
                   {allScenarios.map((scenario) => (
                     <motion.div key={scenario._id} variants={childFade}>
@@ -358,15 +358,15 @@ export default function CreateCompetitionPage() {
                   {isOwn && (
                     <motion.div variants={childFade}>
                       <Link href="/dashboard/scenarios/create" className="block group h-full">
-                        <div className="flex h-full min-h-70 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-muted-foreground/15 bg-muted/10 p-6 text-center transition-all hover:border-primary/30 hover:bg-primary/5 group-hover:scale-[1.01]">
-                          <div className="rounded-full bg-muted p-4 group-hover:bg-primary/10 transition-colors">
-                            <PlusCircle className="size-7 text-muted-foreground group-hover:text-primary transition-colors" />
+                        <div className="flex h-full min-h-36 sm:min-h-70 flex-col items-center justify-center gap-2 sm:gap-3 rounded-2xl border-2 border-dashed border-muted-foreground/15 bg-muted/10 p-4 sm:p-6 text-center transition-all hover:border-primary/30 hover:bg-primary/5 group-hover:scale-[1.01]">
+                          <div className="rounded-full bg-muted p-3 sm:p-4 group-hover:bg-primary/10 transition-colors">
+                            <PlusCircle className="size-6 sm:size-7 text-muted-foreground group-hover:text-primary transition-colors" />
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
                               Create New Scenario
                             </p>
-                            <p className="text-xs text-muted-foreground/60 mt-0.5">
+                            <p className="text-xs text-muted-foreground/60 mt-0.5 hidden sm:block">
                               Add another game template
                             </p>
                           </div>
@@ -379,9 +379,45 @@ export default function CreateCompetitionPage() {
             </AnimatePresence>
           </motion.section>
 
-          {/* ─── Launch bar ─────────────────────────────── */}
-          <motion.div {...fadeUp(0.15)} className="sticky bottom-6 z-10 mx-auto max-w-lg">
-            <div className="flex flex-col gap-3 rounded-2xl border bg-card/95 p-5 shadow-xl backdrop-blur-md">
+          {/* ─── Step 3: Launch ─────────────────────────── */}
+          <motion.section {...fadeUp(0.15)}>
+            <div className="mb-4 flex items-center gap-2.5">
+              <span
+                className={cn(
+                  "flex size-7 items-center justify-center rounded-full text-xs font-bold",
+                  selectedScenarioId && competitionName.trim()
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                3
+              </span>
+              <h2 className="text-lg font-bold tracking-tight">Launch</h2>
+            </div>
+
+            <div className="max-w-xl space-y-4">
+              {/* Summary */}
+              {(competitionName.trim() || selectedScenario) && (
+                <div className="rounded-xl border bg-muted/30 px-4 py-3 space-y-1.5">
+                  {competitionName.trim() && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground shrink-0">Name:</span>
+                      <span className="font-semibold truncate">{competitionName.trim()}</span>
+                    </div>
+                  )}
+                  {selectedScenario && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground shrink-0">Scenario:</span>
+                      <span className="font-semibold truncate">{selectedScenario.name}</span>
+                      <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                        {selectedScenario.endYear - selectedScenario.startYear}y &middot;{" "}
+                        {selectedScenario.startCapital.toLocaleString()} T
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <Button
                 className="h-12 w-full text-base font-semibold"
                 onClick={handleCreate}
@@ -399,6 +435,7 @@ export default function CreateCompetitionPage() {
                   </>
                 )}
               </Button>
+
               {(!competitionName.trim() || !selectedScenarioId) && (
                 <p className="text-center text-xs text-muted-foreground">
                   {!competitionName.trim() && !selectedScenarioId
@@ -409,7 +446,7 @@ export default function CreateCompetitionPage() {
                 </p>
               )}
             </div>
-          </motion.div>
+          </motion.section>
         </div>
       </main>
     </div>

@@ -396,7 +396,7 @@ function DashboardContent() {
                           <PlusCircleIcon className="size-6 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
                         <p className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
-                          Create New
+                          Create New Competition
                         </p>
                       </div>
                     </Link>
