@@ -20,6 +20,10 @@ function LeaderboardContent() {
   const playerName = searchParams.get("name") ?? ""
 
   const data = useQuery(api.game.getStepLeaderboard, { sessionId, step })
+  const scenario = useQuery(
+    api.game.getScenario,
+    data?.session?.scenarioId ? { scenarioId: data.session.scenarioId } : "skip",
+  )
 
   // Reveal animation state
   const [revealIndex, setRevealIndex] = useState(-1)
@@ -101,6 +105,10 @@ function LeaderboardContent() {
     )
 
   const { session, scenarioName } = data
+  const totalSteps =
+    scenario && Number.isFinite(scenario.startYear) && Number.isFinite(scenario.endYear)
+      ? Math.max(0, scenario.endYear - scenario.startYear)
+      : null
 
   const myRank = leaderboard.findIndex((e) => e.gameId === gameId) + 1
 
@@ -134,7 +142,7 @@ function LeaderboardContent() {
               Year {leaderboard[0]?.date ?? step}
             </div>
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Step {step} of {leaderboard[0]?.date ? "30" : "?"}
+              Step {step} of {totalSteps ?? "?"}
             </p>
           </div>
         </div>
