@@ -1044,6 +1044,7 @@ function GameContent() {
     }
 
     try {
+      if (!gameId) return
       const result = await submitStepMutation({ gameId, actions, guestId })
       setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
 
