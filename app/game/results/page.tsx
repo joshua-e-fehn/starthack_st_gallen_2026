@@ -22,6 +22,7 @@ import {
   YAxis,
 } from "recharts"
 import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
+import { PublicHeader } from "@/components/organisms/public-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -1046,14 +1047,17 @@ function ResultsContent() {
 
 export default function GameResultsPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <Loader2 className="size-8 animate-spin text-primary" />
-        </div>
-      }
-    >
-      <ResultsContent />
-    </Suspense>
+    <div className="min-h-dvh bg-background">
+      <PublicHeader />
+      <Suspense
+        fallback={
+          <div className="flex min-h-[60vh] items-center justify-center">
+            <Loader2 className="size-8 animate-spin text-primary" />
+          </div>
+        }
+      >
+        <ResultsContent />
+      </Suspense>
+    </div>
   )
 }

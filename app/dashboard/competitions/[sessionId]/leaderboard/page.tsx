@@ -10,17 +10,30 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { authClient } from "@/lib/auth-client"
+import { isValidConvexId } from "@/lib/utils"
 
 function LeaderboardContent() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const sessionId = params.sessionId as Id<"sessions">
+  const rawSessionId = params.sessionId as string
+  const sessionId = rawSessionId as Id<"sessions">
+  const validId = isValidConvexId(rawSessionId)
   const step = Number(searchParams.get("step") ?? "0")
   const gameId = searchParams.get("gameId") ?? ""
   const playerName = searchParams.get("name") ?? ""
+  const { data: authSession } = authClient.useSession()
 
-  const data = useQuery(api.game.getStepLeaderboard, { sessionId, step })
+  const data = useQuery(api.game.getStepLeaderboard, validId ? { sessionId, step } : "skip")
+
+  // Host-only gate
+  const isHost = authSession?.user && data ? data.session.hostId === authSession.user.id : null
+  useEffect(() => {
+    if (isHost === false) {
+      router.replace("/dashboard")
+    }
+  }, [isHost, router])
 
   // Reveal animation state
   const [revealIndex, setRevealIndex] = useState(-1)
@@ -85,7 +98,15 @@ function LeaderboardContent() {
     frame()
   }, [myEntry?.goalReached, isRevealing, sessionId])
 
-  if (data === undefined)
+  if (!validId) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-[#0a0a2e] text-white">
+        Competition not found.
+      </div>
+    )
+  }
+
+  if (data === undefined || isHost === null)
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
@@ -100,6 +121,7 @@ function LeaderboardContent() {
         <p className="text-muted-foreground">Session not found.</p>
       </div>
     )
+  if (isHost === false) return null
 
   const { session, scenarioName } = data
 

@@ -10,17 +10,20 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { isValidConvexId } from "@/lib/utils"
 
 function LeaderboardContent() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const sessionId = params.sessionId as Id<"sessions">
+  const rawSessionId = params.sessionId as string
+  const sessionId = rawSessionId as Id<"sessions">
+  const validId = isValidConvexId(rawSessionId)
   const step = Number(searchParams.get("step") ?? "0")
   const gameId = searchParams.get("gameId") ?? ""
   const playerName = searchParams.get("name") ?? ""
 
-  const data = useQuery(api.game.getStepLeaderboard, { sessionId, step })
+  const data = useQuery(api.game.getStepLeaderboard, validId ? { sessionId, step } : "skip")
 
   // Reveal animation state
   const [revealIndex, setRevealIndex] = useState(-1)
@@ -84,6 +87,14 @@ function LeaderboardContent() {
     }
     frame()
   }, [myEntry?.goalReached, isRevealing, sessionId])
+
+  if (!validId) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-[#0a0a2e] text-white">
+        Invalid session ID.
+      </div>
+    )
+  }
 
   if (data === undefined)
     return (

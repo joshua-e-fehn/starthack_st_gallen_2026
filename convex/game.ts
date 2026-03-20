@@ -502,19 +502,12 @@ export const getStepLeaderboard = query({
 
         const score = stepDoc.score ?? portfolioValue(stepDoc.portfolio, stepDoc.market)
 
-        const latestStep = await ctx.db
-          .query("gameSteps")
-          .withIndex("by_game_step", (q) => q.eq("gameId", game._id))
-          .order("desc")
-          .first()
-
         return {
           userId: game.userId,
           playerName: game.playerName ?? `Player ${game.userId.substring(0, 4)}`,
           gameId: game._id,
           step: stepDoc.step,
           date: stepDoc.date,
-          latestDate: latestStep?.date,
           score,
           assetBreakdown: computeAssetBreakdown(stepDoc),
           goal: stepDoc.goal,
@@ -816,6 +809,9 @@ export const getCompetitionAnalytics = query({
     const session = await ctx.db.get(args.sessionId)
     if (!session) return null
 
+    // Load scenario to get startYear for labelling
+    const scenario = await ctx.db.get(session.scenarioId)
+
     // All games for this session
     const games = await ctx.db
       .query("games")
@@ -825,6 +821,24 @@ export const getCompetitionAnalytics = query({
     const joined = games.length
     const started = games.length // game creation == game start in our flow
     const finished = games.filter((g) => g.status === "finished").length
+
+    // ── Step-level funnel: how many players reached each step ──
+    // Compute using games.currentStep to avoid loading all gameSteps docs
+    const maxStep = games.reduce((max, g) => Math.max(max, g.currentStep), 0)
+    const startYear = scenario?.startYear ?? 0
+
+    // For each step 1..maxStep, count how many players have currentStep >= step
+    // Step 0 is the initial state (everyone who started), so we start from step 1
+    const stepFunnel = Array.from({ length: maxStep }, (_, i) => {
+      const step = i + 1
+      const count = games.filter((g) => g.currentStep >= step).length
+      return {
+        step,
+        year: startYear + step,
+        label: `Year ${startYear + step}`,
+        count,
+      }
+    })
 
     // Fetch ALL analytics events for this session in one query
     const allEvents = await ctx.db
@@ -847,6 +861,7 @@ export const getCompetitionAnalytics = query({
         { label: "Started Game", count: started },
         { label: "Finished Game", count: finished },
       ],
+      stepFunnel,
       lessons: lessonCounts.map((count, i) => ({
         label: `Lesson ${i + 1}`,
         count,

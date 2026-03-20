@@ -26,7 +26,7 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useGameSession } from "@/hooks/use-game-session"
 import { getOrCreateGuestId } from "@/lib/guest"
-import { cn } from "@/lib/utils"
+import { cn, isValidConvexId } from "@/lib/utils"
 
 function formatTaler(value: number) {
   return `${new Intl.NumberFormat("de-CH").format(Math.round(value))} taler`
@@ -62,11 +62,16 @@ const childFade = {
 function LobbyContent() {
   const router = useRouter()
   const params = useParams()
-  const sessionId = params.sessionId as Id<"sessions">
+  const rawSessionId = params.sessionId as string
+  const sessionId = rawSessionId as Id<"sessions">
+  const validId = isValidConvexId(rawSessionId)
 
   const guestId = getOrCreateGuestId()
-  const sessionData = useQuery(api.game.getSessionWithLeaderboard, { sessionId })
-  const myGameInSession = useQuery(api.game.getMyGameInSession, { sessionId, guestId })
+  const sessionData = useQuery(api.game.getSessionWithLeaderboard, validId ? { sessionId } : "skip")
+  const myGameInSession = useQuery(
+    api.game.getMyGameInSession,
+    validId ? { sessionId, guestId } : "skip",
+  )
   const startGame = useMutation(api.game.startGame)
   const { joinEvent } = useGameSession()
   const hasFinishedGame = myGameInSession?.status === "finished"
@@ -131,6 +136,17 @@ function LobbyContent() {
         alert(error instanceof Error ? error.message : "Failed to start game")
       }
     }
+  }
+
+  if (!validId) {
+    return (
+      <main className="min-h-dvh flex flex-col items-center justify-center gap-4 bg-background">
+        <p className="text-lg text-muted-foreground">Session not found.</p>
+        <Button variant="outline" onClick={() => router.replace("/")}>
+          Go Home
+        </Button>
+      </main>
+    )
   }
 
   if (!isLoaded) {

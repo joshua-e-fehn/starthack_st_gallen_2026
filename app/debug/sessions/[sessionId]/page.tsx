@@ -9,14 +9,17 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import { isValidConvexId } from "@/lib/utils"
 
 export default function SessionDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const sessionId = params.sessionId as Id<"sessions">
+  const rawSessionId = params.sessionId as string
+  const sessionId = rawSessionId as Id<"sessions">
+  const validId = isValidConvexId(rawSessionId)
 
-  const data = useQuery(api.game.getSessionWithLeaderboard, { sessionId })
+  const data = useQuery(api.game.getSessionWithLeaderboard, validId ? { sessionId } : "skip")
   const me = useQuery(api.game.getMe)
   const startGame = useMutation(api.game.startGame)
 
@@ -34,6 +37,7 @@ export default function SessionDetailPage() {
     }
   }, [searchParams])
 
+  if (!validId) return <div className="p-8">Invalid session ID.</div>
   if (data === undefined || me === undefined) return <div className="p-8">Loading session...</div>
   if (data === null) return <div className="p-8">Session not found.</div>
 

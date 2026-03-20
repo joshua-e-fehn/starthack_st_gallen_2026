@@ -17,16 +17,19 @@ import {
 import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { PublicHeader } from "@/components/organisms/public-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { cn } from "@/lib/utils"
+import { authClient } from "@/lib/auth-client"
+import { cn, isValidConvexId } from "@/lib/utils"
 
 const MAX_VISIBLE = 7
 
@@ -117,12 +120,28 @@ function sliceLeaderboard(entries: LeaderboardEntry[]): Row[] {
 export default function SessionLobbyPage() {
   const params = useParams()
   const router = useRouter()
-  const sessionId = params.sessionId as Id<"sessions">
+  const rawSessionId = params.sessionId as string
+  const sessionId = rawSessionId as Id<"sessions">
+  const validId = isValidConvexId(rawSessionId)
+  const { data: authSession } = authClient.useSession()
 
-  const sessionData = useQuery(api.game.getSessionWithLeaderboard, { sessionId })
+  const sessionData = useQuery(api.game.getSessionWithLeaderboard, validId ? { sessionId } : "skip")
+  const _analyticsData = useQuery(
+    api.game.getCompetitionAnalytics,
+    validId ? { sessionId } : "skip",
+  )
 
   const [copied, setCopied] = useState(false)
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null)
+
+  // Host-only gate: redirect non-hosts to the dashboard
+  const isHost =
+    authSession?.user && sessionData ? sessionData.session.hostId === authSession.user.id : null
+  useEffect(() => {
+    if (isHost === false) {
+      router.replace("/dashboard")
+    }
+  }, [isHost, router])
 
   const joinUrl = useMemo(() => {
     if (typeof window === "undefined") return ""
@@ -147,7 +166,21 @@ export default function SessionLobbyPage() {
     router.back()
   }, [router])
 
-  if (!sessionData) {
+  if (!validId) {
+    return (
+      <div className="min-h-dvh bg-background">
+        <PublicHeader />
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+          <p className="text-lg text-muted-foreground">Competition not found.</p>
+          <Button variant="outline" onClick={() => router.replace("/dashboard")}>
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!sessionData || isHost === null) {
     return (
       <div className="min-h-dvh bg-background">
         <PublicHeader />
@@ -156,6 +189,10 @@ export default function SessionLobbyPage() {
         </div>
       </div>
     )
+  }
+
+  if (isHost === false) {
+    return null
   }
 
   const { session, leaderboard } = sessionData
@@ -591,6 +628,7 @@ function FunnelBar({
 
 function AnalyticsFunnel({ sessionId }: { sessionId: Id<"sessions"> }) {
   const analytics = useQuery(api.game.getCompetitionAnalytics, { sessionId })
+  const [stepsOpen, setStepsOpen] = useState(false)
 
   if (!analytics) {
     return (
@@ -608,7 +646,7 @@ function AnalyticsFunnel({ sessionId }: { sessionId: Id<"sessions"> }) {
     )
   }
 
-  const { funnel, lessons, accountCreated, total } = analytics
+  const { funnel, stepFunnel, lessons, accountCreated, total } = analytics
   const maxCount = Math.max(total, 1)
 
   return (
@@ -642,18 +680,91 @@ function AnalyticsFunnel({ sessionId }: { sessionId: Id<"sessions"> }) {
             </div>
           ) : (
             <div className="space-y-3">
-              {funnel.map((stage, i) => (
-                <FunnelBar
-                  key={stage.label}
-                  label={stage.label}
-                  count={stage.count}
-                  maxCount={maxCount}
-                  index={i}
-                  color="bg-blue-500"
-                  trackColor="bg-blue-500/15"
-                  prevCount={i > 0 ? funnel[i - 1].count : undefined}
-                />
-              ))}
+              {/* Joined */}
+              <FunnelBar
+                label={funnel[0].label}
+                count={funnel[0].count}
+                maxCount={maxCount}
+                index={0}
+                color="bg-blue-500"
+                trackColor="bg-blue-500/15"
+              />
+
+              {/* Started Game — collapsible with step funnel */}
+              <Collapsible open={stepsOpen} onOpenChange={setStepsOpen}>
+                <CollapsibleTrigger asChild>
+                  <button type="button" className="w-full text-left">
+                    <FunnelBar
+                      label={funnel[1].label}
+                      count={funnel[1].count}
+                      maxCount={maxCount}
+                      index={1}
+                      color="bg-blue-500"
+                      trackColor="bg-blue-500/15"
+                      prevCount={funnel[0].count}
+                    />
+                    <div className="mt-1 flex items-center justify-center gap-1">
+                      <ChevronDown
+                        className={cn(
+                          "size-3.5 text-muted-foreground transition-transform duration-200",
+                          stepsOpen && "rotate-180",
+                        )}
+                      />
+                      <span className="text-[10px] text-muted-foreground">
+                        {stepsOpen ? "Hide" : "Show"} step progress
+                        {stepFunnel.length > 0 && ` (${stepFunnel.length} steps)`}
+                      </span>
+                    </div>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <AnimatePresence>
+                    {stepsOpen && stepFunnel.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ScrollArea className="mt-2 max-h-65 overflow-y-auto rounded-lg border border-border/50 bg-muted/30 p-3">
+                          <div className="space-y-2.5">
+                            {stepFunnel.map((step, i) => (
+                              <FunnelBar
+                                key={step.step}
+                                label={step.label}
+                                count={step.count}
+                                maxCount={maxCount}
+                                index={i}
+                                color="bg-blue-400"
+                                trackColor="bg-blue-400/10"
+                                prevCount={i === 0 ? funnel[1].count : stepFunnel[i - 1].count}
+                              />
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  {stepsOpen && stepFunnel.length === 0 && (
+                    <div className="mt-2 rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
+                      <p className="text-xs text-muted-foreground">
+                        No steps completed yet — players are still on the starting step.
+                      </p>
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Finished Game */}
+              <FunnelBar
+                label={funnel[2].label}
+                count={funnel[2].count}
+                maxCount={maxCount}
+                index={2}
+                color="bg-blue-500"
+                trackColor="bg-blue-500/15"
+                prevCount={funnel[1].count}
+              />
             </div>
           )}
         </CardContent>
