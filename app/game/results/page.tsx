@@ -922,7 +922,17 @@ function ResultsContent() {
                   className="text-6xl"
                 >
                   {goalReached ? (
-                    "🏆"
+                    <video
+                      src="/win.webm"
+                      autoPlay
+                      loop
+                      muted
+                      className="h-30 w-30 rounded-2xl object-cover border-4 border-green-500/40"
+                      style={{
+                        boxShadow:
+                          "4px 4px 0px rgba(0,0,0,0.4), 8px 8px 0px rgba(0,0,0,0.25), 12px 12px 0px rgba(0,0,0,0.1)",
+                      }}
+                    />
                   ) : (
                     <Image src="/lost.gif" alt="Game over" width={120} height={120} unoptimized />
                   )}
@@ -949,7 +959,7 @@ function ResultsContent() {
                   </div>
                 </div>
                 {goalReached && (
-                  <Badge className="bg-green-600 text-sm">
+                  <Badge className="bg-green-600 text-sm text-white">
                     <Trophy className="mr-1 size-3.5" />
                     Goal Reached!
                   </Badge>
