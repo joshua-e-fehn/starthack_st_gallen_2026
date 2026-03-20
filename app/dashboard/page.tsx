@@ -7,7 +7,6 @@ import {
   ArrowRight,
   Info,
   Loader2,
-  LogOut,
   Medal,
   PlusCircle,
   Trophy,
@@ -17,19 +16,11 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useRef } from "react"
 import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
+import { PublicHeader } from "@/components/organisms/public-header"
 import { ScenarioViewer } from "@/components/organisms/scenario-viewer"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -40,13 +31,11 @@ import {
 } from "@/components/ui/table"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 
 function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { data: session } = authClient.useSession()
   const sessionId = searchParams.get("sessionId") as Id<"sessions"> | null
   const focus = searchParams.get("focus")
   const scenariosSectionRef = useRef<HTMLDivElement>(null)
@@ -59,14 +48,6 @@ function DashboardContent() {
   const allSessions = useQuery(api.game.listSessions)
 
   const isLoaded = !!sessionId && !!sessionData
-  const userName = session?.user?.name ?? "Guest"
-  const userEmail = session?.user?.email ?? ""
-  const userImage = session?.user?.image ?? ""
-
-  async function handleSignOut() {
-    await authClient.signOut()
-    router.push("/")
-  }
 
   useEffect(() => {
     if (sessionId || focus !== "scenarios") return
@@ -80,6 +61,7 @@ function DashboardContent() {
 
   return (
     <div className="flex flex-1 flex-col gap-8 p-4 md:p-8 pt-0">
+      <PublicHeader />
       {isLoaded && (
         <Button
           variant="ghost"
@@ -112,46 +94,6 @@ function DashboardContent() {
                 Overview
               </Link>
             </Button>
-          )}
-          {session?.user && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="flex items-center gap-2 rounded-full border border-primary/20 bg-card/80 px-2 py-1.5 shadow-sm backdrop-blur outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                  aria-label="Open user menu"
-                >
-                  <Avatar size="sm">
-                    <AvatarImage src={userImage} alt={userName} />
-                    <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <p className="max-w-28 truncate pr-1 text-xs font-semibold sm:max-w-40 sm:text-sm">
-                    {userName}
-                  </p>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-56">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex items-center gap-2">
-                    <Avatar>
-                      <AvatarImage src={userImage} alt={userName} />
-                      <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="grid text-left leading-tight">
-                      <span className="truncate text-sm font-medium">{userName}</span>
-                      {userEmail ? (
-                        <span className="truncate text-xs text-muted-foreground">{userEmail}</span>
-                      ) : null}
-                    </div>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           )}
         </div>
       </div>
