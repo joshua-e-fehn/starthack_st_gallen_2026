@@ -922,12 +922,13 @@ function ResultsContent() {
                   className="text-6xl"
                 >
                   {goalReached ? (
-                    <video
-                      src="/win.webm"
-                      autoPlay
-                      loop
-                      muted
-                      className="h-30 w-30 rounded-2xl object-cover border-4 border-green-500/40"
+                    <Image
+                      src="/win.gif"
+                      alt="Victory"
+                      width={120}
+                      height={120}
+                      unoptimized
+                      className="h-30 w-30 rounded-2xl border-4 border-green-500/40 object-cover"
                       style={{
                         boxShadow:
                           "4px 4px 0px rgba(0,0,0,0.4), 8px 8px 0px rgba(0,0,0,0.25), 12px 12px 0px rgba(0,0,0,0.1)",
