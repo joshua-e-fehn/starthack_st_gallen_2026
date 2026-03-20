@@ -253,8 +253,19 @@ function LeaderboardContent() {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {entry.status === "finished" ? "Finished" : `Year ${entry.date}`}
+                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        {entry.status === "finished" ? (
+                          "Finished"
+                        ) : (
+                          <>
+                            Year {entry.date}
+                            {entry.latestDate && entry.latestDate > entry.date && (
+                              <span className="opacity-70"> (Now in Year {entry.latestDate})</span>
+                            )}
+                            <span className="size-1 rounded-full bg-primary/40" />
+                            <span className="opacity-60 italic font-medium">Still playing</span>
+                          </>
+                        )}
                       </p>
                       <AssetDistributionBar
                         breakdown={entry.assetBreakdown}

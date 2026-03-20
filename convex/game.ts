@@ -355,12 +355,19 @@ export const getStepLeaderboard = query({
 
         const score = stepDoc.score ?? portfolioValue(stepDoc.portfolio, stepDoc.market)
 
+        const latestStep = await ctx.db
+          .query("gameSteps")
+          .withIndex("by_game_step", (q) => q.eq("gameId", game._id))
+          .order("desc")
+          .first()
+
         return {
           userId: game.userId,
           playerName: game.playerName ?? `Player ${game.userId.substring(0, 4)}`,
           gameId: game._id,
           step: stepDoc.step,
           date: stepDoc.date,
+          latestDate: latestStep?.date,
           score,
           assetBreakdown: computeAssetBreakdown(stepDoc),
           goal: stepDoc.goal,
