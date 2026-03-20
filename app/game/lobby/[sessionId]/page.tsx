@@ -69,6 +69,7 @@ function LobbyContent() {
   const myGameInSession = useQuery(api.game.getMyGameInSession, { sessionId, guestId })
   const startGame = useMutation(api.game.startGame)
   const { joinEvent } = useGameSession()
+  const hasFinishedGame = myGameInSession?.status === "finished"
 
   const isLoaded = !!sessionData
   const [playerName, setPlayerName] = useState("")
@@ -216,27 +217,42 @@ function LobbyContent() {
             animate="show"
             className="w-full flex flex-col gap-3 mt-1"
           >
-            {/* Name + Start Game */}
+            {/* Entry action */}
             <motion.div variants={childFade} className="w-full space-y-2">
-              <Input
-                id="player-name-loaded"
-                value={playerName}
-                placeholder="Your player name"
-                onChange={(e) => {
-                  setPlayerName(e.target.value)
-                  if (nameError) setNameError("")
-                }}
-                className="h-11 text-sm text-center border-2 focus-visible:ring-primary/20"
-              />
-              {nameError && <p className="text-xs text-destructive text-center">{nameError}</p>}
-              <Button
-                className="h-11 w-full text-sm font-semibold shadow-lg"
-                onClick={() => void onStartGame()}
-                disabled={!playerName.trim()}
-              >
-                <PlayIcon className="mr-2 size-4 fill-current" />
-                Start Game
-              </Button>
+              {hasFinishedGame && myGameInSession ? (
+                <Button
+                  className="h-11 w-full text-sm font-semibold shadow-lg"
+                  onClick={() =>
+                    router.push(
+                      `/game/results?sessionId=${sessionId}&gameId=${myGameInSession._id}`,
+                    )
+                  }
+                >
+                  Your Results
+                </Button>
+              ) : (
+                <>
+                  <Input
+                    id="player-name-loaded"
+                    value={playerName}
+                    placeholder="Your player name"
+                    onChange={(e) => {
+                      setPlayerName(e.target.value)
+                      if (nameError) setNameError("")
+                    }}
+                    className="h-11 text-sm text-center border-2 focus-visible:ring-primary/20"
+                  />
+                  {nameError && <p className="text-xs text-destructive text-center">{nameError}</p>}
+                  <Button
+                    className="h-11 w-full text-sm font-semibold shadow-lg"
+                    onClick={() => void onStartGame()}
+                    disabled={!playerName.trim()}
+                  >
+                    <PlayIcon className="mr-2 size-4 fill-current" />
+                    Start Game
+                  </Button>
+                </>
+              )}
             </motion.div>
 
             {/* Learn */}

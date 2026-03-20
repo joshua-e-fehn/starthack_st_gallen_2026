@@ -1022,8 +1022,7 @@ function ResultsContent() {
             <Button
               className="h-12 w-full text-base"
               onClick={() => {
-                clearStoredGameSession()
-                router.push(`/dashboard/competitions/${sessionId}`)
+                router.push(`/game/lobby/${sessionId}`)
               }}
             >
               Back to Session Lobby
