@@ -42,7 +42,7 @@ export function BackgroundMusic() {
   }
 
   const pathname = usePathname()
-  const isGameRoute = pathname?.includes("/dashboard/game")
+  const isGameRoute = pathname?.includes("/game")
 
   const prevRouteRef = useRef(isGameRoute)
 

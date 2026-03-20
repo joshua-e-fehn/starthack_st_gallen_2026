@@ -4,6 +4,7 @@ import confetti from "canvas-confetti"
 import { useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import { ArrowLeft, Crown, Loader2, Target, TrendingUp, Trophy } from "lucide-react"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
@@ -20,6 +21,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,17 +53,6 @@ const COLORS = {
   total: "oklch(0.72 0.18 150)",
   goal: "oklch(0.65 0.15 25)",
 }
-
-const PLAYER_COLORS = [
-  "oklch(0.72 0.18 150)",
-  "oklch(0.65 0.20 260)",
-  "oklch(0.70 0.18 30)",
-  "oklch(0.68 0.16 330)",
-  "oklch(0.60 0.15 200)",
-  "oklch(0.75 0.14 80)",
-  "oklch(0.62 0.18 120)",
-  "oklch(0.58 0.20 290)",
-]
 
 function formatTaler(n: number) {
   return new Intl.NumberFormat("de-CH").format(Math.round(n))
@@ -104,7 +95,13 @@ type PlayerHistory = {
   gameId: string
   userId: string
   status: string
-  steps: Array<{ step: number; date: number; score: number; goalReached: boolean }>
+  steps: Array<{
+    step: number
+    date: number
+    score: number
+    goalReached: boolean
+    assetBreakdown: { gold: number; wood: number; potatoes: number; fish: number; total: number }
+  }>
 }
 
 function LeaderboardRace({
@@ -161,6 +158,13 @@ function LeaderboardRace({
           gameId: p.gameId,
           score: latest?.score ?? 0,
           date: latest?.date ?? 0,
+          assetBreakdown: latest?.assetBreakdown ?? {
+            gold: 0,
+            wood: 0,
+            potatoes: 0,
+            fish: 0,
+            total: 0,
+          },
           goalReached: latest?.goalReached ?? false,
           hasData: stepsUpTo.length > 0,
         }
@@ -261,15 +265,12 @@ function LeaderboardRace({
                         </Badge>
                       )}
                     </div>
-                    {/* Score bar */}
-                    <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <motion.div
-                        className="h-full rounded-full"
-                        style={{ backgroundColor: PLAYER_COLORS[index % PLAYER_COLORS.length] }}
-                        animate={{ width: `${barWidth}%` }}
-                        transition={{ duration: 0.3 }}
-                      />
-                    </div>
+                    <AssetDistributionBar
+                      breakdown={entry.assetBreakdown}
+                      scalePercent={barWidth}
+                      showDetails={rank <= 3}
+                      className="mt-1"
+                    />
                   </div>
                   <p className="font-mono text-sm font-bold tabular-nums">
                     {formatTaler(entry.score)}
@@ -348,7 +349,7 @@ function PortfolioDonut({ state }: { state: StateVector }) {
                     return (
                       <div className="flex items-center gap-2">
                         <span
-                          className="size-2.5 shrink-0 rounded-[2px]"
+                          className="size-2.5 shrink-0 rounded-xs"
                           style={{ backgroundColor: point.fill ?? item.color }}
                         />
                         <span className="font-mono tabular-nums">
@@ -708,7 +709,7 @@ function MonteCarloChart({
                       return null
                     return (
                       <span className="font-mono tabular-nums">
-                        {typeof value === "number" ? formatTaler(value) : value} gold
+                        {typeof value === "number" ? formatTaler(value) : value} taler
                       </span>
                     )
                   }}
@@ -920,7 +921,21 @@ function ResultsContent() {
                   transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.2 }}
                   className="text-6xl"
                 >
-                  {goalReached ? "🏆" : "🏰"}
+                  {goalReached ? (
+                    <video
+                      src="/win.webm"
+                      autoPlay
+                      loop
+                      muted
+                      className="h-30 w-30 rounded-2xl object-cover border-4 border-green-500/40"
+                      style={{
+                        boxShadow:
+                          "4px 4px 0px rgba(0,0,0,0.4), 8px 8px 0px rgba(0,0,0,0.25), 12px 12px 0px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                  ) : (
+                    <Image src="/lost.gif" alt="Game over" width={120} height={120} unoptimized />
+                  )}
                 </motion.div>
                 <div>
                   <h1 className="text-2xl font-bold">
@@ -944,7 +959,7 @@ function ResultsContent() {
                   </div>
                 </div>
                 {goalReached && (
-                  <Badge className="bg-green-600 text-sm">
+                  <Badge className="bg-green-600 text-sm text-white">
                     <Trophy className="mr-1 size-3.5" />
                     Goal Reached!
                   </Badge>
@@ -1007,7 +1022,7 @@ function ResultsContent() {
               className="h-12 w-full text-base"
               onClick={() => {
                 clearStoredGameSession()
-                router.push(`/dashboard/sessions/${sessionId}`)
+                router.push(`/dashboard/competitions/${sessionId}`)
               }}
             >
               Back to Session Lobby

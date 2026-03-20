@@ -3,6 +3,7 @@
 import { useMutation, useQuery } from "convex/react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
+import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -54,7 +55,7 @@ export default function SessionDetailPage() {
         sessionId: session._id,
         playerName: playerName.trim(),
       })
-      router.push(`/dashboard/game?sessionId=${session._id}&gameId=${gameId}`)
+      router.push(`/game?sessionId=${session._id}&gameId=${gameId}`)
     } catch (e) {
       const error = e as Error
       alert(error.message || "Error starting game.")
@@ -88,9 +89,7 @@ export default function SessionDetailPage() {
                 <Button
                   size="lg"
                   onClick={() =>
-                    router.push(
-                      `/dashboard/game?sessionId=${session._id}&gameId=${activeGame.gameId}`,
-                    )
+                    router.push(`/game?sessionId=${session._id}&gameId=${activeGame.gameId}`)
                   }
                 >
                   Continue Attempt
@@ -118,6 +117,7 @@ export default function SessionDetailPage() {
             <div className="flex items-center justify-between border-b pb-2 text-sm font-medium text-muted-foreground">
               <span className="w-12 text-center">Rank</span>
               <span className="flex-1 px-4">Player Name</span>
+              <span className="w-72">Assets</span>
               <span className="w-24 text-center">Status</span>
               <span className="w-24 text-center">Current Year</span>
               <span className="w-32 text-right">Net Worth</span>
@@ -132,6 +132,13 @@ export default function SessionDetailPage() {
                   <Badge variant={index === 0 ? "default" : "outline"}>{index + 1}</Badge>
                 </div>
                 <div className="flex-1 px-4 truncate font-semibold">{entry.playerName}</div>
+                <div className="w-72 pr-4">
+                  <AssetDistributionBar
+                    breakdown={entry.assetBreakdown}
+                    scalePercent={(entry.netWorth / (leaderboard[0]?.netWorth || 1)) * 100}
+                    showDetails={index < 3}
+                  />
+                </div>
                 <div className="w-24 text-center">
                   <Badge
                     variant={entry.status === "active" ? "secondary" : "outline"}

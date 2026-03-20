@@ -4,9 +4,8 @@ import { useMutation, useQuery } from "convex/react"
 import { ArrowRight, LayoutGrid, PlusCircle, Trash2 } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card"
 import { api } from "@/convex/_generated/api"
 
 export interface ScenarioViewerProps {
@@ -112,100 +111,127 @@ export function ScenarioViewer({
 
   // Full grid view
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {scenarios.map((scenario) => (
-        <Card
+        // biome-ignore lint/a11y/useSemanticElements: card wraps nested buttons, can't be <button>
+        <div
           key={scenario._id}
-          className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          className="group relative overflow-hidden rounded-2xl border bg-card text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-primary/30 cursor-pointer"
           onClick={() => onSelectScenario?.(scenario._id)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              onSelectScenario?.(scenario._id)
+            }
+          }}
         >
-          {/* Scenario Image Header */}
-          <div className="relative h-32 bg-muted overflow-hidden border-b flex items-center justify-center">
+          {/* Image banner */}
+          <div className="relative h-36 w-full overflow-hidden bg-muted">
             {scenario.icon ? (
               <Image
                 src={scenario.icon}
                 alt={scenario.name}
                 fill
-                className="object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                 unoptimized
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 to-primary/5">
-                <LayoutGrid className="h-12 w-12 text-muted-foreground/20" />
+                <LayoutGrid className="size-10 text-primary/20" />
               </div>
             )}
+            {/* Gradient scrim */}
+            <div className="absolute inset-0 bg-linear-to-t from-black/50 via-black/10 to-transparent" />
+
+            {/* Mode pill — top right */}
+            <div className="absolute top-2.5 right-2.5">
+              <span className="inline-flex items-center rounded-full bg-black/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur-md">
+                {scenario.mode}
+              </span>
+            </div>
+
+            {/* Name overlay on image — bottom */}
+            <div className="absolute inset-x-0 bottom-0 px-4 pb-3">
+              <h3 className="text-lg font-bold leading-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)] line-clamp-1">
+                {scenario.name}
+              </h3>
+            </div>
           </div>
 
-          <CardHeader className="pb-3 pt-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex flex-col gap-1 min-w-0">
-                <CardTitle className="text-base line-clamp-2">{scenario.name}</CardTitle>
-                <p className="text-xs text-muted-foreground line-clamp-2">
-                  {scenario.description || "No description"}
-                </p>
-              </div>
-              <Badge variant="secondary" className="shrink-0 text-[9px] h-5 px-1.5 uppercase">
-                {scenario.mode}
-              </Badge>
-            </div>
-          </CardHeader>
+          {/* Content area */}
+          <div className="px-4 py-3 space-y-2.5">
+            <p className="text-[13px] text-muted-foreground line-clamp-2">
+              {scenario.description || "No description"}
+            </p>
 
-          <CardContent className="grow pb-3">
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-lg p-2 bg-muted/50">
-                <p className="text-muted-foreground">Duration</p>
-                <p className="font-semibold">{scenario.endYear - scenario.startYear} years</p>
+            {/* Stats row */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 rounded-lg bg-muted/50 px-2.5 py-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Duration
+                </span>
+                <span className="text-xs font-bold">{scenario.endYear - scenario.startYear}y</span>
               </div>
-              <div className="rounded-lg p-2 bg-muted/50">
-                <p className="text-muted-foreground">Start Capital</p>
-                <p className="font-semibold">{scenario.startCapital.toLocaleString()} T</p>
+              <div className="flex items-center gap-1.5 rounded-lg bg-muted/50 px-2.5 py-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Capital
+                </span>
+                <span className="text-xs font-bold">
+                  {scenario.startCapital.toLocaleString()} T
+                </span>
               </div>
             </div>
-          </CardContent>
 
-          <div className="flex gap-2 border-t p-3">
-            <Button
-              variant="default"
-              size="sm"
-              className="flex-1"
-              onClick={(e) => {
-                e.stopPropagation()
-                router.push(`/dashboard/scenarios/edit/${scenario._id}`)
-              }}
-            >
-              <ArrowRight className="mr-2 h-3.5 w-3.5" />
-              Edit
-            </Button>
-            {editable && (
+            {/* Actions */}
+            <div className="flex gap-2 pt-0.5">
               <Button
-                variant="ghost"
+                variant="default"
                 size="sm"
-                className="text-destructive hover:text-destructive"
+                className="flex-1 h-8 text-xs"
                 onClick={(e) => {
                   e.stopPropagation()
-                  handleDelete(scenario._id)
+                  router.push(`/dashboard/scenarios/edit/${scenario._id}`)
                 }}
               >
-                <Trash2 className="h-4 w-4" />
+                <ArrowRight className="mr-1.5 size-3.5" />
+                Edit
               </Button>
-            )}
+              {editable && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2.5 text-destructive hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDelete(scenario._id)
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              )}
+            </div>
           </div>
-        </Card>
+        </div>
       ))}
 
       {/* Create New Card */}
-      <Card
-        className="overflow-hidden flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group"
+      <button
+        type="button"
+        className="group flex min-h-70 cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-muted-foreground/15 bg-muted/10 p-6 text-center transition-all hover:border-primary/30 hover:bg-primary/5 hover:scale-[1.01]"
         onClick={() => router.push("/dashboard/scenarios/create")}
       >
         <div className="rounded-full bg-muted p-4 group-hover:bg-primary/10 transition-colors">
-          <PlusCircle className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
+          <PlusCircle className="size-7 text-muted-foreground group-hover:text-primary transition-colors" />
         </div>
-        <div className="text-center">
-          <p className="font-semibold text-sm">Create New Scenario</p>
-          <p className="text-xs text-muted-foreground">Add another game template</p>
+        <div>
+          <p className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+            Create New Scenario
+          </p>
+          <p className="text-xs text-muted-foreground/60 mt-0.5">Add another game template</p>
         </div>
-      </Card>
+      </button>
     </div>
   )
 }

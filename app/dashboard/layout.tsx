@@ -1,3 +1,5 @@
+import { AuthGuard } from "@/components/providers/auth-guard"
+
 export default async function DashboardLayout({
   children,
 }: Readonly<{
@@ -5,7 +7,9 @@ export default async function DashboardLayout({
 }>) {
   return (
     <div className="flex min-h-screen flex-col">
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-auto">
+        <AuthGuard>{children}</AuthGuard>
+      </main>
     </div>
   )
 }

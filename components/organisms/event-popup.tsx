@@ -4,6 +4,15 @@ import { ArrowRight } from "lucide-react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
+import { useIsMobile } from "@/hooks/use-mobile"
 import type { GameEvent } from "@/lib/types/events"
 
 type EventWithEffects = GameEvent
@@ -63,6 +72,8 @@ function getEventImage(event: EventWithEffects): string {
 }
 
 export function EventPopup({ event, open, onClose }: EventPopupProps) {
+  const isMobile = useIsMobile()
+
   if (!event) return null
 
   const effects = event.effects || {}
@@ -83,62 +94,79 @@ export function EventPopup({ event, open, onClose }: EventPopupProps) {
     impacts.push(formatEffect("price", effects.priceMultiplier, event.targetAsset))
   }
 
+  const content = (
+    <div className="flex flex-col items-center gap-4 py-2">
+      {/* Event Image - Small and Square */}
+      <div className="relative size-24 rounded-lg border-2 border-border bg-muted shadow-md p-2">
+        <div className="relative size-full">
+          <Image
+            src={imagePath}
+            alt={event.name}
+            fill
+            className="object-contain"
+            unoptimized
+            priority
+            onError={(e) => {
+              const target = e.target as HTMLImageElement
+              target.src = "/placeholder.svg"
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Event Name */}
+      <h2 className="text-center text-2xl font-bold">{event.name}</h2>
+
+      {/* Event Description */}
+      <p className="text-center text-sm text-muted-foreground leading-relaxed">
+        {event.description}
+      </p>
+
+      {/* Impact Display */}
+      {impacts.length > 0 && (
+        <div className="w-full space-y-2 rounded-lg border bg-muted/50 p-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Impact:
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {impacts.map((impact) => (
+              <div
+                key={impact.text}
+                className={`rounded-md bg-background px-3 py-1.5 text-sm font-medium shadow-sm ${impact.color}`}
+              >
+                {impact.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Continue Button */}
+      <Button onClick={onClose} className="w-full" size="lg">
+        Continue
+        <ArrowRight className="ml-2 size-4" />
+      </Button>
+    </div>
+  )
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onClose}>
+        <DrawerContent>
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>{event.name}</DrawerTitle>
+            <DrawerDescription>{event.description}</DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 pb-2">{content}</div>
+          <DrawerFooter className="sr-only" />
+        </DrawerContent>
+      </Drawer>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <div className="flex flex-col items-center gap-4 py-2">
-          {/* Event Image - Small and Square */}
-          <div className="relative size-24 rounded-lg border-2 border-border bg-muted shadow-md p-2">
-            <div className="relative size-full">
-              <Image
-                src={imagePath}
-                alt={event.name}
-                fill
-                className="object-contain"
-                unoptimized
-                priority
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement
-                  target.src = "/placeholder.svg"
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Event Name */}
-          <h2 className="text-center text-2xl font-bold">{event.name}</h2>
-
-          {/* Event Description */}
-          <p className="text-center text-sm text-muted-foreground leading-relaxed">
-            {event.description}
-          </p>
-
-          {/* Impact Display */}
-          {impacts.length > 0 && (
-            <div className="w-full space-y-2 rounded-lg border bg-muted/50 p-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Impact:
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {impacts.map((impact) => (
-                  <div
-                    key={impact.text}
-                    className={`rounded-md bg-background px-3 py-1.5 text-sm font-medium shadow-sm ${impact.color}`}
-                  >
-                    {impact.text}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Continue Button */}
-          <Button onClick={onClose} className="w-full" size="lg">
-            Continue
-            <ArrowRight className="ml-2 size-4" />
-          </Button>
-        </div>
-      </DialogContent>
+      <DialogContent className="max-w-md">{content}</DialogContent>
     </Dialog>
   )
 }

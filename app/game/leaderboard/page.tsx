@@ -3,7 +3,7 @@
 import confetti from "canvas-confetti"
 import { useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
-import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useRef, useState } from "react"
 import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { Badge } from "@/components/ui/badge"
@@ -12,15 +12,18 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 
 function LeaderboardContent() {
-  const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const sessionId = params.sessionId as Id<"sessions">
+  const sessionId = searchParams.get("sessionId") as Id<"sessions">
   const step = Number(searchParams.get("step") ?? "0")
   const gameId = searchParams.get("gameId") ?? ""
   const playerName = searchParams.get("name") ?? ""
 
   const data = useQuery(api.game.getStepLeaderboard, { sessionId, step })
+  const scenario = useQuery(
+    api.game.getScenario,
+    data?.session?.scenarioId ? { scenarioId: data.session.scenarioId } : "skip",
+  )
 
   // Reveal animation state
   const [revealIndex, setRevealIndex] = useState(-1)
@@ -31,7 +34,7 @@ function LeaderboardContent() {
     if (!data?.leaderboard?.length) return
 
     const total = data.leaderboard.length
-    let currentIndex = total // start from bottom
+    let currentIndex = total
 
     setRevealIndex(-1)
     setIsRevealing(true)
@@ -90,7 +93,7 @@ function LeaderboardContent() {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <div className="mb-4 text-6xl">🏰</div>
-          <p className="text-muted-foreground animate-pulse text-lg">Loading results...</p>
+          <p className="animate-pulse text-lg text-muted-foreground">Loading results...</p>
         </div>
       </div>
     )
@@ -102,11 +105,13 @@ function LeaderboardContent() {
     )
 
   const { session, scenarioName } = data
+  const totalSteps =
+    scenario && Number.isFinite(scenario.startYear) && Number.isFinite(scenario.endYear)
+      ? Math.max(0, scenario.endYear - scenario.startYear)
+      : null
 
-  // Find current player's rank
   const myRank = leaderboard.findIndex((e) => e.gameId === gameId) + 1
 
-  // Medal assignments
   const getMedal = (rank: number) => {
     if (rank === 1) return "🥇"
     if (rank === 2) return "🥈"
@@ -114,7 +119,6 @@ function LeaderboardContent() {
     return `#${rank}`
   }
 
-  // Color for rank background
   const getRankColor = (rank: number) => {
     if (rank === 1) return "from-yellow-400/20 to-yellow-600/10 border-yellow-500/40"
     if (rank === 2) return "from-gray-300/20 to-gray-400/10 border-gray-400/40"
@@ -122,7 +126,6 @@ function LeaderboardContent() {
     return "from-muted/30 to-muted/10 border-border"
   }
 
-  // Should this row be visible?
   const isVisible = (index: number) => revealIndex <= index || !isRevealing
 
   return (
@@ -132,14 +135,14 @@ function LeaderboardContent() {
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{session.name}</h1>
-            <p className="text-muted-foreground text-sm">{scenarioName}</p>
+            <p className="text-sm text-muted-foreground">{scenarioName}</p>
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold tabular-nums">
               Year {leaderboard[0]?.date ?? step}
             </div>
-            <p className="text-muted-foreground text-xs uppercase tracking-wider">
-              Step {step} of {leaderboard[0]?.date ? "30" : "?"}
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              Step {step} of {totalSteps ?? "?"}
             </p>
           </div>
         </div>
@@ -154,7 +157,7 @@ function LeaderboardContent() {
           className="mx-auto mt-6 w-full max-w-3xl px-6"
         >
           <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 text-center">
-            <p className="text-muted-foreground text-sm">Your Result</p>
+            <p className="text-sm text-muted-foreground">Your Result</p>
             <p className="mt-1 text-4xl font-bold">
               {getMedal(myRank)}{" "}
               <span className="text-primary">
@@ -162,13 +165,13 @@ function LeaderboardContent() {
                   minimumFractionDigits: 0,
                   maximumFractionDigits: 0,
                 })}{" "}
-                gold
+                taler
               </span>
             </p>
-            <p className="text-muted-foreground mt-1 text-sm">
+            <p className="mt-1 text-sm text-muted-foreground">
               {playerName || myEntry.playerName} · Rank {myRank} of {leaderboard.length}
               {myEntry.goalReached && " · 🎯 Goal reached!"}
-            </p>
+            </p>{" "}
             {/* Goal progress bar */}
             {myEntry.goal > 0 && (
               <div className="mt-3">
@@ -176,7 +179,7 @@ function LeaderboardContent() {
                   <span>Goal Progress</span>
                   <span className="font-mono tabular-nums">
                     {myEntry.score.toLocaleString(undefined, { maximumFractionDigits: 0 })} /{" "}
-                    {myEntry.goal.toLocaleString(undefined, { maximumFractionDigits: 0 })} gold
+                    {myEntry.goal.toLocaleString(undefined, { maximumFractionDigits: 0 })} taler
                   </span>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
@@ -192,13 +195,13 @@ function LeaderboardContent() {
                   />
                 </div>
               </div>
-            )}
+            )}{" "}
           </div>
         </motion.div>
       )}
 
       {/* Leaderboard */}
-      <div className="mx-auto mt-6 w-full max-w-3xl flex-1 px-6 pb-8">
+      <div className="mx-auto mt-6 w-full max-w-3xl flex-1 px-6 pb-28">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Leaderboard</h2>
           {isRevealing && (
@@ -235,12 +238,10 @@ function LeaderboardContent() {
                   }`}
                 >
                   <div className="flex items-center gap-4 px-4 py-3">
-                    {/* Rank */}
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background/60 text-lg font-bold">
                       {getMedal(rank)}
                     </div>
 
-                    {/* Player info */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className={`truncate font-semibold ${isMe ? "text-primary" : ""}`}>
@@ -254,13 +255,13 @@ function LeaderboardContent() {
                         {entry.goalReached && (
                           <Badge
                             variant="secondary"
-                            className="shrink-0 bg-green-500/10 text-green-600 text-[10px]"
+                            className="shrink-0 bg-green-500/10 text-[10px] text-green-600"
                           >
                             🎯 Goal
                           </Badge>
                         )}
                       </div>
-                      <p className="text-muted-foreground text-xs">
+                      <p className="text-xs text-muted-foreground">
                         {entry.status === "finished" ? "Finished" : `Year ${entry.date}`}
                       </p>
                       <AssetDistributionBar
@@ -271,7 +272,6 @@ function LeaderboardContent() {
                       />
                     </div>
 
-                    {/* Score */}
                     <div className="text-right">
                       <p className="text-lg font-bold tabular-nums">
                         {entry.score.toLocaleString(undefined, {
@@ -279,11 +279,10 @@ function LeaderboardContent() {
                           maximumFractionDigits: 0,
                         })}
                       </p>
-                      <p className="text-muted-foreground text-[10px] uppercase">gold</p>
+                      <p className="text-[10px] uppercase text-muted-foreground">taler</p>
                     </div>
                   </div>
 
-                  {/* Rank 1 glow effect */}
                   {rank === 1 && (
                     <motion.div
                       className="bg-linear-to-r absolute inset-0 from-yellow-400/10 via-transparent to-yellow-400/10"
@@ -306,20 +305,49 @@ function LeaderboardContent() {
       </div>
 
       {/* Footer actions */}
-      <div className="sticky bottom-0 border-t bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-6 py-4">
-          <Button
-            variant="outline"
-            onClick={() =>
-              router.push(`/debug/sessions/${sessionId}?name=${encodeURIComponent(playerName)}`)
-            }
-          >
-            ← Back to Session
-          </Button>
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/90 backdrop-blur-md supports-backdrop-filter:bg-background/80">
+        <div className="mx-auto flex max-w-3xl items-center justify-center gap-4 px-6 py-4">
           {gameId && (
-            <Button onClick={() => router.push(`/game?sessionId=${sessionId}&gameId=${gameId}`)}>
-              Continue Playing →
-            </Button>
+            <motion.div
+              className="w-full max-w-sm"
+              animate={{ scale: [1, 1.04, 1] }}
+              transition={{ duration: 1.6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+            >
+              <div className="relative overflow-hidden rounded-xl">
+                <Button
+                  className="relative h-12 w-full overflow-hidden rounded-xl border border-primary/60 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.45),transparent_40%),linear-gradient(110deg,oklch(0.8_0.15_88)_0%,oklch(0.88_0.17_90)_40%,oklch(0.95_0.18_95)_52%,oklch(0.88_0.17_90)_64%,oklch(0.8_0.15_88)_100%)] text-primary-foreground font-black tracking-wide shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-10px_18px_rgba(166,108,0,0.2),0_14px_34px_rgba(239,173,0,0.42)]"
+                  onClick={() =>
+                    router.push(`/game?sessionId=${sessionId}&gameId=${gameId}&showEvent=1`)
+                  }
+                >
+                  <motion.span
+                    aria-hidden
+                    className="pointer-events-none absolute -inset-y-2 -left-1/2 w-1/2 bg-linear-to-r from-transparent via-white/95 to-transparent blur-md"
+                    initial={{ x: "-140%", opacity: 0.9 }}
+                    animate={{ x: ["-140%", "320%"] }}
+                    transition={{
+                      duration: 2,
+                      ease: "linear",
+                      repeat: Number.POSITIVE_INFINITY,
+                    }}
+                  />
+                  <motion.span
+                    aria-hidden
+                    className="pointer-events-none absolute -inset-y-2 -left-1/2 w-1/2 bg-linear-to-r from-transparent via-amber-100/85 to-transparent blur-lg"
+                    initial={{ x: "-140%", opacity: 0.72 }}
+                    animate={{ x: ["-140%", "320%"] }}
+                    transition={{
+                      duration: 2,
+                      ease: "linear",
+                      repeat: Number.POSITIVE_INFINITY,
+                      delay: 1,
+                    }}
+                  />
+
+                  <span className="relative z-10">Continue Playing →</span>
+                </Button>
+              </div>
+            </motion.div>
           )}
         </div>
       </div>
@@ -332,7 +360,7 @@ export default function LeaderboardPage() {
     <Suspense
       fallback={
         <div className="flex h-screen items-center justify-center">
-          <p className="text-muted-foreground animate-pulse">Loading leaderboard...</p>
+          <p className="animate-pulse text-muted-foreground">Loading leaderboard...</p>
         </div>
       }
     >

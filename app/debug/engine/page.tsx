@@ -2220,7 +2220,7 @@ function DebugPage() {
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                 <NumField
                   label="Peace → War probability"
-                  value={scenario.market.peaceToWarProbability}
+                  value={scenario.market.peaceToWarProbability ?? 0}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
                       d.market.peaceToWarProbability = v
@@ -2230,7 +2230,7 @@ function DebugPage() {
                 />
                 <NumField
                   label="War → Peace probability"
-                  value={scenario.market.warToPeaceProbability}
+                  value={scenario.market.warToPeaceProbability ?? 0}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
                       d.market.warToPeaceProbability = v
@@ -2243,7 +2243,7 @@ function DebugPage() {
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <NumField
                   label="Peace μ (mean return)"
-                  value={scenario.market.peaceReturn}
+                  value={scenario.market.peaceReturn ?? 0}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
                       d.market.peaceReturn = v
@@ -2253,7 +2253,7 @@ function DebugPage() {
                 />
                 <NumField
                   label="Peace σ (volatility)"
-                  value={scenario.market.peaceVolatility}
+                  value={scenario.market.peaceVolatility ?? 0}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
                       d.market.peaceVolatility = v
@@ -2263,7 +2263,7 @@ function DebugPage() {
                 />
                 <NumField
                   label="War μ (mean return)"
-                  value={scenario.market.warReturn}
+                  value={scenario.market.warReturn ?? 0}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
                       d.market.warReturn = v
@@ -2273,7 +2273,7 @@ function DebugPage() {
                 />
                 <NumField
                   label="War σ (volatility)"
-                  value={scenario.market.warVolatility}
+                  value={scenario.market.warVolatility ?? 0}
                   onChange={(v) =>
                     updateScenarioDeep((d) => {
                       d.market.warVolatility = v

@@ -4,16 +4,13 @@ import { useMutation, useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   ArrowRight,
-  Calendar,
   ChevronDown,
   ChevronUp,
   Coins,
   History,
-  Info,
   Loader2,
   Minus,
   Plus,
-  RotateCcw,
   Store,
   TrendingDown,
   TrendingUp,
@@ -37,11 +34,12 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { portfolioValue } from "@/lib/game/engine"
+import { DEBUG_SCENARIO } from "@/lib/game/debug-scenario"
+import { gameStep, initializeGame, portfolioValue } from "@/lib/game/engine"
 import { getOrCreateGuestId } from "@/lib/guest"
 import type { PlayerAction } from "@/lib/types/actions"
 import type { TradableAsset } from "@/lib/types/assets"
@@ -102,6 +100,8 @@ const lineConfig = {
 }
 
 const ONBOARDING_KEY = "game_onboarding_seen"
+const MARKETPLACE_ONBOARDING_KEY = "game_marketplace_onboarding_seen"
+const MARKETPLACE_ONBOARDING_ORDER: TradableAsset[] = ["wood", "potatoes", "fish"]
 
 const onboardingSlides: StorySlide[] = [
   {
@@ -270,12 +270,15 @@ function AssetCard({
   tradePlan,
   history,
   projectedPortfolio,
-  projectedTalerBalance,
   expandedAsset,
   setExpandedAsset,
-  setTradePlan,
+  setTradeQuantity,
+  maxBuyForAsset,
   isMobile,
   gameOver,
+  isOnboardingTarget,
+  onboardingStep,
+  onCardClick,
 }: {
   meta: (typeof goodsMeta)[number]
   current: StateVector
@@ -283,12 +286,15 @@ function AssetCard({
   tradePlan: Record<TradableAsset, number>
   history: StateVector[]
   projectedPortfolio: StateVector["portfolio"]
-  projectedTalerBalance: number
   expandedAsset: TradableAsset | null
   setExpandedAsset: (a: TradableAsset | null) => void
-  setTradePlan: React.Dispatch<React.SetStateAction<Record<TradableAsset, number>>>
+  setTradeQuantity: (asset: TradableAsset, quantity: number) => void
+  maxBuyForAsset: (asset: TradableAsset) => number
   isMobile: boolean
   gameOver: boolean
+  isOnboardingTarget: boolean
+  onboardingStep: number | null
+  onCardClick?: (asset: TradableAsset) => void
 }) {
   const assetKey = meta.key as TradableAsset
   const currentPrice = current.market.prices[assetKey]
@@ -303,37 +309,64 @@ function AssetCard({
   const isExpanded = expandedAsset === assetKey
   const tradeQty = tradePlan[assetKey]
 
-  const cashExcludingThis =
-    projectedTalerBalance +
-    (tradeQty > 0 ? tradeQty * bPrice : tradeQty < 0 ? tradeQty * sPrice : 0)
-  const maxBuy = Math.max(0, Math.floor(cashExcludingThis / bPrice))
+  const maxBuy = maxBuyForAsset(assetKey)
   const maxSell = portfolio[assetKey]
+  const baseMaxBuyForScale = bPrice > 0 ? Math.floor(portfolio.gold / bPrice) : 0
+  const visualMaxBuy = Math.max(baseMaxBuyForScale, Math.max(0, tradeQty), 1)
 
   const assetColor = lineConfig[assetKey].color
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
+  const cardBaseClass = cn(
+    "relative overflow-hidden border-2 transition-all",
+    isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50",
+  )
+
+  const cardOverlay =
+    isOnboardingTarget && !gameOver ? (
+      <>
+        <motion.div
+          className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] border-2"
+          style={{ borderColor: assetColor }}
+          animate={{ opacity: [0.45, 0.95, 0.45] }}
+          transition={{ duration: 1.3, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+        />
+        <motion.div
+          className="pointer-events-none absolute inset-y-0 -left-1/2 z-20 w-1/2"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, ${assetColor}66 45%, transparent 100%)`,
+            filter: "blur(6px)",
+          }}
+          animate={{ x: ["-120%", "260%"] }}
+          transition={{ duration: 1.8, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+        />
+        <div className="pointer-events-none absolute left-3 top-3 z-30 rounded-full bg-background/95 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider shadow-sm border border-border/70">
+          Step {(onboardingStep ?? 0) + 1}: Click {meta.name}
+        </div>
+      </>
+    ) : null
+
   const onPointerUpdate = (clientX: number) => {
     if (!tradeBarRef.current) return
     const rect = tradeBarRef.current.getBoundingClientRect()
     const x = clamp(clientX - rect.left, 0, rect.width)
-    const val = mapXToTrade(x, rect.width, maxBuy, maxSell)
-    setTradePlan((prev) => ({ ...prev, [assetKey]: val }))
+    const val = mapXToTrade(x, rect.width, visualMaxBuy, maxSell)
+    setTradeQuantity(assetKey, val)
   }
 
   if (isMobile) {
-    return (
+    const mobileCard = (
       <Card
-        className={cn(
-          "overflow-hidden border-2 transition-all",
-          isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50",
-        )}
+        className={cardBaseClass}
         style={{ backgroundColor: `${assetColor}15` }}
+        onClick={() => onCardClick?.(assetKey)}
       >
+        {cardOverlay}
         <CardContent className="p-3">
           <div className="flex items-center gap-3">
             {/* Left: Icon */}
-            <div className="rounded-xl p-2 bg-white shadow-sm flex-shrink-0">
+            <div className="rounded-xl p-2 bg-white shadow-sm shrink-0">
               <Image src={meta.icon} alt="" width={32} height={32} className="object-contain" />
             </div>
 
@@ -382,7 +415,7 @@ function AssetCard({
                     {/* Handle */}
                     <motion.div
                       className="absolute top-1/2 z-20 h-10 w-10 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-white bg-white shadow-md flex items-center justify-center"
-                      style={{ left: `${mapTradeToX(tradeQty, 100, maxBuy, maxSell)}%` }}
+                      style={{ left: `${mapTradeToX(tradeQty, 100, visualMaxBuy, maxSell)}%` }}
                       animate={{ scale: isDragging ? 1.15 : 1 }}
                     >
                       <div
@@ -422,7 +455,7 @@ function AssetCard({
             <Button
               variant="ghost"
               size="icon"
-              className="size-8 rounded-full flex-shrink-0"
+              className="size-8 rounded-full shrink-0"
               onClick={() => setExpandedAsset(isExpanded ? null : assetKey)}
             >
               {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
@@ -489,13 +522,29 @@ function AssetCard({
         </CardContent>
       </Card>
     )
+
+    if (isOnboardingTarget && !gameOver) {
+      return (
+        <motion.div
+          className="relative"
+          animate={{ scale: [1, 1.02, 1] }}
+          transition={{ duration: 1.2, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+        >
+          {mobileCard}
+        </motion.div>
+      )
+    }
+
+    return mobileCard
   }
 
-  return (
+  const desktopCard = (
     <Card
-      className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50"}`}
+      className={cn(cardBaseClass, "duration-300 hover:shadow-md")}
       style={{ backgroundColor: `${assetColor}20` }}
+      onClick={() => onCardClick?.(assetKey)}
     >
+      {cardOverlay}
       <CardContent className="p-0">
         <div className="flex flex-col p-4 sm:p-5 gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -555,12 +604,12 @@ function AssetCard({
                     disabled={gameOver || portfolio[assetKey] + tradeQty <= 0}
                     onClick={(e) => {
                       e.stopPropagation()
-                      setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] - 1 }))
+                      setTradeQuantity(assetKey, tradeQty - 1)
                     }}
                   >
                     <Minus className="size-5" />
                   </Button>
-                  <div className="flex flex-col items-center min-w-[4rem]">
+                  <div className="flex flex-col items-center min-w-16">
                     <span className="text-[10px] font-black uppercase text-muted-foreground opacity-50">
                       Draft
                     </span>
@@ -578,7 +627,7 @@ function AssetCard({
                     disabled={gameOver || maxBuy <= tradeQty}
                     onClick={(e) => {
                       e.stopPropagation()
-                      setTradePlan((p) => ({ ...p, [assetKey]: p[assetKey] + 1 }))
+                      setTradeQuantity(assetKey, tradeQty + 1)
                     }}
                   >
                     <Plus className="size-5" />
@@ -707,6 +756,20 @@ function AssetCard({
       </CardContent>
     </Card>
   )
+
+  if (isOnboardingTarget && !gameOver) {
+    return (
+      <motion.div
+        className="relative"
+        animate={{ scale: [1, 1.02, 1] }}
+        transition={{ duration: 1.2, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+      >
+        {desktopCard}
+      </motion.div>
+    )
+  }
+
+  return desktopCard
 }
 
 // ─── Main Game Page ──────────────────────────────────────────────
@@ -720,6 +783,7 @@ function GameContent() {
 
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [onboardingChecked, setOnboardingChecked] = useState(false)
+  const [marketplaceOnboardingStep, setMarketplaceOnboardingStep] = useState<number | null>(null)
 
   useEffect(() => {
     const seen = localStorage.getItem(ONBOARDING_KEY)
@@ -732,9 +796,45 @@ function GameContent() {
     setShowOnboarding(false)
   }, [])
 
+  useEffect(() => {
+    if (!onboardingChecked || showOnboarding) return
+
+    const seen = localStorage.getItem(MARKETPLACE_ONBOARDING_KEY)
+    if (!seen) {
+      setMarketplaceOnboardingStep(0)
+    }
+  }, [onboardingChecked, showOnboarding])
+
+  const handleMarketplaceCardClick = useCallback((asset: TradableAsset) => {
+    setMarketplaceOnboardingStep((prev) => {
+      if (prev === null) return prev
+
+      const expected = MARKETPLACE_ONBOARDING_ORDER[prev]
+      if (asset !== expected) return prev
+
+      const next = prev + 1
+      if (next >= MARKETPLACE_ONBOARDING_ORDER.length) {
+        localStorage.setItem(MARKETPLACE_ONBOARDING_KEY, "true")
+        return null
+      }
+
+      return next
+    })
+  }, [])
+
   const guestId = getOrCreateGuestId()
   const startGameMutation = useMutation(api.game.startGame)
   const submitStepMutation = useMutation(api.game.submitStep)
+
+  const isTraining = searchParams.get("mode") === "training"
+  const [localHistory, setLocalHistory] = useState<StateVector[]>([])
+
+  useEffect(() => {
+    if (isTraining && localHistory.length === 0) {
+      const initial = initializeGame(DEBUG_SCENARIO)
+      setLocalHistory([initial])
+    }
+  }, [isTraining, localHistory])
 
   const [gameId, setGameId] = useState<Id<"games"> | null>(gameIdParam)
   const [isStarting, setIsStarting] = useState(false)
@@ -778,7 +878,7 @@ function GameContent() {
     })
       .then((id) => {
         setGameId(id)
-        router.replace(`/dashboard/game?sessionId=${sessionIdParam}&gameId=${id}`)
+        router.replace(`/game?sessionId=${sessionIdParam}&gameId=${id}`)
       })
       .catch((e) => {
         console.error("Failed to start game:", e)
@@ -800,21 +900,21 @@ function GameContent() {
   ])
 
   const history: StateVector[] = useMemo(() => {
+    if (isTraining) return localHistory
     if (!convexHistory?.length) return []
     // biome-ignore lint/suspicious/noExplicitAny: shape match
     return convexHistory as any
-  }, [convexHistory])
+  }, [convexHistory, isTraining, localHistory])
 
   const current = history.length > 0 ? history[history.length - 1] : null
 
   const scenario = useMemo(() => {
+    if (isTraining) return DEBUG_SCENARIO
     if (!convexScenario) return null
     const { _id, _creationTime, ...rest } = convexScenario
     // biome-ignore lint/suspicious/noExplicitAny: shape match
     return { id: _id, ...rest } as any
-  }, [convexScenario])
-
-  const goalProgressImageSrc = scenario?.icon ?? "/farm.webp"
+  }, [convexScenario, isTraining])
 
   const gameOver = useMemo(() => {
     if (!scenario || !current) return false
@@ -827,7 +927,15 @@ function GameContent() {
     fish: 0,
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const isSubmittingRef = useRef(false)
   const [expandedAsset, setExpandedAsset] = useState<TradableAsset | null>(null)
+  const [activeEvent, setActiveEvent] = useState<GameEvent | null>(null)
+  const [isEventPopupOpen, setIsEventPopupOpen] = useState(false)
+  const lastSeenStepRef = useRef<number | null>(null)
+  const eventSeenStorageKey = useMemo(
+    () => (gameId ? `trade-tales:event-seen-step:${gameId}` : null),
+    [gameId],
+  )
 
   const portfolio = current?.portfolio ?? { gold: 0, wood: 0, potatoes: 0, fish: 0 }
   const market = current?.market
@@ -854,7 +962,47 @@ function GameContent() {
     )
   }, [tradePlan, getBuyPriceFor, getSellPriceFor])
 
-  const projectedTalerBalance = roundMoney(portfolio.gold + plannedTalerDelta)
+  const computeMaxBuyForAsset = useCallback(
+    (asset: TradableAsset, plan: Record<TradableAsset, number>) => {
+      const price = getBuyPriceFor(asset)
+      if (price <= 0) return 0
+
+      let availableGold = portfolio.gold
+
+      for (const otherAsset of TRADABLE_ASSET_KEYS) {
+        if (otherAsset === asset) continue
+
+        const qty = plan[otherAsset]
+        if (qty > 0) {
+          availableGold -= qty * getBuyPriceFor(otherAsset)
+        } else if (qty < 0) {
+          availableGold += Math.abs(qty) * getSellPriceFor(otherAsset)
+        }
+      }
+
+      return Math.max(0, Math.floor(availableGold / price))
+    },
+    [portfolio.gold, getBuyPriceFor, getSellPriceFor],
+  )
+
+  const setTradeQuantity = useCallback(
+    (asset: TradableAsset, quantity: number) => {
+      setTradePlan((prev) => {
+        const maxBuy = computeMaxBuyForAsset(asset, prev)
+        const maxSell = portfolio[asset]
+        const clampedQty = clamp(quantity, -maxSell, maxBuy)
+
+        if (clampedQty === prev[asset]) return prev
+        return { ...prev, [asset]: clampedQty }
+      })
+    },
+    [computeMaxBuyForAsset, portfolio],
+  )
+
+  const maxBuyForAsset = useCallback(
+    (asset: TradableAsset) => computeMaxBuyForAsset(asset, tradePlan),
+    [computeMaxBuyForAsset, tradePlan],
+  )
 
   const projectedPortfolio = useMemo(() => {
     return {
@@ -875,6 +1023,12 @@ function GameContent() {
   }, [projectedPortfolio, getSellPriceFor])
 
   const totalValue = current ? portfolioValue(projectedPortfolio, current.market) : 0
+  const goalProgressPercent = useMemo(() => {
+    if (!current?.goal || current.goal <= 0) return 0
+    const ratio = (totalValue / current.goal) * 100
+    if (!Number.isFinite(ratio)) return 0
+    return clamp(ratio, 0, 100)
+  }, [current?.goal, totalValue])
 
   const allocationData = useMemo(() => {
     return [
@@ -885,8 +1039,87 @@ function GameContent() {
     ].filter((d) => d.value > 0)
   }, [totalAssetValue])
 
+  const latestEvent = current?.events?.[0] ?? null
+  const marketplaceTargetAsset =
+    marketplaceOnboardingStep === null
+      ? null
+      : (MARKETPLACE_ONBOARDING_ORDER[marketplaceOnboardingStep] ?? null)
+  const marketplaceTargetName =
+    goodsMeta.find((meta) => meta.key === marketplaceTargetAsset)?.name ?? null
+  const latestEventImpacts = useMemo(() => {
+    if (!latestEvent?.effects) return []
+
+    const chips: string[] = []
+    if (latestEvent.effects.quantityMultiplier !== undefined) {
+      const qty = Math.round((latestEvent.effects.quantityMultiplier - 1) * 100)
+      chips.push(`Quantity ${qty > 0 ? "+" : ""}${qty}%`)
+    }
+    if (latestEvent.effects.goldDelta !== undefined) {
+      chips.push(
+        `Gold ${latestEvent.effects.goldDelta > 0 ? "+" : ""}${latestEvent.effects.goldDelta}`,
+      )
+    }
+    if (latestEvent.effects.priceMultiplier !== undefined) {
+      const price = Math.round((latestEvent.effects.priceMultiplier - 1) * 100)
+      chips.push(`Price ${price > 0 ? "+" : ""}${price}%`)
+    }
+
+    return chips
+  }, [latestEvent])
+
+  const markEventStepSeen = useCallback(
+    (step: number) => {
+      lastSeenStepRef.current = step
+      if (!eventSeenStorageKey) return
+      try {
+        sessionStorage.setItem(eventSeenStorageKey, String(step))
+      } catch {
+        // Ignore storage errors (private mode / blocked storage)
+      }
+    },
+    [eventSeenStorageKey],
+  )
+
+  useEffect(() => {
+    if (!current) return
+
+    if (lastSeenStepRef.current === null) {
+      let initialSeenStep = current.step
+
+      if (eventSeenStorageKey) {
+        try {
+          const stored = sessionStorage.getItem(eventSeenStorageKey)
+          const parsed = stored ? Number.parseInt(stored, 10) : Number.NaN
+          if (Number.isFinite(parsed)) {
+            initialSeenStep = parsed
+          } else {
+            sessionStorage.setItem(eventSeenStorageKey, String(initialSeenStep))
+          }
+        } catch {
+          // Ignore storage errors and fall back to in-memory behavior
+        }
+      }
+
+      lastSeenStepRef.current = initialSeenStep
+      return
+    }
+
+    if (current.step > lastSeenStepRef.current && current.events.length > 0) {
+      setActiveEvent(current.events[0])
+      setIsEventPopupOpen(true)
+      markEventStepSeen(current.step)
+      return
+    }
+
+    if (current.step > lastSeenStepRef.current) {
+      markEventStepSeen(current.step)
+    }
+  }, [current, eventSeenStorageKey, markEventStepSeen])
+
   const handleSubmitTrades = useCallback(async () => {
-    if (!gameId || isSubmitting || gameOver) return
+    if ((!isTraining && !gameId) || isSubmittingRef.current || gameOver) return
+    isSubmittingRef.current = true
+    setIsSubmitting(true)
 
     const actions: PlayerAction[] = []
     for (const asset of TRADABLE_ASSET_KEYS) {
@@ -895,27 +1128,47 @@ function GameContent() {
       if (qty < 0) actions.push({ type: "sell", asset, quantity: Math.abs(qty) })
     }
 
-    setIsSubmitting(true)
-
-    if (sessionId && current) {
-      const nextStep = current.step + 1
-      const name = localStorage.getItem("debug_playerName") ?? ""
-      router.push(
-        `/dashboard/sessions/${sessionId}/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
-      )
+    if (isTraining && current) {
+      try {
+        const nextState = await gameStep(DEBUG_SCENARIO, current, actions)
+        setLocalHistory((prev) => [...prev, nextState])
+        setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
+      } catch (e) {
+        console.error("Local step failed:", e)
+      } finally {
+        isSubmittingRef.current = false
+        setIsSubmitting(false)
+      }
+      return
     }
 
+    if (!gameId) return
+
     try {
-      await submitStepMutation({ gameId, actions, guestId })
+      if (!gameId) return
+      const result = await submitStepMutation({ gameId, actions, guestId })
       setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
+
+      // Navigate to leaderboard on 5-year checkpoints (session games only)
+      if (sessionId && current) {
+        const nextStep = current.step + 1
+        const isFiveYearCheckpoint = nextStep % 5 === 0
+        const name = localStorage.getItem("debug_playerName") ?? ""
+        if (isFiveYearCheckpoint || result.gameOver) {
+          router.push(
+            `/game/leaderboard?step=${nextStep}&gameId=${gameId}&sessionId=${sessionId}&name=${encodeURIComponent(name)}`,
+          )
+          return
+        }
+      }
     } catch (e) {
       console.error("Submit step failed:", e)
     } finally {
+      isSubmittingRef.current = false
       setIsSubmitting(false)
     }
   }, [
     gameId,
-    isSubmitting,
     gameOver,
     tradePlan,
     submitStepMutation,
@@ -923,6 +1176,7 @@ function GameContent() {
     current,
     router,
     guestId,
+    isTraining,
   ])
 
   const prevGoalReached = useRef<boolean | null>(null)
@@ -964,7 +1218,7 @@ function GameContent() {
     )
   }
 
-  if (!gameId || !current || !market) {
+  if ((!isTraining && !gameId) || !current || !market) {
     return (
       <main className="mx-auto flex min-h-[60vh] w-full max-w-4xl items-center justify-center px-4 py-6">
         <div className="flex flex-col items-center gap-4 text-center">
@@ -1017,7 +1271,7 @@ function GameContent() {
                     <Badge
                       variant={current.market.regime === "peace" ? "default" : "destructive"}
                       className={cn(
-                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-lg font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full bg-[#FFD700] text-black border-none",
+                        "px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-lg font-black uppercase tracking-widest shadow-sm lg:shadow-md rounded-full",
                       )}
                     >
                       {current.market.regime === "peace" ? "🕊️ Peace" : "⚔️ War"}
@@ -1038,7 +1292,7 @@ function GameContent() {
                   <div
                     className={cn(
                       "grid grid-cols-2 gap-px bg-muted/10 rounded-xl lg:rounded-3xl overflow-hidden border border-muted shadow-xs lg:shadow-md",
-                      isMobile ? "flex-shrink-0" : "flex-1",
+                      isMobile ? "shrink-0" : "flex-1",
                     )}
                   >
                     {[
@@ -1053,13 +1307,13 @@ function GameContent() {
                             key={meta.key}
                             className={cn(
                               "bg-white/70 flex items-center gap-2 lg:gap-4",
-                              isMobile ? "p-2 min-w-0" : "p-4 min-w-[140px]",
+                              isMobile ? "p-2 min-w-0" : "p-4 min-w-35",
                             )}
                           >
                             <div
                               className={cn(
                                 "rounded-lg lg:rounded-2xl shadow-xs",
-                                isMobile ? "p-1 flex-shrink-0" : "p-2",
+                                isMobile ? "p-1 shrink-0" : "p-2",
                               )}
                               style={{ backgroundColor: lineConfig[meta.key].color }}
                             >
@@ -1116,68 +1370,24 @@ function GameContent() {
                 </div>
               </div>
 
-              {/* Bottom Labels: Portfolio Value & Target */}
-              <div
-                className={cn(
-                  "flex items-end justify-between px-2 pt-2 lg:pt-4",
-                  !isMobile && "border-t border-muted/20",
-                )}
-              >
-                <div className="flex flex-col gap-0 lg:gap-1">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="size-3 lg:size-4 text-muted-foreground/60" />
-                    <span className="text-[9px] lg:text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/60">
-                      Portfolio Value
-                    </span>
-                  </div>
-                  <div className="flex items-baseline gap-1.5 lg:gap-2">
-                    <span className="text-2xl lg:text-3xl font-black tabular-nums text-[#1A1A1A]">
-                      {formatTaler(totalValue)}
-                    </span>
-                    {!isMobile && (
-                      <span className="text-xs font-black uppercase text-[#1A1A1A]/60">taler</span>
-                    )}
-                  </div>
+              {/* Streamlined Goal Progress */}
+              <div className={cn("space-y-2", !isMobile && "border-t border-muted/20 pt-4")}>
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-base lg:text-lg font-medium text-foreground/70">
+                    Goal Progress
+                  </span>
+                  <span className="font-mono text-base lg:text-xl text-foreground/70">
+                    {formatTaler(totalValue)} / {formatTaler(current.goal)} taler
+                  </span>
                 </div>
-                <div className="text-right space-y-0 lg:space-y-1">
-                  <div className="flex items-center justify-end gap-2 text-[#FFD700]">
-                    <Trophy className="size-3 lg:size-4" />
-                    <span className="text-[9px] lg:text-xs font-black uppercase tracking-[0.2em]">
-                      Target
-                    </span>
-                  </div>
-                  <div className="flex items-baseline justify-end gap-1">
-                    <span className="text-lg lg:text-2xl font-black text-[#FFD700] drop-shadow-sm">
-                      {formatTaler(current.goal)}
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Massive Full-width Progress Bar */}
-              <div className="relative group lg:-mx-2">
-                <div
-                  className={cn(
-                    "w-full overflow-hidden rounded-full border-white bg-white shadow-md lg:shadow-lg",
-                    isMobile ? "h-2 border" : "h-4 border-2",
-                  )}
-                >
-                  <div className="h-full w-full rounded-full overflow-hidden bg-muted/10 relative">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (totalValue / current.goal) * 100)}%` }}
-                      className="h-full transition-all duration-1000 ease-out bg-[#FFD700]"
-                    />
-
-                    {totalValue >= current.goal && (
-                      <motion.div
-                        initial={{ x: "-100%" }}
-                        animate={{ x: "200%" }}
-                        transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
-                        className="absolute inset-0 z-10 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg]"
-                      />
-                    )}
-                  </div>
+                <div className="relative h-7 lg:h-8 overflow-hidden rounded-full bg-emerald-500/20">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${goalProgressPercent}%` }}
+                    className="h-full rounded-full bg-emerald-500"
+                    transition={{ duration: 0.9, ease: "easeOut" }}
+                  />
                 </div>
               </div>
 
@@ -1233,6 +1443,74 @@ function GameContent() {
             )}
           </div>
 
+          {/* Event of the Year */}
+          {latestEvent && (
+            <Card className="overflow-hidden border border-amber-200/70 bg-linear-to-br from-amber-50/90 via-white to-sky-50/60 shadow-sm">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="relative size-12 sm:size-14 shrink-0 rounded-xl border border-amber-200/80 bg-white p-1.5 shadow-xs">
+                    <Image
+                      src={`/events/${latestEvent.type}.webp`}
+                      alt={latestEvent.name}
+                      fill
+                      className="object-contain p-1"
+                      unoptimized
+                    />
+                  </div>
+
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-amber-200 text-amber-900 hover:bg-amber-200 text-[10px] uppercase tracking-wider font-black">
+                        Year Event
+                      </Badge>
+                      {latestEvent.targetAsset && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] uppercase tracking-wide font-black"
+                        >
+                          {latestEvent.targetAsset}
+                        </Badge>
+                      )}
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black leading-tight">
+                      {latestEvent.name}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
+                      {latestEvent.description}
+                    </p>
+
+                    {latestEventImpacts.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {latestEventImpacts.map((impact) => (
+                          <span
+                            key={impact}
+                            className="rounded-full border border-border/70 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-wide"
+                          >
+                            {impact}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8 rounded-full px-3 text-xs font-black uppercase tracking-wide"
+                        onClick={() => {
+                          setActiveEvent(latestEvent)
+                          setIsEventPopupOpen(true)
+                        }}
+                      >
+                        Open Event Details
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Marketplace Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
@@ -1243,6 +1521,22 @@ function GameContent() {
                 </h2>
               </div>
             </div>
+
+            <AnimatePresence>
+              {marketplaceTargetAsset && marketplaceTargetName && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-2"
+                >
+                  <p className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-primary">
+                    Tutorial Step {(marketplaceOnboardingStep ?? 0) + 1} of 3: Click{" "}
+                    {marketplaceTargetName}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <div className="flex flex-col gap-3 sm:gap-4">
               {goodsMeta
@@ -1256,12 +1550,15 @@ function GameContent() {
                     tradePlan={tradePlan}
                     history={history}
                     projectedPortfolio={projectedPortfolio}
-                    projectedTalerBalance={projectedTalerBalance}
                     expandedAsset={expandedAsset}
                     setExpandedAsset={setExpandedAsset}
-                    setTradePlan={setTradePlan}
+                    setTradeQuantity={setTradeQuantity}
+                    maxBuyForAsset={maxBuyForAsset}
                     isMobile={isMobile}
                     gameOver={gameOver}
+                    isOnboardingTarget={marketplaceTargetAsset === meta.key}
+                    onboardingStep={marketplaceOnboardingStep}
+                    onCardClick={handleMarketplaceCardClick}
                   />
                 ))}
             </div>
@@ -1276,14 +1573,18 @@ function GameContent() {
                 <Button
                   type="button"
                   className="relative h-16 sm:h-20 w-full rounded-2xl bg-green-600 text-xl sm:text-2xl font-black tracking-widest shadow-2xl transition-all hover:bg-green-700 hover:scale-[1.02]"
-                  onClick={() =>
-                    router.push(
-                      `/dashboard/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
-                    )
-                  }
+                  onClick={() => {
+                    if (isTraining) {
+                      router.push("/learn")
+                    } else {
+                      router.push(
+                        `/game/results?gameId=${gameId}${sessionId ? `&sessionId=${sessionId}` : ""}`,
+                      )
+                    }
+                  }}
                 >
                   <Trophy className="mr-4 size-6 sm:size-8" />
-                  RESULTS
+                  {isTraining ? "BACK TO TRAINING" : "RESULTS"}
                 </Button>
               ) : (
                 <Button
@@ -1304,7 +1605,7 @@ function GameContent() {
                       <div className="flex items-center gap-2 sm:gap-4 leading-none text-right">
                         <div className="flex flex-col items-end">
                           <span className="text-[8px] sm:text-[10px] opacity-70 mb-0.5">NEXT</span>
-                          <span className="text-xs sm:text-xl">YEAR</span>
+                          <span className="text-xs sm:text-xl">YEAR {current.date + 1}</span>
                         </div>
                         <ArrowRight className="size-5 sm:size-8 animate-pulse" />
                       </div>
@@ -1317,98 +1618,14 @@ function GameContent() {
         </div>
       </TooltipProvider>
 
-      {isOnboardingOpen && activeStep ? (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/55" />
-
-          {highlightRect ? (
-            <div
-              className="pointer-events-none absolute rounded-xl border-2 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all"
-              style={{
-                top: `${highlightRect.top - 8}px`,
-                left: `${highlightRect.left - 8}px`,
-                width: `${highlightRect.width + 16}px`,
-                height: `${highlightRect.height + 16}px`,
-              }}
-            />
-          ) : null}
-
-          <AnimatePresence mode="wait">
-            {isOnboardingTooltipVisible ? (
-              <motion.div
-                key="onboarding-tooltip"
-                className="absolute z-10 w-[min(28rem,calc(100vw-1.5rem))] rounded-xl border bg-card shadow-xl"
-                style={tooltipStyle}
-                initial={{ opacity: 0, scale: 0.7, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: 6 }}
-                transition={{ type: "spring", stiffness: 260, damping: 22 }}
-                role="dialog"
-                aria-live="polite"
-              >
-                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:gap-4">
-                  <div
-                    className="h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-primary/40 bg-card/95"
-                    aria-hidden="true"
-                  >
-                    <video
-                      ref={onboardingAssistantVideoRef}
-                      src="/start%20white.webm"
-                      className="h-full w-full object-cover"
-                      autoPlay
-                      muted
-                      playsInline
-                      preload="auto"
-                    />
-                  </div>
-
-                  <div className="flex flex-1 flex-col justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                        {stepProgress}
-                      </p>
-                      <h2 className="mt-1 text-base font-semibold text-foreground">
-                        {activeStep.title}
-                      </h2>
-                      <p className="mt-2 text-sm leading-5 text-muted-foreground">
-                        {activeStep.description}
-                      </p>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={previousOnboardingStep}
-                        disabled={onboardingIndex === 0}
-                      >
-                        Prev
-                      </Button>
-
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => closeOnboarding(true)}
-                        >
-                          Skip
-                        </Button>
-                        <Button type="button" size="sm" onClick={nextOnboardingStep}>
-                          {isLastOnboardingStep ? "Done" : "Next"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </div>
-      ) : null}
-
-      <EventPopup event={eventToShow} open={!!eventToShow} onClose={() => setEventToShow(null)} />
+      <EventPopup
+        event={activeEvent}
+        open={isEventPopupOpen}
+        onClose={() => {
+          setIsEventPopupOpen(false)
+          if (current) markEventStepSeen(current.step)
+        }}
+      />
 
       <GameChatbot />
     </main>

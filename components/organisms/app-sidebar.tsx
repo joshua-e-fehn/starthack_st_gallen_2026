@@ -40,8 +40,8 @@ const data = {
           url: "/dashboard",
         },
         {
-          title: "Create Game",
-          url: "/dashboard/sessions/create",
+          title: "Create Competition",
+          url: "/dashboard/competitions/create",
         },
       ],
     },
