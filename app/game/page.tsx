@@ -100,6 +100,8 @@ const lineConfig = {
 }
 
 const ONBOARDING_KEY = "game_onboarding_seen"
+const MARKETPLACE_ONBOARDING_KEY = "game_marketplace_onboarding_seen"
+const MARKETPLACE_ONBOARDING_ORDER: TradableAsset[] = ["wood", "potatoes", "fish"]
 
 const onboardingSlides: StorySlide[] = [
   {
@@ -274,6 +276,9 @@ function AssetCard({
   maxBuyForAsset,
   isMobile,
   gameOver,
+  isOnboardingTarget,
+  onboardingStep,
+  onCardClick,
 }: {
   meta: (typeof goodsMeta)[number]
   current: StateVector
@@ -287,6 +292,9 @@ function AssetCard({
   maxBuyForAsset: (asset: TradableAsset) => number
   isMobile: boolean
   gameOver: boolean
+  isOnboardingTarget: boolean
+  onboardingStep: number | null
+  onCardClick?: (asset: TradableAsset) => void
 }) {
   const assetKey = meta.key as TradableAsset
   const currentPrice = current.market.prices[assetKey]
@@ -310,6 +318,35 @@ function AssetCard({
   const tradeBarRef = useRef<HTMLDivElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
+  const cardBaseClass = cn(
+    "relative overflow-hidden border-2 transition-all",
+    isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50",
+  )
+
+  const cardOverlay =
+    isOnboardingTarget && !gameOver ? (
+      <>
+        <motion.div
+          className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] border-2"
+          style={{ borderColor: assetColor }}
+          animate={{ opacity: [0.45, 0.95, 0.45] }}
+          transition={{ duration: 1.3, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+        />
+        <motion.div
+          className="pointer-events-none absolute inset-y-0 -left-1/2 z-20 w-1/2"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, ${assetColor}66 45%, transparent 100%)`,
+            filter: "blur(6px)",
+          }}
+          animate={{ x: ["-120%", "260%"] }}
+          transition={{ duration: 1.8, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+        />
+        <div className="pointer-events-none absolute left-3 top-3 z-30 rounded-full bg-background/95 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider shadow-sm border border-border/70">
+          Step {(onboardingStep ?? 0) + 1}: Click {meta.name}
+        </div>
+      </>
+    ) : null
+
   const onPointerUpdate = (clientX: number) => {
     if (!tradeBarRef.current) return
     const rect = tradeBarRef.current.getBoundingClientRect()
@@ -319,14 +356,13 @@ function AssetCard({
   }
 
   if (isMobile) {
-    return (
+    const mobileCard = (
       <Card
-        className={cn(
-          "overflow-hidden border-2 transition-all",
-          isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50",
-        )}
+        className={cardBaseClass}
         style={{ backgroundColor: `${assetColor}15` }}
+        onClick={() => onCardClick?.(assetKey)}
       >
+        {cardOverlay}
         <CardContent className="p-3">
           <div className="flex items-center gap-3">
             {/* Left: Icon */}
@@ -486,13 +522,29 @@ function AssetCard({
         </CardContent>
       </Card>
     )
+
+    if (isOnboardingTarget && !gameOver) {
+      return (
+        <motion.div
+          className="relative"
+          animate={{ scale: [1, 1.02, 1] }}
+          transition={{ duration: 1.2, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+        >
+          {mobileCard}
+        </motion.div>
+      )
+    }
+
+    return mobileCard
   }
 
-  return (
+  const desktopCard = (
     <Card
-      className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${isExpanded ? "ring-2 ring-primary/20 border-primary/20" : "border-border/50"}`}
+      className={cn(cardBaseClass, "duration-300 hover:shadow-md")}
       style={{ backgroundColor: `${assetColor}20` }}
+      onClick={() => onCardClick?.(assetKey)}
     >
+      {cardOverlay}
       <CardContent className="p-0">
         <div className="flex flex-col p-4 sm:p-5 gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -704,6 +756,20 @@ function AssetCard({
       </CardContent>
     </Card>
   )
+
+  if (isOnboardingTarget && !gameOver) {
+    return (
+      <motion.div
+        className="relative"
+        animate={{ scale: [1, 1.02, 1] }}
+        transition={{ duration: 1.2, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+      >
+        {desktopCard}
+      </motion.div>
+    )
+  }
+
+  return desktopCard
 }
 
 // ─── Main Game Page ──────────────────────────────────────────────
@@ -717,6 +783,7 @@ function GameContent() {
 
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [onboardingChecked, setOnboardingChecked] = useState(false)
+  const [marketplaceOnboardingStep, setMarketplaceOnboardingStep] = useState<number | null>(null)
 
   useEffect(() => {
     const seen = localStorage.getItem(ONBOARDING_KEY)
@@ -727,6 +794,32 @@ function GameContent() {
   const handleOnboardingComplete = useCallback(() => {
     localStorage.setItem(ONBOARDING_KEY, "true")
     setShowOnboarding(false)
+  }, [])
+
+  useEffect(() => {
+    if (!onboardingChecked || showOnboarding) return
+
+    const seen = localStorage.getItem(MARKETPLACE_ONBOARDING_KEY)
+    if (!seen) {
+      setMarketplaceOnboardingStep(0)
+    }
+  }, [onboardingChecked, showOnboarding])
+
+  const handleMarketplaceCardClick = useCallback((asset: TradableAsset) => {
+    setMarketplaceOnboardingStep((prev) => {
+      if (prev === null) return prev
+
+      const expected = MARKETPLACE_ONBOARDING_ORDER[prev]
+      if (asset !== expected) return prev
+
+      const next = prev + 1
+      if (next >= MARKETPLACE_ONBOARDING_ORDER.length) {
+        localStorage.setItem(MARKETPLACE_ONBOARDING_KEY, "true")
+        return null
+      }
+
+      return next
+    })
   }, [])
 
   const guestId = getOrCreateGuestId()
@@ -947,6 +1040,12 @@ function GameContent() {
   }, [totalAssetValue])
 
   const latestEvent = current?.events?.[0] ?? null
+  const marketplaceTargetAsset =
+    marketplaceOnboardingStep === null
+      ? null
+      : (MARKETPLACE_ONBOARDING_ORDER[marketplaceOnboardingStep] ?? null)
+  const marketplaceTargetName =
+    goodsMeta.find((meta) => meta.key === marketplaceTargetAsset)?.name ?? null
   const latestEventImpacts = useMemo(() => {
     if (!latestEvent?.effects) return []
 
@@ -1043,7 +1142,10 @@ function GameContent() {
       return
     }
 
+    if (!gameId) return
+
     try {
+      if (!gameId) return
       const result = await submitStepMutation({ gameId, actions, guestId })
       setTradePlan({ wood: 0, potatoes: 0, fish: 0 })
 
@@ -1420,6 +1522,22 @@ function GameContent() {
               </div>
             </div>
 
+            <AnimatePresence>
+              {marketplaceTargetAsset && marketplaceTargetName && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-2"
+                >
+                  <p className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-primary">
+                    Tutorial Step {(marketplaceOnboardingStep ?? 0) + 1} of 3: Click{" "}
+                    {marketplaceTargetName}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="flex flex-col gap-3 sm:gap-4">
               {goodsMeta
                 .filter((m) => m.key !== "taler")
@@ -1438,6 +1556,9 @@ function GameContent() {
                     maxBuyForAsset={maxBuyForAsset}
                     isMobile={isMobile}
                     gameOver={gameOver}
+                    isOnboardingTarget={marketplaceTargetAsset === meta.key}
+                    onboardingStep={marketplaceOnboardingStep}
+                    onCardClick={handleMarketplaceCardClick}
                   />
                 ))}
             </div>

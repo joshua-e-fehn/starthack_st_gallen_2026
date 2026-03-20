@@ -13,7 +13,8 @@ const schema = defineSchema({
   scenarios: defineTable({
     ...scenarioFieldsValidator,
     mode: v.optional(v.union(v.literal("live"), v.literal("precomputed"))),
-  }),
+    createdBy: v.optional(v.string()),
+  }).index("by_createdBy", ["createdBy"]),
 
   // ─── Games: a single play-through ───
   games: defineTable({

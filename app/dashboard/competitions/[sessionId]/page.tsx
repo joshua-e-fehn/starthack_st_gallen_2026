@@ -124,7 +124,7 @@ export default function SessionLobbyPage() {
 
   const joinUrl = useMemo(() => {
     if (typeof window === "undefined") return ""
-    return `${window.location.origin}/?sessionId=${sessionId}`
+    return `${window.location.origin}/game/lobby/${sessionId}`
   }, [sessionId])
 
   const handleCopyCode = useCallback(async () => {
@@ -242,7 +242,12 @@ export default function SessionLobbyPage() {
                     <button
                       type="button"
                       onClick={handleCopyCode}
-                      className="group flex w-full items-center justify-center gap-3 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 py-4 transition-colors hover:border-primary/50 hover:bg-primary/10"
+                      className={cn(
+                        "group flex w-full items-center justify-center gap-3 rounded-xl border-2 border-dashed py-4 transition-all duration-200 active:scale-[0.98]",
+                        copied
+                          ? "border-green-500/40 bg-green-500/5"
+                          : "border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10",
+                      )}
                     >
                       <span className="font-mono text-4xl font-black tracking-[0.4em] text-primary">
                         {session.joinCode}
@@ -250,7 +255,7 @@ export default function SessionLobbyPage() {
                       {copied ? (
                         <CheckIcon className="size-5 text-green-600" />
                       ) : (
-                        <CopyIcon className="size-5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                        <CopyIcon className="size-5 text-muted-foreground" />
                       )}
                     </button>
                     {copied && (

@@ -4,6 +4,7 @@ import confetti from "canvas-confetti"
 import { useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
 import { ArrowLeft, Crown, Loader2, Target, TrendingUp, Trophy } from "lucide-react"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
@@ -920,7 +921,21 @@ function ResultsContent() {
                   transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.2 }}
                   className="text-6xl"
                 >
-                  {goalReached ? "🏆" : "🏰"}
+                  {goalReached ? (
+                    <video
+                      src="/win.webm"
+                      autoPlay
+                      loop
+                      muted
+                      className="h-30 w-30 rounded-2xl object-cover border-4 border-green-500/40"
+                      style={{
+                        boxShadow:
+                          "4px 4px 0px rgba(0,0,0,0.4), 8px 8px 0px rgba(0,0,0,0.25), 12px 12px 0px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                  ) : (
+                    <Image src="/lost.gif" alt="Game over" width={120} height={120} unoptimized />
+                  )}
                 </motion.div>
                 <div>
                   <h1 className="text-2xl font-bold">
@@ -944,7 +959,7 @@ function ResultsContent() {
                   </div>
                 </div>
                 {goalReached && (
-                  <Badge className="bg-green-600 text-sm">
+                  <Badge className="bg-green-600 text-sm text-white">
                     <Trophy className="mr-1 size-3.5" />
                     Goal Reached!
                   </Badge>
@@ -1007,7 +1022,7 @@ function ResultsContent() {
               className="h-12 w-full text-base"
               onClick={() => {
                 clearStoredGameSession()
-                router.push(`/dashboard/sessions/${sessionId}`)
+                router.push(`/dashboard/competitions/${sessionId}`)
               }}
             >
               Back to Session Lobby

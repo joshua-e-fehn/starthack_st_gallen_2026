@@ -3,6 +3,7 @@ import { gameStep, initializeGame, isGameOver, portfolioValue } from "../lib/gam
 import type { PlayerAction } from "../lib/types/actions"
 import { sellPrice } from "../lib/types/market"
 import type { Scenario } from "../lib/types/scenario"
+import type { Id } from "./_generated/dataModel"
 import { mutation, query } from "./_generated/server"
 import { playerActionValidator, scenarioFieldsValidator } from "./validators"
 
@@ -19,6 +20,34 @@ function resolvePlayerId(identity: { subject: string } | null, guestId?: string)
   if (identity) return identity.subject
   if (guestId) return `guest:${guestId}`
   throw new Error("Must be authenticated or provide a guestId")
+}
+
+/**
+ * Check whether a game belongs to the current user.
+ *
+ * When a user is authenticated AND passes their browser guestId,
+ * this returns true if the game was created under either identity.
+ * This handles the guest → login transition seamlessly.
+ */
+function isOwner(
+  game: { userId: string },
+  identity: { subject: string } | null,
+  guestId?: string,
+): boolean {
+  if (identity && game.userId === identity.subject) return true
+  if (guestId && game.userId === `guest:${guestId}`) return true
+  return false
+}
+
+/**
+ * Return all possible player IDs for the current user.
+ * Used in queries that need to find games by userId index.
+ */
+function allPlayerIds(identity: { subject: string } | null, guestId?: string): string[] {
+  const ids: string[] = []
+  if (identity) ids.push(identity.subject)
+  if (guestId) ids.push(`guest:${guestId}`)
+  return ids
 }
 
 function computeAssetBreakdown(step: {
@@ -68,12 +97,22 @@ export const listMyGames = query({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity && !args.guestId) return []
 
-    const playerId = resolvePlayerId(identity, args.guestId)
-
-    return ctx.db
-      .query("games")
-      .withIndex("by_user", (q) => q.eq("userId", playerId))
-      .collect()
+    const ids = allPlayerIds(identity, args.guestId)
+    const results = await Promise.all(
+      ids.map((id) =>
+        ctx.db
+          .query("games")
+          .withIndex("by_user", (q) => q.eq("userId", id))
+          .collect(),
+      ),
+    )
+    // Deduplicate by game ID
+    const seen = new Set<string>()
+    return results.flat().filter((g) => {
+      if (seen.has(g._id)) return false
+      seen.add(g._id)
+      return true
+    })
   },
 })
 
@@ -86,9 +125,7 @@ export const getGame = query({
 
     const identity = await ctx.auth.getUserIdentity()
     if (!identity && !args.guestId) return null
-
-    const playerId = resolvePlayerId(identity, args.guestId)
-    if (game.userId !== playerId) return null
+    if (!isOwner(game, identity, args.guestId)) return null
 
     return game
   },
@@ -101,10 +138,8 @@ export const getGameTimeSeries = query({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity && !args.guestId) return []
 
-    const playerId = resolvePlayerId(identity, args.guestId)
-
     const game = await ctx.db.get(args.gameId)
-    if (!game || game.userId !== playerId) return []
+    if (!game || !isOwner(game, identity, args.guestId)) return []
 
     return ctx.db
       .query("gameSteps")
@@ -120,10 +155,8 @@ export const getLatestState = query({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity && !args.guestId) return null
 
-    const playerId = resolvePlayerId(identity, args.guestId)
-
     const game = await ctx.db.get(args.gameId)
-    if (!game || game.userId !== playerId) return null
+    if (!game || !isOwner(game, identity, args.guestId)) return null
 
     const steps = await ctx.db
       .query("gameSteps")
@@ -151,11 +184,38 @@ export const listScenarios = query({
   },
 })
 
+/** List scenarios created by the current user */
+export const listMyScenarios = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+    return ctx.db
+      .query("scenarios")
+      .withIndex("by_createdBy", (q) => q.eq("createdBy", identity.subject))
+      .collect()
+  },
+})
+
+/** List global scenarios (no owner / created by others) */
+export const listGlobalScenarios = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    const all = await ctx.db.query("scenarios").collect()
+    return all.filter((s) => !s.createdBy || (identity && s.createdBy !== identity.subject))
+  },
+})
+
 /** Create a new scenario (Debug helper) */
 export const createScenario = mutation({
   args: scenarioFieldsValidator,
   handler: async (ctx, args) => {
-    return await ctx.db.insert("scenarios", args)
+    const identity = await ctx.auth.getUserIdentity()
+    return await ctx.db.insert("scenarios", {
+      ...args,
+      createdBy: identity?.subject,
+    })
   },
 })
 
@@ -298,6 +358,88 @@ export const listSessions = query({
   },
 })
 
+/** List sessions the current user is hosting */
+export const listMyHostedSessions = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
+
+    const sessions = await ctx.db.query("sessions").order("desc").collect()
+
+    const hosted = sessions.filter((s) => s.hostId === identity.subject)
+
+    return await Promise.all(
+      hosted.map(async (s) => {
+        const scenario = await ctx.db.get(s.scenarioId)
+        const games = await ctx.db
+          .query("games")
+          .withIndex("by_session", (q) => q.eq("sessionId", s._id))
+          .collect()
+        return {
+          ...s,
+          scenarioName: scenario?.name,
+          scenarioIcon: scenario?.icon,
+          playerCount: games.length,
+        }
+      }),
+    )
+  },
+})
+
+/** List sessions the current user has joined (but is not hosting) */
+export const listMyJoinedSessions = query({
+  args: { guestId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity && !args.guestId) return []
+
+    const ids = allPlayerIds(identity, args.guestId)
+    const results = await Promise.all(
+      ids.map((id) =>
+        ctx.db
+          .query("games")
+          .withIndex("by_user", (q) => q.eq("userId", id))
+          .collect(),
+      ),
+    )
+
+    // Deduplicate games and collect unique session IDs
+    const seen = new Set<string>()
+    const sessionIds = new Set<string>()
+    for (const game of results.flat()) {
+      if (seen.has(game._id)) continue
+      seen.add(game._id)
+      if (game.sessionId) sessionIds.add(game.sessionId)
+    }
+
+    // Fetch sessions and enrich
+    const sessions = await Promise.all(
+      [...sessionIds].map(async (sid) => {
+        const session = await ctx.db.get(sid as Id<"sessions">)
+        if (!session) return null
+        // Exclude sessions the user hosts
+        if (identity && session.hostId === identity.subject) return null
+        const scenario = await ctx.db.get(session.scenarioId)
+        const games = await ctx.db
+          .query("games")
+          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+          .collect()
+        return {
+          ...session,
+          scenarioName: scenario?.name,
+          scenarioIcon: scenario?.icon,
+          playerCount: games.length,
+        }
+      }),
+    )
+
+    return sessions
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+      .sort((a, b) => b.createdAt - a.createdAt)
+  },
+})
+
 /** List all games in a specific session (for leaderboard) */
 export const listSessionGames = query({
   args: { sessionId: v.id("sessions") },
@@ -316,13 +458,18 @@ export const getMyGameInSession = query({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity && !args.guestId) return null
 
-    const playerId = resolvePlayerId(identity, args.guestId)
+    const ids = allPlayerIds(identity, args.guestId)
 
-    return await ctx.db
-      .query("games")
-      .withIndex("by_user", (q) => q.eq("userId", playerId))
-      .filter((q) => q.eq(q.field("sessionId"), args.sessionId))
-      .first()
+    // Check all possible player IDs and return the first match
+    for (const id of ids) {
+      const game = await ctx.db
+        .query("games")
+        .withIndex("by_user", (q) => q.eq("userId", id))
+        .filter((q) => q.eq(q.field("sessionId"), args.sessionId))
+        .first()
+      if (game) return game
+    }
+    return null
   },
 })
 
@@ -533,12 +680,10 @@ export const submitStep = mutation({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity && !args.guestId) throw new Error("Must be authenticated or provide a guestId")
 
-    const playerId = resolvePlayerId(identity, args.guestId)
-
     // Load game
     const game = await ctx.db.get(args.gameId)
     if (!game) throw new Error("Game not found")
-    if (game.userId !== playerId) throw new Error("Not your game")
+    if (!isOwner(game, identity, args.guestId)) throw new Error("Not your game")
     if (game.status !== "active") throw new Error("Game is not active")
 
     // Load scenario
@@ -613,11 +758,9 @@ export const abandonGame = mutation({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity && !args.guestId) throw new Error("Must be authenticated or provide a guestId")
 
-    const playerId = resolvePlayerId(identity, args.guestId)
-
     const game = await ctx.db.get(args.gameId)
     if (!game) throw new Error("Game not found")
-    if (game.userId !== playerId) throw new Error("Not your game")
+    if (!isOwner(game, identity, args.guestId)) throw new Error("Not your game")
 
     await ctx.db.patch(args.gameId, { status: "abandoned" })
   },

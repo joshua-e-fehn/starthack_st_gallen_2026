@@ -3,7 +3,7 @@
 import confetti from "canvas-confetti"
 import { useQuery } from "convex/react"
 import { AnimatePresence, motion } from "framer-motion"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useRef, useState } from "react"
 import { AssetDistributionBar } from "@/components/molecules/asset-distribution-bar"
 import { Badge } from "@/components/ui/badge"
@@ -12,18 +12,15 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 
 function LeaderboardContent() {
+  const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const sessionId = searchParams.get("sessionId") as Id<"sessions">
+  const sessionId = params.sessionId as Id<"sessions">
   const step = Number(searchParams.get("step") ?? "0")
   const gameId = searchParams.get("gameId") ?? ""
   const playerName = searchParams.get("name") ?? ""
 
   const data = useQuery(api.game.getStepLeaderboard, { sessionId, step })
-  const scenario = useQuery(
-    api.game.getScenario,
-    data?.session?.scenarioId ? { scenarioId: data.session.scenarioId } : "skip",
-  )
 
   // Reveal animation state
   const [revealIndex, setRevealIndex] = useState(-1)
@@ -105,10 +102,6 @@ function LeaderboardContent() {
     )
 
   const { session, scenarioName } = data
-  const totalSteps =
-    scenario && Number.isFinite(scenario.startYear) && Number.isFinite(scenario.endYear)
-      ? Math.max(0, scenario.endYear - scenario.startYear)
-      : null
 
   const myRank = leaderboard.findIndex((e) => e.gameId === gameId) + 1
 
@@ -142,7 +135,7 @@ function LeaderboardContent() {
               Year {leaderboard[0]?.date ?? step}
             </div>
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Step {step} of {totalSteps ?? "?"}
+              Step {step} of {leaderboard[0]?.date ? "30" : "?"}
             </p>
           </div>
         </div>
@@ -165,7 +158,7 @@ function LeaderboardContent() {
                   minimumFractionDigits: 0,
                   maximumFractionDigits: 0,
                 })}{" "}
-                taler
+                gold
               </span>
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -179,7 +172,7 @@ function LeaderboardContent() {
                   <span>Goal Progress</span>
                   <span className="font-mono tabular-nums">
                     {myEntry.score.toLocaleString(undefined, { maximumFractionDigits: 0 })} /{" "}
-                    {myEntry.goal.toLocaleString(undefined, { maximumFractionDigits: 0 })} taler
+                    {myEntry.goal.toLocaleString(undefined, { maximumFractionDigits: 0 })} gold
                   </span>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
@@ -201,7 +194,7 @@ function LeaderboardContent() {
       )}
 
       {/* Leaderboard */}
-      <div className="mx-auto mt-6 w-full max-w-3xl flex-1 px-6 pb-28">
+      <div className="mx-auto mt-6 w-full max-w-3xl flex-1 px-6 pb-8">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Leaderboard</h2>
           {isRevealing && (
@@ -261,19 +254,8 @@ function LeaderboardContent() {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                        {entry.status === "finished" ? (
-                          "Finished"
-                        ) : (
-                          <>
-                            Year {entry.date}
-                            {entry.latestDate && entry.latestDate > entry.date && (
-                              <span className="opacity-70"> (Now in Year {entry.latestDate})</span>
-                            )}
-                            <span className="size-1 rounded-full bg-primary/40" />
-                            <span className="opacity-60 italic font-medium">Still playing</span>
-                          </>
-                        )}
+                      <p className="text-xs text-muted-foreground">
+                        {entry.status === "finished" ? "Finished" : `Year ${entry.date}`}
                       </p>
                       <AssetDistributionBar
                         breakdown={entry.assetBreakdown}
@@ -290,7 +272,7 @@ function LeaderboardContent() {
                           maximumFractionDigits: 0,
                         })}
                       </p>
-                      <p className="text-[10px] uppercase text-muted-foreground">taler</p>
+                      <p className="text-[10px] uppercase text-muted-foreground">gold</p>
                     </div>
                   </div>
 
@@ -316,49 +298,15 @@ function LeaderboardContent() {
       </div>
 
       {/* Footer actions */}
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/90 backdrop-blur-md supports-backdrop-filter:bg-background/80">
+      <div className="sticky bottom-0 border-t bg-background/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-center gap-4 px-6 py-4">
           {gameId && (
-            <motion.div
-              className="w-full max-w-sm"
-              animate={{ scale: [1, 1.04, 1] }}
-              transition={{ duration: 1.6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+            <Button
+              className="h-12 w-full max-w-sm text-base"
+              onClick={() => router.push(`/game?sessionId=${sessionId}&gameId=${gameId}`)}
             >
-              <div className="relative overflow-hidden rounded-xl">
-                <Button
-                  className="relative h-12 w-full overflow-hidden rounded-xl border border-primary/60 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.45),transparent_40%),linear-gradient(110deg,oklch(0.8_0.15_88)_0%,oklch(0.88_0.17_90)_40%,oklch(0.95_0.18_95)_52%,oklch(0.88_0.17_90)_64%,oklch(0.8_0.15_88)_100%)] text-primary-foreground font-black tracking-wide shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-10px_18px_rgba(166,108,0,0.2),0_14px_34px_rgba(239,173,0,0.42)]"
-                  onClick={() =>
-                    router.push(`/game?sessionId=${sessionId}&gameId=${gameId}&showEvent=1`)
-                  }
-                >
-                  <motion.span
-                    aria-hidden
-                    className="pointer-events-none absolute -inset-y-2 -left-1/2 w-1/2 bg-linear-to-r from-transparent via-white/95 to-transparent blur-md"
-                    initial={{ x: "-140%", opacity: 0.9 }}
-                    animate={{ x: ["-140%", "320%"] }}
-                    transition={{
-                      duration: 2,
-                      ease: "linear",
-                      repeat: Number.POSITIVE_INFINITY,
-                    }}
-                  />
-                  <motion.span
-                    aria-hidden
-                    className="pointer-events-none absolute -inset-y-2 -left-1/2 w-1/2 bg-linear-to-r from-transparent via-amber-100/85 to-transparent blur-lg"
-                    initial={{ x: "-140%", opacity: 0.72 }}
-                    animate={{ x: ["-140%", "320%"] }}
-                    transition={{
-                      duration: 2,
-                      ease: "linear",
-                      repeat: Number.POSITIVE_INFINITY,
-                      delay: 1,
-                    }}
-                  />
-
-                  <span className="relative z-10">Continue Playing →</span>
-                </Button>
-              </div>
-            </motion.div>
+              Continue Playing →
+            </Button>
           )}
         </div>
       </div>

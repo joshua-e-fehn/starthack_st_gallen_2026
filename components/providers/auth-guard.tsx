@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client"
 const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/learn"]
 
 /** Paths accessible to guest (unauthenticated) players. */
-const GUEST_ALLOWED_PATHS = ["/game", "/dashboard/sessions"]
+const GUEST_ALLOWED_PATHS = ["/game", "/dashboard/competitions"]
 
 /** Auth pages where a logged-in user should be bounced to their callback. */
 const AUTH_PAGES = ["/sign-in", "/sign-up"]
